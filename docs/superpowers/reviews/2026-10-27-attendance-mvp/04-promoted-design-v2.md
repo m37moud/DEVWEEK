@@ -1,6 +1,8 @@
 # Personal attendance tracker: promoted design v2
 
-Date: 27 October 2026. Status: proposed technical amendment, ready for design review; not approved or implemented.
+Date: 27 October 2026. Status: approved by the user for implementation planning on 27 October 2026; not implemented.
+
+Approval record: the user explicitly approved v2 and requested the writing-plans skill. This includes the incorporated v1 product contract, proposed defaults, and the technical amendments below. Implementation still awaits review of the implementation plan and selection of an execution method.
 
 ## 1. Goal and non-goals
 
@@ -123,10 +125,10 @@ On an integration failure, use the existing automation/reporting settings and lo
 
 ## 6. Genuine human product questions
 
-No additional product direction is invented here. The already proposed section-4 defaults still need the user's design approval, including radius/accuracy, before-arrival behavior, zone/defaults, and device floors. Approval of this amendment also explicitly accepts iOS report freshness at foreground opportunities rather than an unstated closed-app upload promise.
+No additional product direction is invented here. The user has approved the incorporated section-4 defaults, including radius/accuracy, before-arrival behavior, zone/defaults, and device floors. Approval also accepts the explicit iOS report freshness contract at foreground opportunities.
 
 After native probes, does the measured Android best-effort miss rate and manual recovery experience satisfy the intended use? This is a genuine product decision to make from device evidence; if the answer is no, revisit the workflow before completing the implementation. The review cannot decide that preference for the user.
 
 What final public name/application identifiers and distribution/account route should be used? These remain release inputs from frozen `:7` and `:327`, not prerequisites for the separate implementation plan. No accounts are enrolled and nothing is published by accepting the design.
 
-**Readiness:** v2 is ready to be considered for DESIGN approval with the complete incorporated v1 contract and these explicit amendments. It is not approved to ship, and no native API/toolchain behavior has been proven by writing this document.
+**Readiness:** v2 is approved for DESIGN with the complete incorporated v1 contract and these explicit amendments. The next deliverable is the implementation plan. It is not approved to ship, and no native API/toolchain behavior has been proven by writing this document.
