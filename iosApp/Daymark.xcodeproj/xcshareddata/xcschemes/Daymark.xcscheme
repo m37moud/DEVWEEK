@@ -37,6 +37,16 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "03C5ABF8860DCD4B2F06F200"
+               BuildableName = "DaymarkTests.xctest"
+               BlueprintName = "DaymarkTests"
+               ReferencedContainer = "container:Daymark.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

@@ -1,0 +1,4 @@
+DAYMARK_GOOGLE_IOS_CLIENT_ID =
+DAYMARK_GOOGLE_REDIRECT_SCHEME = dev.daymark.unconfigured
+DAYMARK_GOOGLE_REDIRECT_URI = $(DAYMARK_GOOGLE_REDIRECT_SCHEME):/oauthredirect
+#include? "Configuration.xcconfig"

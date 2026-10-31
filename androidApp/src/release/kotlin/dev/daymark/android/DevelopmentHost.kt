@@ -4,4 +4,4 @@ import androidx.compose.runtime.Composable
 import dev.daymark.app.BootstrapScreen
 
 @Composable
-internal fun DevelopmentHost(permissions: AndroidLocationPermissions) { BootstrapScreen() }
+internal fun DevelopmentHost(permissions: AndroidLocationPermissions, googleAuth: AndroidGoogleAuth) { BootstrapScreen() }

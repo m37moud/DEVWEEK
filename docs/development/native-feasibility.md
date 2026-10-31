@@ -53,6 +53,6 @@ The Swift reminder probe asks permission only after its button is pressed and sc
 - Simulator reminder delivery and actual widget-gallery/tap observation. Computer-use could not bind the Simulator app; CLI build/launch evidence is retained without claiming these interactions passed.
 - Xcode 27.1 is empirically usable locally; the official Kotlin support matrix qualification and older-OS/physical-device acceptance remain open as recorded in the toolchain document.
 
-Task 2 is **partially verified**, not complete. Missing external hardware gates remain explicit while independent local work continues under the plan's prerequisite rule. No product-mode change is made from this single-device result.
+Task 2 is **partially verified**, not complete. The user explicitly chose continued local development with physical iPhone testing retained as an open gate. Missing external hardware gates remain explicit while independent local work continues under the plan's prerequisite rule. No product-mode change is made from this single-device result.
 
 Primary API references: [Google current-location request](https://developers.google.com/android/reference/com/google/android/gms/location/CurrentLocationRequest), [Apple local notifications](https://developer.apple.com/documentation/usernotifications/scheduling-a-notification-locally-from-your-app), and [WidgetKit extensions and URL links](https://developer.apple.com/documentation/widgetkit/creating-a-widget-extension).

@@ -27,12 +27,16 @@ kotlin {
             implementation(libs.compose.material3)
             implementation(libs.compose.resources)
             implementation(libs.coroutines.core)
+            implementation(libs.serialization.json)
+            implementation(libs.ktor.core)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(libs.coroutines.test)
+            implementation(libs.ktor.mock)
         }
-        androidMain.dependencies { implementation(libs.play.location) }
+        androidMain.dependencies { implementation(libs.play.location); implementation(libs.ktor.android) }
+        iosMain.dependencies { implementation(libs.ktor.darwin) }
         getByName("androidHostTest").dependencies { implementation(libs.junit) }
         getByName("androidDeviceTest").dependencies { implementation(libs.test.runner); implementation(libs.test.ext.junit) }
     }

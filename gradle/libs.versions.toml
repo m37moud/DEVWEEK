@@ -15,6 +15,7 @@ work = "2.12.0"
 glance = "1.2.0"
 location = "21.4.0"
 auth = "22.0.0"
+credentials = "1.6.0"
 activity = "1.13.0"
 agp = "9.3.1"
 runner = "1.7.0"
@@ -48,6 +49,8 @@ glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = 
 glance-material3 = { module = "androidx.glance:glance-material3", version.ref = "glance" }
 play-location = { module = "com.google.android.gms:play-services-location", version.ref = "location" }
 play-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "auth" }
+credentials = { module = "androidx.credentials:credentials", version.ref = "credentials" }
+credentials-google = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "credentials" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }
 test-runner = { module = "androidx.test:runner", version.ref = "runner" }
 test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxJunit" }

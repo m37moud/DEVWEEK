@@ -32,6 +32,18 @@
 				<string>daymark</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>dev.daymark.google-oauth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(DAYMARK_GOOGLE_REDIRECT_SCHEME)</string>
+			</array>
+		</dict>
 	</array>
+	<key>DAYMARK_GOOGLE_IOS_CLIENT_ID</key>
+	<string>$(DAYMARK_GOOGLE_IOS_CLIENT_ID)</string>
+	<key>DAYMARK_GOOGLE_REDIRECT_URI</key>
+	<string>$(DAYMARK_GOOGLE_REDIRECT_URI)</string>
 </dict>
 </plist>
