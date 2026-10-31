@@ -10,7 +10,7 @@
 
 **Spec:** Approved [promoted design v2](../reviews/2026-10-27-attendance-mvp/04-promoted-design-v2.md), incorporating the complete immutable [v1 specification](../reviews/2026-10-27-attendance-mvp/01-design-v1-frozen.md), SHA-256 `99843eeb6012ddb80a51c114daf5cd82054d99735a768bf278cc98a9d4e20e53`. Read both before implementation. The [senior review](../reviews/2026-10-27-attendance-mvp/03-senior-review.md) explains the v2 amendments.
 
-**Status:** Plan written for review on 27 October 2026. V2 is approved; implementation and the execution method are not yet approved. No task below has been executed.
+**Status:** Approved for Native execution by the user on 31 October 2026. Implementation is in progress in the isolated `feature/attendance-mvp` worktree. Completion requires the recorded native/test gates and one independent whole-branch review; unchecked steps are unfinished.
 
 ## Global Constraints
 

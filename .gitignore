@@ -1,2 +1,12 @@
-# Local visual brainstorming sessions
+# Local tooling and build outputs
 .superpowers/
+.gradle/
+.gradle-user/
+.kotlin/
+**/build/
+local.properties
+.DS_Store
+**/xcuserdata/
+**/DerivedData/
+*.xcuserstate
+iosApp/Daymark/Configuration.xcconfig
