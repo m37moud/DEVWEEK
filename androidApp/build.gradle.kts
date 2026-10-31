@@ -19,7 +19,12 @@ android {
 dependencies {
     implementation(project(":shared"))
     implementation(libs.activity.compose)
+    implementation(libs.coroutines.core)
+    debugImplementation(libs.compose.material3)
+    debugImplementation(libs.work.runtime)
     testImplementation(libs.junit)
+    testImplementation(libs.coroutines.test)
+    testImplementation(libs.kotlin.test.junit)
     androidTestImplementation(libs.test.runner)
     androidTestImplementation(libs.test.ext.junit)
 }

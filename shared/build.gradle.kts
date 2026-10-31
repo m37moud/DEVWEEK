@@ -26,8 +26,13 @@ kotlin {
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
             implementation(libs.compose.resources)
+            implementation(libs.coroutines.core)
         }
-        commonTest.dependencies { implementation(kotlin("test")) }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.coroutines.test)
+        }
+        androidMain.dependencies { implementation(libs.play.location) }
         getByName("androidHostTest").dependencies { implementation(libs.junit) }
         getByName("androidDeviceTest").dependencies { implementation(libs.test.runner); implementation(libs.test.ext.junit) }
     }
