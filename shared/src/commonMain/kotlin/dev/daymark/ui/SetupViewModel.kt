@@ -72,15 +72,7 @@ class SetupViewModel(private val service: SetupService, private val location: Lo
                         else -> SetupIssue.LOCATION_UNAVAILABLE
                     }) }
                     is LocationResult.Fix -> {
-                        val now = clock.now()
-                        val age = result.ageAtReceipt
-                        val issue = when {
-                            !result.latitude.isFinite() || result.latitude !in -90.0..90.0 || !result.longitude.isFinite() || result.longitude !in -180.0..180.0 ||
-                                !result.horizontalAccuracyMetres.isFinite() || result.horizontalAccuracyMetres < 0 || result.capturedAt > result.receivedAt || result.receivedAt > now -> SetupIssue.LOCATION_UNAVAILABLE
-                            age == null || !age.isFinite() || age.isNegative() || age + (now - result.receivedAt) > 30.seconds -> SetupIssue.LOCATION_STALE
-                            result.horizontalAccuracyMetres > 50 -> SetupIssue.LOCATION_INACCURATE
-                            else -> null
-                        }
+                        val issue = registrationIssue(result, clock.now())
                         if (issue != null) state.update { it.copy(issue = issue) }
                         else {
                             val draft = state.value.draft.copy(place = RegisteredPlace(result.latitude, result.longitude, state.value.draft.place?.radiusMetres ?: 100, 1))

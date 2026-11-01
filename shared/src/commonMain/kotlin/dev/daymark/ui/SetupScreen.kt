@@ -54,6 +54,7 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun SetupScreen(model: SetupViewModel, graph: AppGraph, settings: AppSettings) {
     val state by model.uiState.collectAsStateWithLifecycle()
+    var chooseZone by remember { mutableStateOf(false) }
     val draft = state.draft
     val language = LocalAppLanguage.current
     val scope = rememberCoroutineScope()
@@ -125,7 +126,7 @@ import kotlin.math.roundToInt
                     }
                 }
             }
-            Text(str(Res.string.attendance_zone, isolated(schedule.zoneId)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedButton(enabled = !state.busy,onClick = { chooseZone = true }) { Text(str(Res.string.attendance_zone, isolated(schedule.zoneId))) }
         }
         if (draft.category == TrackerCategory.WORK) {
             OutlinedTextField(draft.openingBalanceText, { model.updateDraft(draft.copy(openingBalanceText = it)) },
@@ -135,7 +136,12 @@ import kotlin.math.roundToInt
         }
         Text(str(Res.string.google_optional), style = MaterialTheme.typography.bodyMedium)
         if (graph.platform == HostPlatform.IOS) {
-            TextButton(onClick = { graph.reminders.requestPermission { allowed -> scope.launch { reminderAllowed = allowed } } }, enabled = !state.busy) {
+            TextButton(onClick = { graph.reminders.requestPermission { allowed -> scope.launch {
+                reminderAllowed = allowed
+                if (allowed) try { graph.settings.update(remindersEnabled = true) }
+                catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { reminderAllowed = false }
+            } } }, enabled = !state.busy) {
                 Text(str(Res.string.reminders_optional))
             }
             reminderAllowed?.let { Text(str(if (it) Res.string.reminders_allowed else Res.string.reminders_denied), style = MaterialTheme.typography.bodySmall) }
@@ -147,6 +153,9 @@ import kotlin.math.roundToInt
         Button(onClick = { keyboard?.hide(); model.submit() }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("setup-start")) { Text(str(Res.string.start_tracking)) }
         Spacer(Modifier.height(16.dp))
     }
+    if (chooseZone && schedule != null) ZonePicker(schedule.zoneId,onSelect = { zone ->
+        model.updateDraft(draft.copy(schedule = schedule.copy(zoneId = zone))); chooseZone = false
+    },onDismiss = { chooseZone = false })
     if (picker != null && schedule != null) {
         val day = picker?.takeIf { it != "default" }?.let(DayOfWeek::valueOf)
         val initial = day?.let { schedule.overrides[it] } ?: schedule.arrival
@@ -166,14 +175,14 @@ internal fun DayOfWeek.label(): StringResource = when(this) {
     DayOfWeek.MONDAY -> Res.string.monday; DayOfWeek.TUESDAY -> Res.string.tuesday; DayOfWeek.WEDNESDAY -> Res.string.wednesday
     DayOfWeek.THURSDAY -> Res.string.thursday; DayOfWeek.FRIDAY -> Res.string.friday; DayOfWeek.SATURDAY -> Res.string.saturday; DayOfWeek.SUNDAY -> Res.string.sunday
 }
-private fun SetupIssue.label(): StringResource = when(this) {
+internal fun SetupIssue.label(): StringResource = when(this) {
     SetupIssue.INVALID_INPUT -> Res.string.invalid_setup; SetupIssue.LOCATION_DENIED -> Res.string.location_denied
     SetupIssue.LOCATION_DISABLED -> Res.string.location_disabled; SetupIssue.LOCATION_TIMEOUT -> Res.string.location_timeout
     SetupIssue.LOCATION_UNAVAILABLE -> Res.string.location_unavailable; SetupIssue.LOCATION_STALE -> Res.string.location_stale
     SetupIssue.LOCATION_INACCURATE -> Res.string.location_inaccurate; SetupIssue.LOCAL_SAVE_FAILED -> Res.string.local_save_failed
 }
 
-private fun localTimeLabel(time: LocalTime, language: AppLanguage): String {
+internal fun localTimeLabel(time: LocalTime, language: AppLanguage): String {
     val zero = DisplayFormats.number(0, language).single()
     return isolated(DisplayFormats.number(time.hour, language).padStart(2, zero) + ":" + DisplayFormats.number(time.minute, language).padStart(2, zero))
 }

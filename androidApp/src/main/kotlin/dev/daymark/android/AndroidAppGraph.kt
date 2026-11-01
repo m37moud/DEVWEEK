@@ -32,7 +32,7 @@ class AndroidAppGraph(context: Context) {
     private var shared: AppGraph? = null
     fun sharedGraph(permissions: LocationPermissionPort): AppGraph = shared ?: AppGraph(database, attendanceRepository, attendance,
         timeOff, plans, RoomPlanReader(database, clock), settings, location, permissions,
-        GoogleAccess((app as DaymarkApplication).googleAuth), AndroidReminderPort, DevelopmentWidgetSink, clock).also { shared = it }
+        GoogleAccess((app as DaymarkApplication).googleAuth), AndroidReminderPort, DevelopmentWidgetSink, clock, refreshSchedule = ::recoverSafely).also { shared = it }
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val scheduler by lazy { AndroidAttendanceScheduler(WorkManager.getInstance(app), clock, scope) }
     private val failed = MutableStateFlow(false)

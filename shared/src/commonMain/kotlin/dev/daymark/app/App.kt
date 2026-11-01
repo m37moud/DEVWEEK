@@ -11,6 +11,9 @@ import androidx.compose.ui.unit.dp
 import dev.daymark.resources.*
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleStartEffect
+import dev.daymark.reminders.ReminderCopy
+import kotlinx.coroutines.CancellationException
 import dev.daymark.data.TrackerEntity
 import dev.daymark.settings.*
 import dev.daymark.ui.*
@@ -19,6 +22,9 @@ import kotlinx.coroutines.flow.*
 private data class BootState(val settings: AppSettings, val tracker: TrackerEntity?, val failed: Boolean = false)
 @Composable fun App(graph: AppGraph) {
     var retry by remember { mutableIntStateOf(0) }
+    var active by remember { mutableStateOf(false) }
+    var health by remember { mutableStateOf(ConfigurationHealth()) }
+    LifecycleStartEffect(graph) { active = true; onStopOrDispose { active = false } }
     val bootFlow = remember(graph, retry) {
         flow { emitAll(combine(graph.settings.observe(), graph.db.dao().observeTracker()) { settings, tracker -> BootState(settings, tracker) }) }
             .catch { emit(BootState(AppSettings(), null, failed = true)) }
@@ -35,8 +41,19 @@ private data class BootState(val settings: AppSettings, val tracker: TrackerEnti
         return
     }
     WithPlatformLocale(shown) {
-        CompositionLocalProvider(LocalAppLanguage provides shown,
+        CompositionLocalProvider(LocalAppLanguage provides shown, LocalConfigurationHealth provides health,
             LocalLayoutDirection provides if (shown.isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr) {
+            val reminderCopy = ReminderCopy(shown.tag,str(Res.string.reminder_title),str(Res.string.reminder_body))
+            LaunchedEffect(active,shown,ready.settings,ready.tracker?.id,ready.tracker?.changeRevision) {
+                if (active && !ready.failed && language == shown) {
+                    try {
+                        graph.repository.reconcile(graph.clock.now())
+                        health = graph.configuration.refresh(ready.settings,shown,reminderCopy,graph.platform)
+                    }
+                    catch (cancelled: CancellationException) { throw cancelled }
+                    catch (_: Exception) { health = ConfigurationHealth(scheduleOk = false) }
+                }
+            }
             DaymarkTheme(ready.settings.theme) {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {

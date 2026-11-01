@@ -1,0 +1,129 @@
+package dev.daymark.ui
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dev.daymark.attendance.*
+import dev.daymark.location.*
+import dev.daymark.plan.*
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
+
+data class PlanUiState(
+    val plan: PlanState? = null, val draft: PlanChange? = null, val entries: List<TimeOffEntry> = emptyList(),
+    val availableBalance: Int? = null, val ready: Boolean = false, val busy: Boolean = false,
+    val preview: TimeOffPreview? = null, val timeOffPreview: TimeOffPreview? = null,
+    val result: PlanMutationResult? = null, val invalidInput: Boolean = false, val locationIssue: SetupIssue? = null,
+    val storageError: Boolean = false,
+)
+class PlanViewModel(private val plans: PlanService, private val timeOff: TimeOffService,
+    private val location: LocationGateway, private val permissions: LocationPermissionPort, private val clock: Clock,
+    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)) : ViewModel(scope) {
+    private val state = MutableStateFlow(PlanUiState())
+    val uiState = state.asStateFlow()
+    private var pendingPlan: PlanChange? = null
+    private var pendingOff: TimeOffCommand? = null
+    init {
+        viewModelScope.launch {
+            combine(plans.observePlan(),timeOff.observeEntries(),timeOff.observeAvailableBalance()) { plan, entries, balance ->
+                state.update { it.copy(plan = plan, draft = it.draft ?: plan?.let { p -> p.pending ?: p.current }, entries = entries,
+                    availableBalance = balance, ready = true, storageError = false) }
+            }.catch { error ->
+                if (error is CancellationException) throw error
+                state.update { it.copy(ready = true, storageError = true) }
+            }.collect()
+        }
+    }
+    fun edit(change: (PlanChange) -> PlanChange) {
+        if (state.value.busy) return
+        val before = state.value.draft ?: return
+        try {
+            val after = change(before)
+            pendingPlan = null
+            state.update { it.copy(draft = after, preview = null, invalidInput = false, result = null, locationIssue = null) }
+        } catch (_: IllegalArgumentException) { state.update { it.copy(invalidInput = true) } }
+    }
+    fun preview(command: PlanChange) = launchAction {
+        pendingPlan = command
+        val preview = plans.previewChange(command)
+        state.update { it.copy(preview = preview, timeOffPreview = null, result = null) }
+    }
+    fun confirm(expectedRevision: Long) = launchAction {
+        val command = pendingPlan
+        val shown = state.value.preview
+        val result = if (command == null || shown == null || shown.expectedRevision != expectedRevision) PlanMutationResult.StalePreview
+            else plans.applyChange(command,expectedRevision)
+        pendingPlan = null
+        state.update { it.copy(result = result, preview = null) }
+        if (result == PlanMutationResult.Applied) {
+            val saved = plans.observePlan().first()
+            state.update { it.copy(plan = saved, draft = saved?.let { p -> p.pending ?: p.current }) }
+        }
+    }
+    fun previewTimeOff(command: TimeOffCommand) = launchAction {
+        pendingOff = command
+        val preview = timeOff.preview(command)
+        state.update { it.copy(timeOffPreview = preview, preview = null, result = null) }
+    }
+    fun confirmTimeOff(expectedRevision: Long) = launchAction {
+        val command = pendingOff
+        val shown = state.value.timeOffPreview
+        val result = if (command == null || shown == null || shown.expectedRevision != expectedRevision) PlanMutationResult.StalePreview
+            else timeOff.apply(command,expectedRevision)
+        pendingOff = null
+        state.update { it.copy(result = result,timeOffPreview = null) }
+    }
+    fun cancelPreview() {
+        if (state.value.busy) return
+        pendingPlan = null; pendingOff = null
+        state.update { it.copy(preview = null,timeOffPreview = null) }
+    }
+    fun setAvailableBalance(text: String, note: String?) {
+        val value = parseWholeDays(text)
+        if (value == null) { state.update { it.copy(invalidInput = true) }; return }
+        launchAction {
+            val result = timeOff.setAvailableBalance(value,note)
+            state.update { it.copy(result = result, invalidInput = false) }
+        }
+    }
+    fun registerCurrentPlace() = launchAction {
+        var capability = permissions.current()
+        if (!capability.foregroundGranted || !capability.preciseGranted) capability = permissions.requestForeground()
+        val issue = when {
+            !capability.foregroundGranted || !capability.preciseGranted -> SetupIssue.LOCATION_DENIED
+            !capability.servicesEnabled -> SetupIssue.LOCATION_DISABLED
+            else -> null
+        }
+        if (issue != null) { state.update { it.copy(locationIssue = issue) }; return@launchAction }
+        val fix = withTimeoutOrNull(30.seconds) { location.requestFix(30.seconds) }
+        if (fix !is LocationResult.Fix) {
+            val reason = (fix as? LocationResult.Failure)?.reason
+            state.update { it.copy(locationIssue = when(reason) {
+                LocationFailure.PERMISSION_DENIED -> SetupIssue.LOCATION_DENIED
+                LocationFailure.SERVICES_DISABLED -> SetupIssue.LOCATION_DISABLED
+                LocationFailure.TIMEOUT, null -> SetupIssue.LOCATION_TIMEOUT
+                else -> SetupIssue.LOCATION_UNAVAILABLE
+            }) }; return@launchAction
+        }
+        val failure = registrationIssue(fix,clock.now())
+        if (failure != null) state.update { it.copy(locationIssue = failure) }
+        else {
+            val draft = state.value.draft ?: return@launchAction
+            pendingPlan = null
+            state.update { it.copy(draft = draft.copy(place = RegisteredPlace(fix.latitude,fix.longitude,draft.place.radiusMetres,draft.place.version)),
+                preview = null,locationIssue = null) }
+        }
+    }
+    fun openLocationSettings() = permissions.openSystemSettings()
+    private fun launchAction(action: suspend () -> Unit) {
+        if (state.value.busy) return
+        state.update { it.copy(busy = true, storageError = false) }
+        viewModelScope.launch {
+            try { action() }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { state.update { it.copy(storageError = true) } }
+            finally { state.update { it.copy(busy = false) } }
+        }
+    }
+}

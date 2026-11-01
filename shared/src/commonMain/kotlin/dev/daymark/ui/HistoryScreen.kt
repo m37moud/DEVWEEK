@@ -19,12 +19,12 @@ import dev.daymark.settings.*
 import kotlinx.datetime.*
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun HistoryScreen(model: HistoryViewModel, onBack: () -> Unit, onEditTimeOff: () -> Unit) {
+@Composable fun HistoryScreen(model: HistoryViewModel, onBack: () -> Unit, onEditTimeOff: (LocalDate) -> Unit) {
     val state by model.uiState.collectAsStateWithLifecycle()
     LifecycleStartEffect(model) { model.setActive(true); onStopOrDispose { model.setActive(false) } }
     val language = LocalAppLanguage.current
     var editing by remember { mutableStateOf<HistoryRecord?>(null) }
-    var showOff by remember { mutableStateOf(false) }
+    var offDate by remember { mutableStateOf<LocalDate?>(null) }
     LaunchedEffect(state.savedKey) { if (editing?.plan?.key == state.savedKey) editing = null }
     Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 24.dp).testTag("history-root")) {
         TextButton(onClick = onBack) { Text(str(Res.string.back)) }
@@ -41,7 +41,7 @@ import kotlinx.datetime.*
         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 20.dp)) {
             items(state.history.records, key = { it.plan.key.date.toString() }) { record ->
                 Card(onClick = {
-                    if (!record.plan.isScheduled || record.outcome.offReason != null) showOff = true else editing = record
+                    if (!record.plan.isScheduled || record.outcome.offReason != null) offDate = record.plan.key.date else editing = record
                 }, modifier = Modifier.fillMaxWidth().testTag("history-record-${record.plan.key.date}")) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(DisplayFormats.date(record.plan.key.date,language), style = MaterialTheme.typography.titleMedium)
@@ -53,9 +53,9 @@ import kotlinx.datetime.*
             }
         }
     }
-    if (showOff) AlertDialog(onDismissRequest = { showOff = false }, title = { Text(str(Res.string.edit_time_off)) },
-        text = { Text(str(Res.string.time_off_edit_help)) }, confirmButton = { TextButton(onClick = { showOff = false; onEditTimeOff() }) { Text(str(Res.string.edit_time_off)) } },
-        dismissButton = { TextButton(onClick = { showOff = false }) { Text(str(Res.string.cancel)) } })
+    if (offDate != null) AlertDialog(onDismissRequest = { offDate = null }, title = { Text(str(Res.string.edit_time_off)) },
+        text = { Text(str(Res.string.time_off_edit_help)) }, confirmButton = { TextButton(modifier = Modifier.testTag("history-time-off-action"), onClick = { val date = offDate; offDate = null; date?.let(onEditTimeOff) }) { Text(str(Res.string.edit_time_off)) } },
+        dismissButton = { TextButton(onClick = { offDate = null }) { Text(str(Res.string.cancel)) } })
     editing?.let { record -> key(record.plan.key) {
         var status by rememberSaveable { mutableStateOf(record.outcome.status.takeIf { it in listOf(AttendanceStatus.PRESENT,AttendanceStatus.LATE,AttendanceStatus.ABSENT) } ?: AttendanceStatus.ABSENT) }
         var note by rememberSaveable { mutableStateOf(record.evidence?.note.orEmpty()) }
@@ -73,6 +73,7 @@ import kotlinx.datetime.*
                         Text(arrival?.let { DisplayFormats.time(dev.daymark.plan.resolveLocalArrival(record.plan.key.date,LocalTime.parse(it),record.plan.zoneId), record.plan.zoneId,language) } ?: str(Res.string.correction_time))
                     }
                     OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text(str(Res.string.correction_note)) }, modifier = Modifier.testTag("correction-note"), maxLines = 4)
+                    TextButton(onClick = { editing = null; onEditTimeOff(record.plan.key.date) }) { Text(str(Res.string.edit_time_off)) }
                     if (state.invalidCorrection) Text(str(Res.string.invalid_correction), color = MaterialTheme.colorScheme.error)
                     if (state.storageError) Text(str(Res.string.local_save_failed), color = MaterialTheme.colorScheme.error)
                 }

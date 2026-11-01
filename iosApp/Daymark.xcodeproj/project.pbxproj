@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AA1120261027100000000005 /* LocaleJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1120261027100000000006 /* LocaleJourneyTests.swift */; };
+		AA1120261027100000000003 /* PlanJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1120261027100000000004 /* PlanJourneyTests.swift */; };
 		AA1020261027100000000001 /* AttendanceJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1020261027100000000002 /* AttendanceJourneyTests.swift */; };
 		0727772FB2EB03F40AA01C7A /* ReminderAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E14D4A80BD4132E4A40CC451 /* ReminderAdapter.swift */; };
 		19F72CB20B8B338750558EE2 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = AF333920B9FE2EDC7BF75BF1 /* InfoPlist.strings */; };
@@ -43,6 +45,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		AA1120261027100000000006 /* LocaleJourneyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocaleJourneyTests.swift; sourceTree = "<group>"; };
+		AA1120261027100000000004 /* PlanJourneyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PlanJourneyTests.swift; sourceTree = "<group>"; };
 		AA1020261027100000000002 /* AttendanceJourneyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AttendanceJourneyTests.swift; sourceTree = "<group>"; };
 		089CBA317D2C278AFDB707BC /* NativeGoogleAuth.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeGoogleAuth.swift; sourceTree = "<group>"; };
 		1F446ADE7DA32E7B67E0C413 /* ar */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = ar; path = ar.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -144,6 +148,8 @@
 			isa = PBXGroup;
 			children = (
 				E3F465BE06083360C9ABEDBB /* SetupJourneyTests.swift */,
+				AA1120261027100000000006 /* LocaleJourneyTests.swift */,
+				AA1120261027100000000004 /* PlanJourneyTests.swift */,
 				AA1020261027100000000002 /* AttendanceJourneyTests.swift */,
 			);
 			name = DaymarkUITests;
@@ -362,6 +368,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				7DD29D5C5E3BDD1009CA4979 /* SetupJourneyTests.swift in Sources */,
+				AA1120261027100000000005 /* LocaleJourneyTests.swift in Sources */,
+				AA1120261027100000000003 /* PlanJourneyTests.swift in Sources */,
 				AA1020261027100000000001 /* AttendanceJourneyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
