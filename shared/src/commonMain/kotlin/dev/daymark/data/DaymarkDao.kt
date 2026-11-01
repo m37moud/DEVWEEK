@@ -12,6 +12,7 @@ interface DaymarkDao {
     @Query("UPDATE trackers SET changeRevision = changeRevision + 1 WHERE id = :trackerId") suspend fun advanceRevision(trackerId: String)
     @Query("SELECT * FROM settings WHERE `key` = :key") suspend fun setting(key: String): SettingEntity?
     @Query("SELECT * FROM settings WHERE `key` = :key") fun observeSetting(key: String): Flow<SettingEntity?>
+    @Query("DELETE FROM settings WHERE `key` = :key") suspend fun deleteSetting(key: String)
     @Upsert suspend fun putSetting(setting: SettingEntity)
     @Query("SELECT * FROM plan_versions WHERE trackerId = :trackerId ORDER BY version") suspend fun versions(trackerId: String): List<PlanVersionEntity>
     @Upsert suspend fun putVersion(version: PlanVersionEntity)

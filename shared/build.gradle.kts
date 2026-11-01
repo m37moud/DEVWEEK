@@ -36,6 +36,9 @@ kotlin {
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
             implementation(libs.compose.resources)
+            implementation(libs.lifecycle.viewmodel)
+            implementation(libs.lifecycle.runtime)
+            implementation(libs.navigation3.ui)
             implementation(libs.coroutines.core)
             implementation(libs.serialization.json)
             implementation(libs.datetime)
@@ -50,7 +53,10 @@ kotlin {
         }
         androidMain.dependencies { implementation(libs.play.location); implementation(libs.ktor.android) }
         iosMain.dependencies { implementation(libs.ktor.darwin) }
-        jvmMain { kotlin.srcDir("src/androidMain/kotlin/dev/daymark/plan") }
+        jvmMain {
+            kotlin.srcDir("src/androidMain/kotlin/dev/daymark/plan")
+            kotlin.srcDir("src/androidMain/kotlin/dev/daymark/settings/format")
+        }
         jvmTest.dependencies { implementation(libs.kotlin.test.junit); implementation(libs.junit) }
         getByName("androidHostTest").dependencies { implementation(libs.junit) }
         getByName("androidDeviceTest").dependencies { implementation(libs.test.runner); implementation(libs.test.ext.junit) }

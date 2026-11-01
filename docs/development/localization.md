@@ -1,0 +1,13 @@
+# Localization and onboarding implementation notes
+
+The MVP supports English and Arabic with persisted System/EN/AR language and System/Light/Dark theme preferences. Canonical dates remain Gregorian ISO values; localized formatting is presentation only. Explicit language wins over system tags; System chooses the first supported language and otherwise English. Whole-day parsing accepts English, Arabic-Indic, and Persian digits, and rejects fractions, negatives, and overflow.
+
+Native formatters use explicit Gregorian calendars and attendance zones. Java uses ISO chronology/decimal styles; Foundation uses `en_US_POSIX` and `ar_EG@numbers=arab`. An isolated Swift simulator probe found that plain `ar` produced Western digits, while BCP-47 numbering-extension identifiers returned no formatted date on this installed SDK. The verified ICU locale identifier produces Arabic Gregorian numerals without changing stored keys or the device locale. Per-region Arabic formatting is outside this MVP.
+
+Room settings and draft writes preserve literal names/place names and verified registered-place coordinates. Draft `toString` output is redacted. Setup completes in one writer transaction, creates one tracker/version, clears the draft, and marks initial report projections. A delayed draft save cannot recreate draft data after completion. Setup after an arrival starts automatic eligibility at the next selected arrival, rather than backfilling an absence. Background automation starts disabled until explicitly enabled with the required permissions; Google and notification permission do not block local storage.
+
+Registration uses a foreground-only permission request and one bounded 30-second location request. Unknown/stale age, insufficient accuracy, invalid coordinates, denial, and disabled services cannot invent a registered place. Storage failures have separate feedback and preserve the draft. The scoped ViewModel serializes draft saves and retains the latest form state.
+
+Current checkpoint evidence: 90 JVM, 67 Android shared, and 70 iOS tests pass. These include actual file reopen, invalid/duplicate/late setup, skipped Google, denied registration with no location call, inaccurate-versus-valid fixes, and Gregorian/Arabic formatting. Visible native onboarding/RTL/theme/large-text journeys are the next part of Task 9, not claimed complete here.
+
+Primary guidance checked: [Compose resource environment](https://kotlinlang.org/docs/multiplatform/compose-resource-environment.html), [Compose Multiplatform Navigation 3 and explicit serialization](https://kotlinlang.org/docs/multiplatform/compose-navigation-3.html). Pinned library source is the authority where examples lag the installed version.
