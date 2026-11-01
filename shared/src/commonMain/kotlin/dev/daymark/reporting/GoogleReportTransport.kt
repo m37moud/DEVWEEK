@@ -9,7 +9,9 @@ import kotlinx.serialization.json.*
 import kotlin.time.Duration.Companion.seconds
 
 /** Single-dispatch transport: retry/journaling policy belongs to the publisher, never the HTTP client. */
-class GoogleReportTransport(private val client: HttpClient) {
+class GoogleReportTransport(internal val client: HttpClient) : ReportTransport {
+    override suspend fun prepareTemplate(report: RemoteReport, trackerId: String, zoneId: String, years: Set<Int>, token: String): RemoteReport =
+        prepareOwnedTemplate(report,trackerId,zoneId,years,token)
     suspend fun accountReference(token: String): String = sanitizedRead {
         val response = client.get("https://www.googleapis.com/drive/v3/about") {
             bearerAuth(token); parameter("fields", "user(permissionId)")
@@ -57,7 +59,7 @@ class GoogleReportTransport(private val client: HttpClient) {
                 setBody(buildJsonObject {
                     put("name", title)
                     put("mimeType", "application/vnd.google-apps.spreadsheet")
-                    putJsonObject("appProperties") { put("daymarkTrackerId", trackerId) }
+                    putJsonObject("appProperties") { put("daymarkTrackerId", trackerId); put("daymarkSchemaVersion","1") }
                 }.toString())
             }
             when {
@@ -73,29 +75,48 @@ class GoogleReportTransport(private val client: HttpClient) {
         catch (_: Exception) { ReportCreation.Ambiguous }
     }
 
-    suspend fun read(report: RemoteReport, ranges: List<String>, token: String): RemoteSnapshot = sanitizedRead {
+    override suspend fun read(report: RemoteReport, ranges: List<String>, token: String): RemoteSnapshot = sanitizedRead {
         validateId(report.id)
         if (ranges.isEmpty()) return@sanitizedRead RemoteSnapshot(emptyMap())
-        val response = client.get("https://sheets.googleapis.com/v4/spreadsheets/${report.id}/values:batchGet") {
-            bearerAuth(token)
-            ranges.forEach { parameter("ranges", it) }
-            parameter("valueRenderOption", "UNFORMATTED_VALUE")
-            parameter("dateTimeRenderOption", "SERIAL_NUMBER")
+        if (report.tabIds.isNotEmpty()) {
+            val filters=ranges.associateWith { gridFilter(report,it) }
+            val response=client.post("https://sheets.googleapis.com/v4/spreadsheets/${report.id}/values:batchGetByDataFilter") {
+                bearerAuth(token); contentType(ContentType.Application.Json)
+                setBody(buildJsonObject {
+                    put("dataFilters",JsonArray(filters.values.toList())); put("majorDimension","ROWS")
+                    put("valueRenderOption","UNFORMATTED_VALUE"); put("dateTimeRenderOption","SERIAL_NUMBER")
+                }.toString())
+            }
+            val values=response.checkedJson()["valueRanges"]?.jsonArray ?: throw ReportAccessException("invalid_response")
+            val mapped=mutableMapOf<String,List<List<JsonPrimitive>>>()
+            for (item in values) {
+                val value=item.jsonObject
+                val matching=value.getValue("dataFilters").jsonArray
+                val rows=value.getValue("valueRange").jsonObject["values"]?.jsonArray?.map { row -> row.jsonArray.map { it.jsonPrimitive } }.orEmpty()
+                filters.filterValues { it in matching }.keys.forEach { requested ->
+                    if (mapped.put(requested,rows) != null) throw ReportAccessException("invalid_response")
+                }
+            }
+            if (mapped.keys != ranges.toSet()) throw ReportAccessException("invalid_response")
+            return@sanitizedRead RemoteSnapshot(mapped)
         }
-        val values = response.checkedJson().getValue("valueRanges").jsonArray
+        // Isolated developer probe compatibility. Production bindings always supply validated managed sheet IDs.
+        val response = client.get("https://sheets.googleapis.com/v4/spreadsheets/${report.id}/values:batchGet") {
+            bearerAuth(token); ranges.forEach { parameter("ranges",it) }
+            parameter("valueRenderOption","UNFORMATTED_VALUE"); parameter("dateTimeRenderOption","SERIAL_NUMBER")
+        }
+        val values=response.checkedJson().getValue("valueRanges").jsonArray
         if (values.size != ranges.size) throw ReportAccessException("invalid_response")
-        RemoteSnapshot(ranges.zip(values).associate { (requested, value) ->
-            requested to (value.jsonObject["values"]?.jsonArray?.map { row ->
-                row.jsonArray.map { it.jsonPrimitive }
-            } ?: emptyList())
-        })
+        RemoteSnapshot(ranges.zip(values).associate { (requested,value) -> requested to
+            value.jsonObject["values"]?.jsonArray?.map { row -> row.jsonArray.map { it.jsonPrimitive } }.orEmpty() })
     }
 
-    suspend fun write(report: RemoteReport, patch: RawPatch, token: String): RemoteWriteOutcome {
+    override suspend fun write(report: RemoteReport, patch: RawPatch, token: String): RemoteWriteOutcome {
         validateId(report.id)
         if (patch.ranges.isEmpty()) return RemoteWriteOutcome.Acknowledged
         return try {
-            val response = client.post("https://sheets.googleapis.com/v4/spreadsheets/${report.id}/values:batchUpdate") {
+            val endpoint=if (report.tabIds.isEmpty()) "batchUpdate" else "batchUpdateByDataFilter"
+            val response = client.post("https://sheets.googleapis.com/v4/spreadsheets/${report.id}/values:$endpoint") {
                 bearerAuth(token); contentType(ContentType.Application.Json)
                 setBody(buildJsonObject {
                     put("valueInputOption", "RAW")
@@ -103,7 +124,8 @@ class GoogleReportTransport(private val client: HttpClient) {
                     putJsonArray("data") {
                         patch.ranges.forEach { range ->
                             addJsonObject {
-                                put("range", range.a1); put("majorDimension", "ROWS")
+                                if (report.tabIds.isEmpty()) put("range",range.a1) else put("dataFilter",gridFilter(report,range.a1))
+                                put("majorDimension", "ROWS")
                                 put("values", JsonArray(range.cells.map { JsonArray(it) }))
                             }
                         }
@@ -115,8 +137,7 @@ class GoogleReportTransport(private val client: HttpClient) {
                 401 -> RemoteWriteOutcome.AuthorizationRequired
                 400, 409 -> RemoteWriteOutcome.SchemaConflict
                 404, 410 -> RemoteWriteOutcome.ReportUnavailable
-                429 -> RemoteWriteOutcome.Retryable(response.headers[HttpHeaders.RetryAfter]
-                    ?.toLongOrNull()?.takeIf { it >= 0 }?.seconds)
+                429 -> RemoteWriteOutcome.Retryable(retryAfter(response.headers[HttpHeaders.RetryAfter]))
                 408, in 500..599 -> RemoteWriteOutcome.Ambiguous
                 else -> RemoteWriteOutcome.ReportUnavailable
             }
@@ -124,8 +145,9 @@ class GoogleReportTransport(private val client: HttpClient) {
         catch (_: Exception) { RemoteWriteOutcome.Ambiguous }
     }
 
-    private suspend fun HttpResponse.checkedJson(): JsonObject {
+    internal suspend fun HttpResponse.checkedJson(): JsonObject {
         if (status.value !in 200..299) throw ReportAccessException(when (status.value) {
+            400, 409 -> "schema_conflict"
             401 -> "authorization_required"
             404, 410 -> "report_unavailable"
             else -> "report_read_failed"
@@ -137,6 +159,14 @@ class GoogleReportTransport(private val client: HttpClient) {
     catch (known: ReportAccessException) { throw known }
     catch (_: Exception) { throw ReportAccessException("report_read_failed") }
 
+    private fun retryAfter(value: String?): kotlin.time.Duration? {
+        if (value == null) return null
+        value.toLongOrNull()?.takeIf { it >= 0 }?.let { return it.seconds }
+        return runCatching {
+            (kotlin.time.Instant.fromEpochMilliseconds(value.fromHttpToGmtDate().timestamp) - kotlin.time.Clock.System.now())
+                .coerceAtLeast(kotlin.time.Duration.ZERO)
+        }.getOrNull()
+    }
     private fun validateId(id: String) { require(id.matches(Regex("[A-Za-z0-9_-]+"))) { "Invalid report ID" } }
     private fun driveLiteral(value: String): String = value.replace("\\", "\\\\").replace("'", "\\'")
 }

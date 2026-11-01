@@ -61,4 +61,14 @@ class GoogleReportTransportTest {
             assertEquals(listOf("r1","r2"),found.reports.map { it.id })
         }
     }
+    @Test fun retry_after_http_date_is_honored() = runTest {
+        val future = kotlin.time.Clock.System.now() + kotlin.time.Duration.parse("10m")
+        val date = io.ktor.util.date.GMTDate(future.toEpochMilliseconds()).toHttpDate()
+        HttpClient(MockEngine { respond("{}",HttpStatusCode.TooManyRequests,headersOf(HttpHeaders.RetryAfter,date)) }).use { client ->
+            val result=assertIs<RemoteWriteOutcome.Retryable>(GoogleReportTransport(client).write(RemoteReport("r",emptyMap(),1),
+                RawPatch(listOf(RawRange("A1",listOf(listOf(JsonPrimitive("x")))))),"token"))
+            assertTrue(result.retryAfter != null && result.retryAfter > kotlin.time.Duration.parse("9m"))
+        }
+    }
+
 }
