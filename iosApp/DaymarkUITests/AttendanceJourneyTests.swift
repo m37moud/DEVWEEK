@@ -20,6 +20,7 @@ final class AttendanceJourneyTests: XCTestCase {
         for _ in 0..<5 { if history.isHittable { break }; app.swipeUp() }
         history.tap()
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "history-root").firstMatch.waitForExistence(timeout: 10))
+        for _ in 0..<20 { if app.staticTexts["Location checked manually"].isHittable { break }; app.swipeUp() }
         XCTAssertTrue(app.staticTexts["Location checked manually"].exists)
     }
 }

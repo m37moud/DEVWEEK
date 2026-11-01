@@ -36,7 +36,7 @@ class SetupService(private val db: DaymarkDatabase, private val clock: Clock) {
         if (dao.tracker() == null) dao.putSetting(SettingEntity("setup-draft", encodeDraft(draft)))
     }
     suspend fun complete(command: SetupCommand): SetupResult {
-        if (command.displayName.isBlank() || command.placeName.isBlank() || command.openingBalance < 0) return SetupResult.Invalid
+        if (command.displayName.isBlank() || dev.daymark.reporting.exceedsReportTextLimit(command.displayName) || command.placeName.isBlank() || command.openingBalance < 0) return SetupResult.Invalid
         val now = clock.now()
         val date = now.toLocalDateTime(TimeZone.of(command.schedule.zoneId)).date
         val id = Uuid.random().toString()

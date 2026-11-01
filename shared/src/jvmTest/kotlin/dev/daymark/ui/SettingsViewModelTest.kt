@@ -31,6 +31,8 @@ class SettingsViewModelTest {
             model.uiState.first { !it.busy && it.settings.language == LanguagePreference.AR }
             model.setTheme(ThemePreference.DARK)
             model.uiState.first { !it.busy && it.settings.theme == ThemePreference.DARK }
+            model.setDisplayName("x".repeat(50_001))
+            assertTrue(model.uiState.value.invalidName)
             model.setDisplayName("أحمد / Ahmed =1+2")
             model.uiState.first { !it.busy && it.settings.displayName == "أحمد / Ahmed =1+2" }
             model.setAutomation(true)

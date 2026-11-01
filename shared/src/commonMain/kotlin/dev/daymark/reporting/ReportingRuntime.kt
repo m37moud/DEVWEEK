@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.*
 import kotlin.time.Clock
 
 data class ReportHealth(val binding: ReportBinding? = null,val pendingCount: Int = 0,val result: SyncPassResult = SyncPassResult.Idle,
-    val connectionResult: ConnectionResult? = null,val lastSync: String? = null,val busy: Boolean = false)
+    val issues: List<ReportIssue> = emptyList(),val connectionResult: ConnectionResult? = null,val lastSync: String? = null,val busy: Boolean = false)
 @OptIn(ExperimentalCoroutinesApi::class)
 class ReportingRuntime(private val db: DaymarkDatabase,private val auth: GoogleAccess,private val clock: Clock,
     private val repository: AttendanceRepository,httpClient: HttpClient? = null,enqueueNetwork: () -> Unit = {},
@@ -71,10 +71,11 @@ class ReportingRuntime(private val db: DaymarkDatabase,private val auth: GoogleA
     suspend fun refreshHealth(result: SyncPassResult = state.value.result,connectionResult: ConnectionResult? = state.value.connectionResult) {
         val binding=store.activeBinding()
         val dirty=binding?.let { db.dao().dirtyProjections(it.trackerId).count { row -> row.revision>row.acknowledgedRevision } } ?: 0
+        val issues=binding?.let { store.projectionIssues(it) }.orEmpty()
         val last=binding?.let { db.dao().setting("report-last-sync:${it.trackerId}:${it.connectionGeneration}")?.value }
         state.update { old -> old.copy(binding=binding,pendingCount=dirty,
             result=if (old.binding?.connectionGeneration!=binding?.connectionGeneration) SyncPassResult.Idle else result,
-            connectionResult=connectionResult,lastSync=last) }
+            connectionResult=connectionResult,lastSync=last,issues=issues) }
     }
     fun close() {
         lifecycle.onActive(false)
@@ -85,7 +86,7 @@ class ReportingRuntime(private val db: DaymarkDatabase,private val auth: GoogleA
         val binding=store.activeBinding()
         if (binding==null) null else {
             val retry=store.retryState(binding)
-            if (retry.attempts>=6 || retry.error in setOf("authorization_required","schema_conflict","report_unavailable")) null
+            if (retry.attempts>=6 || retry.error in setOf("authorization_required","schema_conflict","report_unavailable","projection_too_large")) null
             else retry.nextAt?.let { (it-clock.now()).inWholeMilliseconds.coerceAtLeast(1) } ?: 1_000
         }
     } catch (cancelled: CancellationException) { throw cancelled }

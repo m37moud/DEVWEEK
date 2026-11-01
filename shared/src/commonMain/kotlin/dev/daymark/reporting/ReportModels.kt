@@ -30,13 +30,14 @@ data class ReportProjection(val key: ProjectionKey, val revision: Long, val rang
 data class ReportBatch(val batchIdentity: String, val binding: ReportBinding, val projections: List<ReportProjection>) {
     override fun toString() = "ReportBatch(identity=$batchIdentity, projections=${projections.size})"
 }
-enum class SyncTrigger { LAUNCH, RESUME, LOCAL_CHANGE, CONNECTIVITY, RECONNECT, RETRY, ANDROID_WORK }
+enum class SyncTrigger { LAUNCH, RESUME, LOCAL_CHANGE, CONNECTIVITY, RECONNECT, RETRY, USER_RETRY, ANDROID_WORK }
 sealed interface SyncPassResult {
     data object Idle : SyncPassResult
     data object Synced : SyncPassResult
     data object Pending : SyncPassResult
     data object AuthorizationRequired : SyncPassResult
     data object SchemaConflict : SyncPassResult
+    data object ContentTooLarge : SyncPassResult
     data object ReportUnavailable : SyncPassResult
     data object StaleBinding : SyncPassResult
 }

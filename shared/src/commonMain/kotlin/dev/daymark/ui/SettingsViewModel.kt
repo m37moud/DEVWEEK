@@ -33,7 +33,7 @@ class SettingsViewModel(private val db: DaymarkDatabase, private val settings: S
     fun setLanguage(language: LanguagePreference) = save { settings.update(language = language) }
     fun setTheme(theme: ThemePreference) = save { settings.update(theme = theme) }
     fun setDisplayName(name: String) {
-        if (name.isBlank()) { state.update { it.copy(invalidName = true) }; return }
+        if (name.isBlank() || dev.daymark.reporting.exceedsReportTextLimit(name)) { state.update { it.copy(invalidName = true) }; return }
         save { settings.update(displayName = name); state.update { it.copy(invalidName = false) } }
     }
     fun setRemindersEnabled(enabled: Boolean) = save { settings.update(remindersEnabled = enabled) }

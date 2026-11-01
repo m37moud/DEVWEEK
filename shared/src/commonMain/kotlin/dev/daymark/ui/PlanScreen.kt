@@ -122,7 +122,22 @@ import kotlin.time.Instant
                 item { preview.effectiveFrom?.let { Text(str(Res.string.plan_effective,DisplayFormats.date(it,language))) } }
                 if (draft?.category == TrackerCategory.WORK) item { Text(str(Res.string.preview_balance,DisplayFormats.number(preview.balanceDelta,language),DisplayFormats.number(preview.availableAfter,language))) }
                 if (preview.rejection != null) item { Text(str(if (preview.rejection == PlanRejection.INSUFFICIENT_BALANCE) Res.string.plan_insufficient else Res.string.plan_invalid),color = MaterialTheme.colorScheme.error) }
-                items(preview.affectedDays.indices.toList()) { index -> Text(str(Res.string.preview_day,DisplayFormats.date(preview.affectedDays[index].date,language),str(preview.resultingOutcomes[index].status.label()))) }
+                items(preview.affectedDays.indices.toList()) { index ->
+                    val key=preview.affectedDays[index]
+                    val change=preview.changes.getOrNull(index)
+                    Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                        Text(DisplayFormats.date(key.date,language),style=MaterialTheme.typography.titleSmall)
+                        if (change==null) Text(str(preview.resultingOutcomes[index].status.label())) else {
+                            Text(str(Res.string.preview_before,str(change.before.status.label()),str(change.before.source.label())),modifier=Modifier.testTag("preview-before-${key.date}"))
+                            Text(str(Res.string.preview_after,str(change.after.status.label()),str(change.after.source.label())),modifier=Modifier.testTag("preview-after-${key.date}"))
+                            change.evidence?.let { evidence ->
+                                val time=evidence.confirmedAt?.let { DisplayFormats.time(it,change.zoneId,language) } ?: str(Res.string.no_confirmed_time)
+                                Text(str(Res.string.preview_evidence,str(evidence.status.label()),str(evidence.source.label()),time),
+                                    modifier=Modifier.testTag("preview-evidence-${key.date}"),style=MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
                 if (preview.affectedDays.isEmpty()) item { Text(str(Res.string.preview_no_dates)) }
             }
         },confirmButton = { TextButton(enabled = !state.busy && preview.rejection == null,modifier = Modifier.testTag("preview-confirm"),onClick = {

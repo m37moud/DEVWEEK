@@ -37,7 +37,7 @@ class AppLifecycleCoordinator(private val scope: CoroutineScope,
         stopConnectivity=observeConnectivity { events.trySend(SyncTrigger.CONNECTIVITY) }
     }
     fun onLocalChange() { enqueueNetwork(); if (isActive) events.trySend(SyncTrigger.LOCAL_CHANGE) }
-    fun retryReport() { enqueueNetwork(); if (isActive) events.trySend(SyncTrigger.RETRY) }
+    fun retryReport() { enqueueNetwork(); if (isActive) events.trySend(SyncTrigger.USER_RETRY) }
     fun onReconnect() { enqueueNetwork(); if (isActive) events.trySend(SyncTrigger.RECONNECT) }
     suspend fun stop() { val running=foreground; onActive(false); running?.join() }
 }

@@ -212,4 +212,17 @@ class TodayViewModelTest {
         assertEquals(1,calls)
     }
 
+    @Test fun an_explicit_off_day_before_the_first_arrival_keeps_its_reason_without_gps() = runTest {
+        val clock=TestClock(at("09:18:00")); val repo=Repository(clock,baselineOnly=true).apply { off=TimeOffKind.HOLIDAY }
+        val futureStart=object : PlanReader {
+            override suspend fun context()=ScheduleContext(fixturePlan().key.trackerId,"UTC",Instant.parse("2026-10-28T09:00:00Z"),false)
+            override suspend fun day(date: LocalDate)=plans.day(date)
+        }
+        val location=object : LocationGateway { override suspend fun requestFix(budget: Duration): LocationResult = error("An off day must not obtain GPS") }
+        val model=TodayViewModel(repo,AttendanceService(repo,location,clock),futureStart,permissions,clock,backgroundScope)
+        val state=model.uiState.first { it.ready }
+        assertEquals(AttendanceStatus.HOLIDAY,state.outcome?.status)
+        assertFalse(state.canCheck)
+    }
+
 }

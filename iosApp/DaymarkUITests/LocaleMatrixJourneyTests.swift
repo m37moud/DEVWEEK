@@ -20,6 +20,11 @@ final class LocaleMatrixJourneyTests: XCTestCase {
                 let check = node("today-check")
                 for _ in 0..<20 { if check.isHittable { break }; app.swipeUp() }
                 XCTAssertTrue(check.isHittable)
+                for id in ["today-place", "today-month-counts", "today-week", "today-report-state"] {
+                    let element = node(id)
+                    for _ in 0..<20 { if element.isHittable { break }; app.swipeUp() }
+                    XCTAssertTrue(element.isHittable)
+                }
                 verified.insert("\(language)/\(theme)")
             }
         }

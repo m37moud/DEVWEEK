@@ -85,4 +85,12 @@ class AppLifecycleCoordinatorTest {
         } finally { owner?.stop(); scope.cancel(); db.close(); folder.toFile().deleteRecursively() }
     }
 
+    @Test fun retry_button_is_distinct_from_automatic_continuation() = runTest {
+        val calls=mutableListOf<SyncTrigger>()
+        val owner=AppLifecycleCoordinator(backgroundScope,runSync={ calls+=it; SyncPassResult.Idle })
+        owner.onActive(true); runCurrent(); owner.retryReport(); runCurrent()
+        assertEquals(SyncTrigger.USER_RETRY,calls.last())
+        owner.onActive(false)
+    }
+
 }

@@ -59,7 +59,7 @@ class TodayViewModel(
                             launch { delay((tomorrow - clock.now()).coerceAtLeast(kotlin.time.Duration.ZERO)); refresh.send(Unit) }
                             repository.observeDay(day.plan.key).collect { observed ->
                                 val stored = repository.loadDay(day.plan.key)
-                                val hiddenBaseline = stored == null && day.plan.arrival < context.trackingStartsAt
+                                val hiddenBaseline = stored == null && day.plan.isScheduled && day.off==null && day.plan.arrival < context.trackingStartsAt
                                 val outcome = if (hiddenBaseline) null else observed ?: evaluateDay(day.plan, day.evidence, day.off, clock.now())
                                 state.update { old ->
                                     val sameDay = old.plan?.key == day.plan.key

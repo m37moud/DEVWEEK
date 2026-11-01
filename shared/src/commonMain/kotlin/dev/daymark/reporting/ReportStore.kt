@@ -14,6 +14,7 @@ interface ReportStore {
     suspend fun markAmbiguous(batch: ReportBatch)
     suspend fun invalidateBinding()
     suspend fun localProjections(binding: ReportBinding): List<ReportProjection>
+    suspend fun projectionIssues(binding: ReportBinding): List<ReportIssue>
     suspend fun markDirty(keys: Set<ProjectionKey>)
     suspend fun saveRetry(binding: ReportBinding, attempts: Int, nextAt: Instant?, error: String?)
     suspend fun retryState(binding: ReportBinding): RetryState

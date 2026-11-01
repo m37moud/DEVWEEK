@@ -4,6 +4,7 @@ import androidx.room3.withWriteTransaction
 import dev.daymark.*
 import dev.daymark.attendance.*
 import dev.daymark.data.*
+import kotlinx.datetime.*
 import kotlinx.coroutines.runBlocking
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.*
@@ -21,12 +22,17 @@ class SyncCoordinatorTest {
         var ambiguous = false
         var writes = 0
         var reads = 0
+        var failReadAt: Int? = null
+        val readSizes=mutableListOf<Int>()
+        val requestedRows=mutableListOf<String>()
         var onWrite: suspend () -> Unit = {}
         var reject = false
         override suspend fun prepareTemplate(report: RemoteReport,trackerId: String,zoneId: String,years: Set<Int>,token: String) =
             report.copy(tabIds=report.tabIds+mapOf("Overview" to 1,"Time off" to 2)+years.associate { "Attendance $it" to (it+10) })
         override suspend fun read(report: RemoteReport,ranges: List<String>,token: String): RemoteSnapshot {
-            reads++; return RemoteSnapshot(ranges.associateWith { cells[it].orEmpty() })
+            reads++; readSizes+=ranges.size; requestedRows+=ranges
+            if (reads==failReadAt) throw ReportAccessException("report_read_failed")
+            return RemoteSnapshot(ranges.associateWith { cells[it].orEmpty() })
         }
         override suspend fun write(report: RemoteReport,patch: RawPatch,token: String): RemoteWriteOutcome {
             writes++; onWrite()
@@ -141,6 +147,75 @@ class SyncCoordinatorTest {
             val dispatched=server.writes
             assertEquals(SyncPassResult.Pending,sync.runPass(SyncTrigger.RETRY))
             assertEquals(dispatched,server.writes)
+        } finally { db.close(); folder.toFile().deleteRecursively() }
+    }
+
+    @Test fun history_verification_batches_across_dates_and_resumes_after_quota_failure(): Unit = runBlocking {
+        val folder=Files.createTempDirectory("daymark-read-budget-"); val db=openJvmDatabase(folder.resolve("test.db").toString())
+        try {
+            val start=dev.daymark.fixtureDate.minus(600,kotlinx.datetime.DateTimeUnit.DAY)
+            val begins=start.atStartOfDayIn(kotlinx.datetime.TimeZone.UTC)
+            seedDatabase(db,createdAt=begins,trackingStartsAt=begins)
+            val tracker=db.dao().tracker()!!.id
+            db.dao().putVersion(PlanVersionEntity.fromSnapshot(tracker,1,start,begins,TrackerCategory.WORK,fixtureSchedule(),fixturePlace(),"Place"))
+            val clock=TestClock(at("09:06:00")); RoomAttendanceRepository(db,clock).reconcile(clock.now())
+            val store=RoomReportStore(db,clock)
+            store.bind(ReportBinding(tracker,store.beginConnection()!!,"a","r",annualTabIds=emptyMap()))
+            val server=Server().apply { failReadAt=2 }
+            val sync=SyncCoordinator(store,server,clock,token={ "token" },zoneId={ "UTC" },retry=SyncRetryPolicy { kotlin.time.Duration.ZERO })
+            assertEquals(SyncPassResult.Pending,sync.runPass(SyncTrigger.LAUNCH))
+            val first=server.requestedRows.first()
+            assertEquals(100,server.readSizes.first())
+            assertEquals(0,server.writes)
+            clock.value+=2.minutes
+            val before=server.reads
+            assertEquals(SyncPassResult.Pending,sync.runPass(SyncTrigger.RETRY))
+            assertTrue(server.reads-before<=5)
+            clock.value+=2.minutes
+            assertEquals(SyncPassResult.Synced,sync.runPass(SyncTrigger.RETRY))
+            assertEquals(1,server.requestedRows.count { it==first })
+            assertTrue(server.readSizes.all { it<=100 })
+            assertTrue(server.writes>0)
+            assertTrue(db.dao().dirtyProjections(tracker).all { it.revision==it.acknowledgedRevision })
+        } finally { db.close(); folder.toFile().deleteRecursively() }
+    }
+    @Test fun explicit_retry_renews_exhausted_budget_but_honors_server_delay(): Unit = runBlocking {
+        val folder=Files.createTempDirectory("daymark-user-retry-"); val db=openJvmDatabase(folder.resolve("test.db").toString())
+        try {
+            seedDatabase(db); val clock=TestClock(); val store=RoomReportStore(db,clock)
+            store.bind(ReportBinding(db.dao().tracker()!!.id,store.beginConnection()!!,"a","r",annualTabIds=emptyMap()))
+            val binding=store.activeBinding()!!
+            store.saveRetry(binding,6,clock.now()+2.minutes,"ambiguous")
+            val server=Server()
+            val sync=SyncCoordinator(store,server,clock,token={ "token" },zoneId={ "UTC" })
+            assertEquals(SyncPassResult.Pending,sync.runPass(SyncTrigger.USER_RETRY))
+            assertEquals(0,server.writes)
+            assertEquals(0,store.retryState(binding).attempts)
+            clock.value+=2.minutes
+            assertEquals(SyncPassResult.Synced,sync.runPass(SyncTrigger.RETRY))
+            assertTrue(server.writes>0)
+        } finally { db.close(); folder.toFile().deleteRecursively() }
+    }
+
+    @Test fun oversized_note_is_retained_locally_without_blocking_other_dates_or_aggregates(): Unit = runBlocking {
+        val folder=Files.createTempDirectory("daymark-oversize-isolation-"); val db=openJvmDatabase(folder.resolve("test.db").toString())
+        try {
+            seedDatabase(db); val clock=TestClock(); val repo=RoomAttendanceRepository(db,clock)
+            val note="x".repeat(2_000_000)
+            repo.correct(Correction(fixturePlan().key,AttendanceStatus.ABSENT,null,note))
+            clock.value=kotlin.time.Instant.parse("2026-10-28T09:06:00Z"); repo.reconcile(clock.now())
+            val store=RoomReportStore(db,clock)
+            store.bind(ReportBinding(db.dao().tracker()!!.id,store.beginConnection()!!,"a","r",annualTabIds=emptyMap()))
+            val server=Server(); val sync=SyncCoordinator(store,server,clock,token={ "token" },zoneId={ "UTC" })
+            assertEquals(SyncPassResult.ContentTooLarge,sync.runPass(SyncTrigger.LAUNCH))
+            assertTrue(server.cells.containsKey("'Attendance 2026'!A303:O303"))
+            assertTrue(server.cells.keys.any { it.startsWith("'Overview'") })
+            assertEquals(note,repo.loadDay(fixturePlan().key)!!.evidence!!.note)
+            assertEquals(ReportField.NOTE,store.projectionIssues(store.activeBinding()!!).single().field)
+            assertEquals(0,store.retryState(store.activeBinding()!!).attempts)
+            repo.correct(Correction(fixturePlan().key,AttendanceStatus.ABSENT,null,"Shortened by the user"))
+            assertEquals(SyncPassResult.Synced,sync.runPass(SyncTrigger.LOCAL_CHANGE))
+            assertTrue(store.projectionIssues(store.activeBinding()!!).isEmpty())
         } finally { db.close(); folder.toFile().deleteRecursively() }
     }
 

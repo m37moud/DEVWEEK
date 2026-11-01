@@ -75,6 +75,7 @@ import kotlin.math.roundToInt
         if (!state.ready) { CircularProgressIndicator(); return@Column }
         OutlinedTextField(draft.displayName, { model.updateDraft(draft.copy(displayName = it)) }, label = { Text(str(Res.string.setup_name)) },
             singleLine = true, enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("setup-name"))
+        if (dev.daymark.reporting.exceedsReportTextLimit(draft.displayName)) Text(str(Res.string.profile_too_long,DisplayFormats.number(dev.daymark.reporting.REPORT_TEXT_LIMIT,LocalAppLanguage.current)),color=MaterialTheme.colorScheme.error)
         Text(str(Res.string.setup_type), style = MaterialTheme.typography.titleSmall)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TrackerCategory.entries.forEach { category -> FilterChip(selected = category == draft.category, enabled = !state.busy,

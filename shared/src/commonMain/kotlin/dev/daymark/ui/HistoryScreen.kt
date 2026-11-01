@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleStartEffect
@@ -26,29 +27,39 @@ import kotlinx.datetime.*
     var editing by remember { mutableStateOf<HistoryRecord?>(null) }
     var offDate by remember { mutableStateOf<LocalDate?>(null) }
     LaunchedEffect(state.savedKey) { if (editing?.plan?.key == state.savedKey) editing = null }
-    Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 24.dp).testTag("history-root")) {
-        TextButton(onClick = onBack) { Text(str(Res.string.back)) }
-        Text(str(Res.string.history), style = MaterialTheme.typography.headlineLarge)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(onClick = { val date = LocalDate(state.year,state.month,1).minus(1,DateTimeUnit.MONTH); model.selectMonth(date.year,date.month.number) }) { Text(str(Res.string.previous_month)) }
-            TextButton(onClick = { val date = LocalDate(state.year,state.month,1).plus(1,DateTimeUnit.MONTH); model.selectMonth(date.year,date.month.number) }) { Text(str(Res.string.next_month)) }
+    var selectedDate by rememberSaveable(state.year,state.month) { mutableStateOf<String?>(null) }
+    val selected=selectedDate?.let(LocalDate::parse)
+    val shown=state.history.records.filter { selected==null || it.plan.key.date==selected }
+    LazyColumn(Modifier.fillMaxSize().safeDrawingPadding().testTag("history-root"),
+        contentPadding=PaddingValues(horizontal=20.dp,vertical=12.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        item { TextButton(onClick=onBack) { Text(str(Res.string.back)) } }
+        item { Text(str(Res.string.history),style=MaterialTheme.typography.headlineLarge) }
+        item { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+            TextButton(onClick={ val date=LocalDate(state.year,state.month,1).minus(1,DateTimeUnit.MONTH); model.selectMonth(date.year,date.month.number) }) { Text(str(Res.string.previous_month)) }
+            TextButton(onClick={ val date=LocalDate(state.year,state.month,1).plus(1,DateTimeUnit.MONTH); model.selectMonth(date.year,date.month.number) }) { Text(str(Res.string.next_month)) }
+        } }
+        item { Text(DisplayFormats.date(LocalDate(state.year,state.month,1),language),style=MaterialTheme.typography.titleMedium) }
+        item { Text(str(Res.string.month_counts,DisplayFormats.number(state.history.present,language),DisplayFormats.number(state.history.late,language),DisplayFormats.number(state.history.absent,language))) }
+        item { AttendanceCalendar(state.year,state.month,state.history.records,state.today,selected) { selectedDate=it.toString() } }
+        if (selected!=null) item {
+            TextButton(onClick={ selectedDate=null },modifier=Modifier.testTag("history-show-all")) { Text(str(Res.string.show_all_records)) }
+            if (selected>state.today && state.history.records.none { it.plan.key.date==selected }) {
+                Text(str(Res.string.future_date_plan),modifier=Modifier.testTag("history-future-plan"))
+                TextButton(onClick={ onEditTimeOff(selected) }) { Text(str(Res.string.edit_time_off)) }
+            }
         }
-        Text(DisplayFormats.date(LocalDate(state.year,state.month,1),language), style = MaterialTheme.typography.titleMedium)
-        Text(str(Res.string.month_counts, DisplayFormats.number(state.history.present,language), DisplayFormats.number(state.history.late,language), DisplayFormats.number(state.history.absent,language)))
-        if (state.storageError) Text(str(Res.string.load_failed), color = MaterialTheme.colorScheme.error)
-        if (!state.ready) CircularProgressIndicator()
-        else if (state.history.records.isEmpty()) Text(str(Res.string.no_records), Modifier.padding(vertical = 24.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 20.dp)) {
-            items(state.history.records, key = { it.plan.key.date.toString() }) { record ->
-                Card(onClick = {
-                    if (!record.plan.isScheduled || record.outcome.offReason != null) offDate = record.plan.key.date else editing = record
-                }, modifier = Modifier.fillMaxWidth().testTag("history-record-${record.plan.key.date}")) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(DisplayFormats.date(record.plan.key.date,language), style = MaterialTheme.typography.titleMedium)
-                        Text(str(record.outcome.status.label()))
-                        Text(str(record.outcome.source.label()), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        record.evidence?.note?.takeIf { it.isNotEmpty() }?.let { Text(isolated(it)) }
-                    }
+        if (state.storageError) item { Text(str(Res.string.load_failed),color=MaterialTheme.colorScheme.error) }
+        if (!state.ready) item { CircularProgressIndicator() }
+        else if (shown.isEmpty() && (selected==null || selected<=state.today)) item { Text(str(Res.string.no_records),Modifier.padding(vertical=24.dp)) }
+        items(shown,key={ it.plan.key.date.toString() }) { record ->
+            Card(onClick={ if (!record.plan.isScheduled || record.outcome.offReason!=null) offDate=record.plan.key.date else editing=record },
+                modifier=Modifier.fillMaxWidth().testTag("history-record-${record.plan.key.date}")) {
+                Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                    Text(DisplayFormats.date(record.plan.key.date,language),style=MaterialTheme.typography.titleMedium)
+                    Text(str(record.outcome.status.label()))
+                    record.outcome.confirmedAt?.let { at -> Text(str(Res.string.confirmed_at,DisplayFormats.time(at,record.plan.zoneId,language)),modifier=Modifier.testTag("history-confirmed-${record.plan.key.date}")) }
+                    Text(str(record.outcome.source.label()),color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    record.evidence?.note?.takeIf { it.isNotEmpty() }?.let { Text(isolated(it),maxLines=4,overflow=TextOverflow.Ellipsis) }
                 }
             }
         }
@@ -74,7 +85,8 @@ import kotlinx.datetime.*
                     }
                     OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text(str(Res.string.correction_note)) }, modifier = Modifier.testTag("correction-note"), maxLines = 4)
                     TextButton(onClick = { editing = null; onEditTimeOff(record.plan.key.date) }) { Text(str(Res.string.edit_time_off)) }
-                    if (state.invalidCorrection) Text(str(Res.string.invalid_correction), color = MaterialTheme.colorScheme.error)
+                    if (state.noteTooLong || dev.daymark.reporting.exceedsReportTextLimit(note)) Text(str(Res.string.note_too_long,DisplayFormats.number(dev.daymark.reporting.REPORT_TEXT_LIMIT,language)),color=MaterialTheme.colorScheme.error)
+                    else if (state.invalidCorrection) Text(str(Res.string.invalid_correction), color = MaterialTheme.colorScheme.error)
                     if (state.storageError) Text(str(Res.string.local_save_failed), color = MaterialTheme.colorScheme.error)
                 }
             }, confirmButton = { TextButton(enabled = !state.busy, modifier = Modifier.testTag("correction-save"), onClick = {

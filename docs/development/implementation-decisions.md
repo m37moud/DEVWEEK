@@ -1,6 +1,6 @@
 # Implementation decisions
 
-Recorded in execution order. Each decision includes the reason and the cost if wrong. Native/live gates stay open as described in [release verification](release-verification.md).
+Recorded in execution order, with reasons and costs. Native/live gates remain open in [release verification](release-verification.md).
 
 1. Task 1: Ruling: use the installed Xcode 27.1 only to collect provisional compile evidence, without suppressing compatibility warnings; the supported-Xcode gate remains incomplete until 26.4 is supplied or official support changes — no supported side-by-side Xcode is installed — cost if wrong: iOS integration cannot be accepted on this machine yet.
 
@@ -83,3 +83,35 @@ Recorded in execution order. Each decision includes the reason and the cost if w
 40. Task 15: Ruling: Share one process lock across Android widget cache readers/writers/clear — widget/native components currently run in the same app process and AtomicFile requires caller exclusion — cost if wrong: a future separate widget process needs cross-process file coordination rather than this lock.
 
 41. Task 15: Ruling: Package EN/AR language resources together instead of adding Play Core downloads — the app/widget must switch language offline and lint identified a split-language risk — cost if wrong: a modest increase in installed resource size. PrivacyMetadataTest language-packaging assertion RED in task-15-regressions-red.log, GREEN in task-15-widget-diagnostic-2.log.
+
+42. Final: Ruling: Actual iOS host/UI remains unqualified — user explicitly deferred native linking/execution — cost if wrong: source checks may miss native integration/rendering defects.
+
+43. Final: Ruling: Physical iPhone GPS/reminder/WidgetKit/App Group remains unqualified — no signed physical iPhone is available and user accepted this open gate — cost if wrong: real delivery, accuracy, widget interaction or provisioning may fail.
+
+44. Final: Ruling: Huawei launcher pin/tap remains unqualified — user explicitly deferred the picker that did not advance via ADB — cost if wrong: cache/handoff tests may miss launcher-specific behavior.
+
+45. Final: Ruling: Modern Android/manufacturer/Doze reliability remains unqualified — requires authorized physical signed-release measurements — cost if wrong: automatic checks may be missed beyond the already-observed best-effort limitations.
+
+46. Final: Ruling: Live OAuth/Drive/Sheets remains unqualified — native clients/consent are not provisioned or exercised in a real account — cost if wrong: provider integration may fail despite mock HTTP tests.
+
+47. Final: Ruling: Signing, final identifiers/icon, store submission and enrollment remain owner release inputs — no distribution/enrollment is authorized — cost if wrong: final packaging/ownership/store acceptance can require further work.
+
+48. Final: Ruling: Compiled iOS privacy aggregation and minimum-OS compatibility remain unqualified — source-only checks cannot certify the final archive or lower OS floors — cost if wrong: archive validation or older-device runtime can fail.
+
+49. Final: Ruling: Full visual clipping, glyph shaping and screen-reader acceptance remain unqualified — action reachability is narrower evidence — cost if wrong: native layout/accessibility defects may remain.
+
+50. Final: Ruling: Multi-device merge, restore/import, overnight shifts, continuous tracking, payroll and accrual remain excluded — approved MVP scope excludes them — cost if wrong: those needs require a separate design and implementation.
+
+51. Final: Ruling: Keep reconciliation cursor process-local and restart it on a new foreground session — a reopened/new session must recheck even previously acknowledged prefixes for late old writes; global 100-row batches and bounded yields prevent per-date quota starvation — cost if wrong: interruption rechecks the current prefix, so very long histories need a sufficiently long supported foreground session.
+
+52. Final: Ruling: Bound new note/profile fields to 50,000 UTF-16 units and quarantine legacy unreportable rows instead of truncating local text — Google Sheets has per-cell text limits, and one record must not block unrelated publication — cost if wrong: an unusually long field must be shortened by the user before that field's row can sync; the original local text is retained. Primary limit context: https://support.google.com/drive/answer/37603 .
+
+53. Final: Ruling: Discover only current-account-owned app-managed reports — an old account's report shared with a new account must not be silently adopted on reconnect — cost if wrong: other-owned/shared-drive reports are not offered by this personal My Drive MVP. Primary owner-query contract: https://developers.google.com/workspace/drive/api/guides/search-files .
+
+54. Final: Ruling: Preserve the plan workspace and managed worktree while full native/live acceptance remains incomplete — user deferred required gates, so the plan's full completion/cleanup condition is not met — cost if wrong: about 24 MB of task evidence remains until those gates are closed or the user chooses cleanup.
+
+## Deferred minors
+
+- Final: minor (deferred): Overview numeric counts/balance are RAW text cells; spreadsheet arithmetic/chart ergonomics need numeric primitives, while values remain readable and local accounting correct.
+
+- Final: minor (deferred): School/course vacation-kind entries say Vacation outside Plan rather than category-aware Day off; effective off-day priority and work-only balance deductions remain correct.

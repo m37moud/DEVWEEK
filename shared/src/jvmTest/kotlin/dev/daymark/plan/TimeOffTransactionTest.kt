@@ -221,4 +221,42 @@ class TimeOffTransactionTest {
         } finally { db.close(); folder.toFile().deleteRecursively() }
     }
 
+    @Test fun retrospective_preview_exposes_before_after_and_preserved_gps_evidence(): Unit = kotlinx.coroutines.runBlocking {
+        val folder=java.nio.file.Files.createTempDirectory("daymark-preview-evidence-"); val db=dev.daymark.data.openJvmDatabase(folder.resolve("test.db").toString())
+        try {
+            dev.daymark.data.seedDatabase(db)
+            val clock=dev.daymark.attendance.TestClock()
+            val repo=dev.daymark.attendance.RoomAttendanceRepository(db,clock)
+            repo.completeCheck(dev.daymark.data.testCommit())
+            val service=TimeOffService(db,clock)
+            val command=TimeOffCommand.Add(TimeOffKind.HOLIDAY,dev.daymark.fixtureDate,dev.daymark.fixtureDate)
+            val preview=service.preview(command)
+            val change=preview.changes.single()
+            assertEquals(dev.daymark.attendance.AttendanceStatus.PRESENT,change.before.status)
+            assertEquals(dev.daymark.attendance.AttendanceStatus.HOLIDAY,change.after.status)
+            assertEquals(dev.daymark.attendance.AttendanceSource.MANUAL_GPS,change.evidence?.source)
+            assertEquals(PlanMutationResult.Applied,service.apply(command,preview.expectedRevision))
+            val entry=service.observeEntries().first().single()
+            val removal=service.preview(TimeOffCommand.Remove(entry.id)).changes.single()
+            assertEquals(dev.daymark.attendance.AttendanceStatus.HOLIDAY,removal.before.status)
+            assertEquals(dev.daymark.attendance.AttendanceStatus.PRESENT,removal.after.status)
+            assertEquals(dev.daymark.attendance.AttendanceSource.MANUAL_GPS,removal.evidence?.source)
+        } finally { db.close(); folder.toFile().deleteRecursively() }
+    }
+
+    @Test fun cancelling_a_preview_preserves_an_inflight_automatic_confirmation(): Unit = kotlinx.coroutines.runBlocking {
+        val folder=java.nio.file.Files.createTempDirectory("daymark-preview-claim-"); val db=dev.daymark.data.openJvmDatabase(folder.resolve("test.db").toString())
+        try {
+            dev.daymark.data.seedDatabase(db)
+            val clock=dev.daymark.attendance.TestClock()
+            val repo=dev.daymark.attendance.RoomAttendanceRepository(db,clock)
+            val attempt=kotlin.uuid.Uuid.random().toString()
+            assertTrue(repo.claimAutomatic(dev.daymark.fixturePlan().key,attempt,clock.now()) is dev.daymark.attendance.ClaimResult.Claimed)
+            TimeOffService(db,clock).preview(TimeOffCommand.Add(TimeOffKind.HOLIDAY,dev.daymark.fixtureDate,dev.daymark.fixtureDate))
+            // No apply: the user dismisses the preview. The already-claimed valid sensor result still commits.
+            val request=dev.daymark.data.testCommit().copy(attemptId=attempt,mode=dev.daymark.attendance.CheckMode.AUTOMATIC)
+            assertTrue(repo.completeCheck(request) is dev.daymark.attendance.CheckOutcome.Recorded)
+        } finally { db.close(); folder.toFile().deleteRecursively() }
+    }
+
 }

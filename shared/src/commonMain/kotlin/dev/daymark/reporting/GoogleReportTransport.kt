@@ -28,7 +28,7 @@ class GoogleReportTransport(internal val client: HttpClient) : ReportTransport {
         do {
             val response = client.get("https://www.googleapis.com/drive/v3/files") {
                 bearerAuth(token)
-                parameter("q", "trashed = false and mimeType = 'application/vnd.google-apps.spreadsheet' and appProperties has { key='daymarkTrackerId' and value='${driveLiteral(trackerId)}' }")
+                parameter("q", "trashed = false and 'me' in owners and mimeType = 'application/vnd.google-apps.spreadsheet' and appProperties has { key='daymarkTrackerId' and value='${driveLiteral(trackerId)}' }")
                 parameter("fields", "nextPageToken,files(id,appProperties)")
                 parameter("pageSize", "100")
                 page?.let { parameter("pageToken", it) }

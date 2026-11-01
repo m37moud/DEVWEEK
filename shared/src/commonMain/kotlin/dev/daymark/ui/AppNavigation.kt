@@ -11,6 +11,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.*
@@ -89,10 +90,18 @@ private val navigationConfig = SavedStateConfiguration {
                             if (pendingCheck?.token == request.token) pendingCheck = null
                         }
                     }
-                    TodayScreen(model,tracker?.displayName.orEmpty(),onHistory = ::history)
+                    val dashboard by remember(graph) { TodayDashboardReader(graph.db,graph.clock).observe() }.collectAsStateWithLifecycle(TodayDashboard())
+                    val report by graph.reporting.health.collectAsStateWithLifecycle()
+                    TodayScreen(model,tracker?.displayName.orEmpty(),onHistory = ::history,dashboard=dashboard,report=report)
                 }
                 entry<HistoryRoute> { route ->
-                    val model = viewModel { HistoryViewModel(graph.repository,LocalDate(route.year,route.month,1)) }
+                    val model = viewModel { HistoryViewModel(graph.repository,LocalDate(route.year,route.month,1),clock=graph.clock,today={
+                        graph.repository.loadCurrentDay(graph.clock.now())?.plan?.key?.date ?: LocalDate(route.year,route.month,1)
+                    },refreshBoundary={
+                        graph.repository.loadCurrentDay(graph.clock.now())?.plan?.let { day ->
+                            day.key.date.plus(1,DateTimeUnit.DAY).atStartOfDayIn(TimeZone.of(day.zoneId))
+                        }
+                    }) }
                     HistoryScreen(model,onBack = { go(TodayRoute) },onEditTimeOff = { date -> go(PlanRoute(date.toString())) })
                 }
                 entry<PlanRoute> { route ->

@@ -13,8 +13,10 @@ sealed interface TimeOffCommand {
     data class Remove(val entryId: String) : TimeOffCommand
 }
 enum class PlanRejection { INVALID_RANGE, INVALID_VALUE, OUTSIDE_TRACKED_PERIOD, INSUFFICIENT_BALANCE, LOCAL_SAVE_FAILED }
+data class TimeOffDayChange(val key: DayKey,val before: DayOutcome,val after: DayOutcome,
+    val evidence: AttendanceEvidence?,val category: TrackerCategory,val zoneId: String)
 data class TimeOffPreview(val expectedRevision: Long, val affectedDays: List<DayKey>, val resultingOutcomes: List<DayOutcome>,
-    val balanceDelta: Int, val availableAfter: Int, val rejection: PlanRejection?, val effectiveFrom: LocalDate? = null)
+    val balanceDelta: Int, val availableAfter: Int, val rejection: PlanRejection?, val effectiveFrom: LocalDate? = null,val changes: List<TimeOffDayChange> = emptyList())
 sealed interface PlanMutationResult {
     data object Applied : PlanMutationResult
     data object StalePreview : PlanMutationResult

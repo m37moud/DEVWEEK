@@ -64,7 +64,7 @@ class RoomReportStore(private val db: DaymarkDatabase, private val clock: Clock)
         val capacityKey = "report-time-off-capacity:${binding.trackerId}"
         val capacity = maxOf(1,state.entries.size,dao.setting(capacityKey)?.value?.toIntOrNull() ?: 0)
         val timeOff = projectTimeOff(state.entries,dirty["TIME_OFF"]?.revision ?: 1,capacity)
-        val actual = state.rows.keys.filter { it <= state.today && state.plan(it).arrival >= Instant.parse(state.tracker.trackingStartsAt) }.map { state.outcome(it).status }
+        val actual = state.rows.keys.map { state.outcome(it).status }
         fun field(key: String,label: String,value: String) = Triple(key,label,JsonPrimitive(value))
         val overview = projectOverview(listOf(
             field("trackerId","Tracker / المتابع",state.tracker.id),field("name","Name / الاسم",state.tracker.displayName),
@@ -79,6 +79,9 @@ class RoomReportStore(private val db: DaymarkDatabase, private val clock: Clock)
         if (current() != binding) return@withWriteTransaction emptyList()
         ensureProjections(binding)
         projections(binding)
+    }
+    override suspend fun projectionIssues(binding: ReportBinding): List<ReportIssue> = db.withReadTransaction {
+        projections(binding).flatMap { projection -> projection.ranges.flatMap(::individualRows).mapNotNull { reportIssue(projection.key,it) } }.distinct()
     }
     private suspend fun acknowledgedRows(binding: ReportBinding, key: ProjectionKey, revision: Long): Set<String> =
         dao.batches(binding.trackerId).filter { it.connectionGeneration == binding.connectionGeneration && it.status == "ACKNOWLEDGED" }
@@ -98,9 +101,8 @@ class RoomReportStore(private val db: DaymarkDatabase, private val clock: Clock)
             val covered = acknowledgedRows(binding,projection.key,projection.revision)
             val ranges = mutableListOf<RawRange>()
             for (row in projection.ranges.flatMap(::individualRows)) {
-                if (row.a1 in covered) continue
+                if (row.a1 in covered || reportIssue(projection.key,row)!=null) continue
                 val size = json.encodeToString(row).encodeToByteArray().size + 512
-                if (size > 1_900_000) throw ReportAccessException("projection_too_large")
                 if (rows == maxRows || bytes + size > 1_900_000) break
                 ranges += row; rows++; bytes += size
             }

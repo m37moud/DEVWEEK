@@ -31,6 +31,7 @@ import kotlinx.coroutines.launch
         if (state.storageError) Text(str(Res.string.local_save_failed),color = MaterialTheme.colorScheme.error)
         OutlinedTextField(value = name ?: state.settings.displayName,onValueChange = { name = it },enabled = !state.busy,
             label = { Text(str(Res.string.profile_name)) },modifier = Modifier.fillMaxWidth().testTag("settings-name"))
+        if (dev.daymark.reporting.exceedsReportTextLimit(name ?: state.settings.displayName)) Text(str(Res.string.profile_too_long,DisplayFormats.number(dev.daymark.reporting.REPORT_TEXT_LIMIT,language)),color=MaterialTheme.colorScheme.error)
         if (state.invalidName) Text(str(Res.string.invalid_name),color = MaterialTheme.colorScheme.error)
         TextButton(enabled = !state.busy,onClick = { model.setDisplayName(name ?: state.settings.displayName) }) { Text(str(Res.string.save)) }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

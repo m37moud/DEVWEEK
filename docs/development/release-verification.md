@@ -27,7 +27,7 @@
 | Modern Android background permission, battery saver/Doze/reboot, signed release | **Open:** physical signed-release measurements and product acceptance of missed checks required. Existing feasibility notes include a stale physical background result; no automatic reliability guarantee. |
 | Huawei launcher widget pin/tap | **Open, user deferred:** native cache/quick-check handoff instrumentation passed, launcher picker did not advance through ADB. |
 | iOS native host, WidgetKit, notification delivery, real App Group, signed iPhone GPS | **Open, user deferred/unavailable.** Earlier adapter tests and current source checks do not replace these gates. |
-| Final independent review | Pending; findings and the single fix pass will be recorded here. |
+| Final independent review | Completed: six Important findings addressed in one regression-tested author pass; two Minor findings deferred. See [final review](final-review.md). |
 
 ## Reproducible local checks
 
@@ -67,3 +67,7 @@ The widget acceptance test exposed an Android AtomicFile concurrency defect: rea
 A new retry-budget regression also failed before correction: successful batches were resetting the active session's transient count. ACKs now preserve that count. Fresh host results are 145 JVM +89 shared Android host +16 Android app host, zero failures. iOS shared source compilation passes after the correction. Final complete device/build results follow below.
 
 Final complete candidate gate passed (2026-11-01): **145 JVM +89 shared Android host +16 Android app host tests; 15 Huawei instrumentation tests, zero skipped/failures**. Android `lintDebug` reports **0 errors, 8 warnings**; debug and unsigned release APK builds pass. The language-split warning is resolved. Remaining lint items are the API-guarded background-location constant, platform-version-only attributes, loading-layout overdraw, URI extension suggestions and the final application icon input. Merged permissions contain network, foreground/background location, boot, WorkManager wake lock and the app-private receiver permission; no foreground-service, exact-alarm or biometric permission remains. Evidence: `task-15-candidate-gate.log`, `task-15-budget-compile.log`, final Gradle XML reports, Android lint report, and plist/Swift syntax checks.
+
+## Post-review gate
+
+The single final fix pass passed all **281 tests: 158 JVM +91 shared Android host +16 Android app host +16 Huawei instrumentation**, zero failures/errors/skipped (`final-fix-suite.log`). Lint remains 0 errors/8 warnings. Debug/test APKs and the unsigned release APK rebuilt. `final-fix-compile.log` verifies the final shared iOS source and Android test sources; updated Swift syntax and plists also pass. The independent review and exact fixes/deferred minors are recorded in [final-review.md](final-review.md). No second review was dispatched. All native/live release gates above remain open; this does not authorize distribution.

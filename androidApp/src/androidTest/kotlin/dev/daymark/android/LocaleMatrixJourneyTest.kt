@@ -39,6 +39,8 @@ class LocaleMatrixJourneyTest {
                 val status=if (language==LanguagePreference.AR) "حان وقت تسجيل الحضور" else "Ready to check in"
                 compose.waitUntil(10_000) { compose.onAllNodesWithText(status).fetchSemanticsNodes().isNotEmpty() }
                 compose.onNodeWithTag("today-check").performScrollTo().assertIsDisplayed()
+                for (tag in listOf("today-place","today-month-counts","today-week","today-report-state"))
+                    compose.onNodeWithTag(tag).performScrollTo().assertIsDisplayed()
                 verified+="${language.name}/${theme.name}"
             }
             Assert.assertEquals(4,verified.size)

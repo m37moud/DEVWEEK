@@ -71,4 +71,15 @@ class GoogleReportTransportTest {
         }
     }
 
+    @Test fun another_accounts_shared_report_is_not_adopted_during_discovery() = runTest {
+        HttpClient(MockEngine { request ->
+            val ownerOnly=request.url.parameters["q"]?.contains("'me' in owners")==true
+            // The same tracker report is shared from A to B; B must discover only B-owned reports.
+            val files=if (ownerOnly) "[]" else "[{\"id\":\"account-a-shared-report\"}]"
+            respond("{\"files\":$files}",headers=jsonHeaders)
+        }).use { client ->
+            assertEquals(ReportDiscovery.None,GoogleReportTransport(client).discover("personal-tracker","account-b-token"))
+        }
+    }
+
 }

@@ -85,7 +85,8 @@ class ReportJournalTest {
             val store=RoomReportStore(db,clock)
             val binding=ReportBinding(db.dao().tracker()!!.id,store.beginConnection()!!,"a","r",annualTabIds=mapOf(2026 to 3))
             store.bind(binding)
-            assertEquals("projection_too_large",assertFailsWith<ReportAccessException> { store.buildBatch(binding,100) }.errorKey)
+            assertNotNull(store.buildBatch(binding,100))
+            assertEquals(ReportField.NOTE,store.projectionIssues(binding).single().field)
             assertEquals(note,repo.loadDay(fixturePlan().key)!!.evidence!!.note)
             assertTrue(db.dao().dirtyProjections(binding.trackerId).any { it.projectionKey.startsWith("DAY:") && it.revision>it.acknowledgedRevision })
         } finally { db.close(); folder.toFile().deleteRecursively() }

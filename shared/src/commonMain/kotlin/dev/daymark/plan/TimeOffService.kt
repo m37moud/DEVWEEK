@@ -100,6 +100,8 @@ class TimeOffService(private val db: DaymarkDatabase, private val clock: Clock) 
         val delta = available - store.balance()
         return Proposal(next, TimeOffPreview(store.revision, affected.map { DayKey(store.tracker.id, it) },
             affected.map { store.outcome(it, next) }, delta, available,
-            if (delta < 0 && available < 0) PlanRejection.INSUFFICIENT_BALANCE else null))
+            if (delta < 0 && available < 0) PlanRejection.INSUFFICIENT_BALANCE else null,
+            changes=affected.map { date -> TimeOffDayChange(DayKey(store.tracker.id,date),store.outcome(date),
+                store.outcome(date,next),store.rows[date]?.evidence(),store.plan(date).category,store.plan(date).zoneId) }))
     }
 }

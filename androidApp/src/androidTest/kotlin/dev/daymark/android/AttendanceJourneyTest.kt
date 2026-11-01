@@ -62,7 +62,8 @@ class AttendanceJourneyTest {
         compose.onNodeWithTag("today-status").assertTextEquals("Late")
         compose.onNodeWithText("Location checked manually").assertExists()
         compose.onNodeWithTag("today-history").performScrollTo().performClick()
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("history-record-2026-10-27").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("history-root").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("history-root").performScrollToNode(hasTestTag("history-record-2026-10-27"))
         compose.onNodeWithTag("history-record-2026-10-27").performClick()
         compose.onNodeWithTag("correction-note").performTextReplacement("اجتماع / Meeting =1+2")
         compose.onNodeWithTag("correction-save").performClick()

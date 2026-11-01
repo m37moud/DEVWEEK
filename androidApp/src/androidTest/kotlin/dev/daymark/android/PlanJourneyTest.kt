@@ -42,7 +42,8 @@ class PlanJourneyTest {
             compose.waitUntil(10_000) { runBlocking { TimeOffService(fixture.db,fixture.clock).observeEntries().first().isNotEmpty() } }
             Assert.assertEquals(9,runBlocking { TimeOffService(fixture.db,fixture.clock).observeAvailableBalance().first() })
             compose.onNodeWithTag("nav-history").performClick()
-            compose.waitUntil(10_000) { compose.onAllNodesWithTag("history-record-2026-10-27").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("history-root").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("history-root").performScrollToNode(hasTestTag("history-record-2026-10-27"))
             compose.onNodeWithTag("history-record-2026-10-27").performClick()
             compose.onNodeWithTag("history-time-off-action").performClick()
             compose.waitUntil(10_000) { compose.onAllNodesWithTag("time-off-remove").fetchSemanticsNodes().isNotEmpty() }

@@ -51,6 +51,7 @@ import kotlin.time.Instant
                 SyncPassResult.AuthorizationRequired -> Res.string.report_auth_required
                 SyncPassResult.SchemaConflict -> Res.string.report_schema_conflict
                 SyncPassResult.ReportUnavailable -> Res.string.report_unavailable
+                SyncPassResult.ContentTooLarge -> Res.string.report_content_too_long
                 SyncPassResult.Pending -> Res.string.report_pending
                 SyncPassResult.Synced -> Res.string.report_observed_sync
                 else -> Res.string.report_ready
@@ -63,6 +64,11 @@ import kotlin.time.Instant
                 TextButton(enabled=!busy && !deleting,onClick={ confirm="rebuild" }) { Text(str(Res.string.report_rebuild)) }
             }
         } else Button(enabled=!busy && !deleting,onClick={ action { graph.connection.connect() } },modifier=Modifier.testTag("report-connect")) { Text(str(Res.string.report_connect)) }
+        health.issues.forEach { issue ->
+            val label=str(when (issue.field) { ReportField.NOTE -> Res.string.correction_note; ReportField.PROFILE_NAME -> Res.string.profile_name; ReportField.RECORD -> Res.string.edit_record })
+            val date=(issue.key as? ProjectionKey.Day)?.date?.let { DisplayFormats.date(it,language) }.orEmpty()
+            Text(str(Res.string.report_field_too_long,label,date),color=MaterialTheme.colorScheme.error,modifier=Modifier.testTag("report-content-error"))
+        }
         when (val result=health.connectionResult) {
             ConnectionResult.PendingCreation -> Text(str(Res.string.report_creation_pending))
             is ConnectionResult.SelectionRequired -> {

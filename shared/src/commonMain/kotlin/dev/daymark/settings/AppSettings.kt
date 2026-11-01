@@ -14,7 +14,7 @@ class SettingsRepository(private val db: DaymarkDatabase) {
         decode(row?.value).let { it.copy(displayName = tracker?.displayName ?: it.displayName) }
     }.distinctUntilChanged()
     suspend fun update(language: LanguagePreference? = null, theme: ThemePreference? = null, displayName: String? = null, remindersEnabled: Boolean? = null) = db.withWriteTransaction {
-        require(displayName == null || displayName.isNotBlank())
+        require(displayName == null || (displayName.isNotBlank() && !dev.daymark.reporting.exceedsReportTextLimit(displayName)))
         val before = decode(dao.setting("ui-settings")?.value)
         val after = before.copy(displayName = displayName ?: before.displayName, language = language ?: before.language, theme = theme ?: before.theme, remindersEnabled = remindersEnabled ?: before.remindersEnabled)
         if (after != before) dao.putSetting(SettingEntity("ui-settings", buildJsonObject {
