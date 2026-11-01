@@ -4,6 +4,7 @@ import DaymarkShared
 
 struct NativeProbeView: View {
     let googleAuth: NativeGoogleAuth
+    let reminders: ReminderPort
     @State private var message = "No reminder scheduled"
     @State private var scheduling = false
     @State private var googleBusy = false
@@ -12,11 +13,13 @@ struct NativeProbeView: View {
     var body: some View {
         VStack {
             ContentView()
-            Button("Schedule one reminder in 60 seconds") {
+            Button("Allow attendance reminders") {
                 scheduling = true
-                Task { @MainActor in
-                    message = await ReminderProbe.schedule()
-                    scheduling = false
+                reminders.requestPermission { allowed in
+                    Task { @MainActor in
+                        message = allowed.boolValue ? "Reminders allowed; tracker setup will plan the next 30 calendar days" : "Reminders denied; manual location checks remain available"
+                        scheduling = false
+                    }
                 }
             }
             .disabled(scheduling)
