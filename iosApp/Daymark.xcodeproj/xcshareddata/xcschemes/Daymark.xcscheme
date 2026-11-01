@@ -47,6 +47,16 @@
                ReferencedContainer = "container:Daymark.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "B817EC807EEF291F49ECCE56"
+               BuildableName = "DaymarkUITests.xctest"
+               BlueprintName = "DaymarkUITests"
+               ReferencedContainer = "container:Daymark.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

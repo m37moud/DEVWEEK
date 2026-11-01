@@ -4,6 +4,11 @@ import android.content.Context
 import androidx.room3.withWriteTransaction
 import androidx.work.WorkManager
 import dev.daymark.attendance.*
+import dev.daymark.app.AppGraph
+import dev.daymark.auth.GoogleAccess
+import dev.daymark.settings.SettingsRepository
+import dev.daymark.reminders.ReminderPort
+import dev.daymark.widgets.WidgetSink
 import dev.daymark.data.*
 import dev.daymark.location.*
 import dev.daymark.plan.*
@@ -19,9 +24,15 @@ class AndroidAppGraph(context: Context) {
     val clock: Clock = Clock.System
     val database: DaymarkDatabase by lazy { openAndroidDatabase(app) }
     val attendanceRepository by lazy { RoomAttendanceRepository(database, clock) }
-    val attendance by lazy { AttendanceService(attendanceRepository, AndroidLocationGateway(app), clock) }
+    val location by lazy { AndroidLocationGateway(app) }
+    val attendance by lazy { AttendanceService(attendanceRepository, location, clock) }
+    val settings by lazy { SettingsRepository(database) }
     val timeOff by lazy { TimeOffService(database, clock) }
     val plans by lazy { PlanService(database, clock) }
+    private var shared: AppGraph? = null
+    fun sharedGraph(permissions: LocationPermissionPort): AppGraph = shared ?: AppGraph(database, attendanceRepository, attendance,
+        timeOff, plans, RoomPlanReader(database, clock), settings, location, permissions,
+        GoogleAccess((app as DaymarkApplication).googleAuth), AndroidReminderPort, DevelopmentWidgetSink, clock).also { shared = it }
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val scheduler by lazy { AndroidAttendanceScheduler(WorkManager.getInstance(app), clock, scope) }
     private val failed = MutableStateFlow(false)
@@ -41,4 +52,16 @@ class AndroidAppGraph(context: Context) {
         if (!permitted()) database.dao().tracker()?.let { disableAutomation(it.id) }
         scheduler.replaceNextAwait(nextAttendance(clock.now(), RoomPlanReader(database, clock)))
     }
+}
+
+/** iOS reminders have no Android scheduler; automation uses the separate WorkManager adapter. */
+private object AndroidReminderPort : ReminderPort {
+    override fun requestPermission(completion: (Boolean) -> Unit) { completion(false) }
+    override fun replace(remindersJson: String, completion: (Boolean) -> Unit) { completion(false) }
+    override fun cancelTracker(trackerId: String, completion: (Boolean) -> Unit) { completion(true) }
+}
+/** Development-only boundary until Task 12 supplies the native widget cache. Never reports a publication success. */
+private object DevelopmentWidgetSink : WidgetSink {
+    override fun publish(json: String) = false
+    override fun clear() = false
 }

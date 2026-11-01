@@ -30,6 +30,7 @@ class SetupViewModelTest {
             vm.uiState.first { it.ready }
             vm.updateDraft(SetupDraft("أحمد / Ahmed", TrackerCategory.WORK, "المكتب", null, fixtureSchedule(), "١٢"))
             service.observeDraft().first { it.displayName == "أحمد / Ahmed" }
+            vm.uiState.first { it.draftSaved }
             vm.useCurrentLocation()
             val denied = vm.uiState.first { it.issue == SetupIssue.LOCATION_DENIED && !it.busy }
             assertNull(denied.draft.place)

@@ -8,13 +8,16 @@
 
 /* Begin PBXBuildFile section */
 		0727772FB2EB03F40AA01C7A /* ReminderAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E14D4A80BD4132E4A40CC451 /* ReminderAdapter.swift */; };
+		19F72CB20B8B338750558EE2 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = AF333920B9FE2EDC7BF75BF1 /* InfoPlist.strings */; };
 		254DD30C975249836FE2708C /* NativeGoogleAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 089CBA317D2C278AFDB707BC /* NativeGoogleAuth.swift */; };
 		2D104AFFF41DF30B77399D44 /* DaymarkProbeWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = D29CDCE99242362BA7C166CA /* DaymarkProbeWidget.swift */; };
 		304EEA8899F4249791BFAFE2 /* DaymarkApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89A406AB976811E7D3F84A82 /* DaymarkApp.swift */; };
 		3163313B16C58AEF03F327F3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B485124771DE109AA62C330 /* Foundation.framework */; };
 		494E9F9E27C09D0B75A1E5A8 /* GoogleAuthBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 474C528B98CCC0F7CB116346 /* GoogleAuthBridgeTests.swift */; };
+		52F1EFA489AE4F24C1F9EDB2 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B485124771DE109AA62C330 /* Foundation.framework */; };
 		6C6095F04DB1EFB86B2A74E5 /* AppAuth in Frameworks */ = {isa = PBXBuildFile; productRef = BDD1CCC001BF656A1E84B565 /* AppAuth */; };
 		7BE6E61B3F4EB0AF34DCDD24 /* NativeProbeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFBFEDFD90D8A8F10967DD0B /* NativeProbeView.swift */; };
+		7DD29D5C5E3BDD1009CA4979 /* SetupJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3F465BE06083360C9ABEDBB /* SetupJourneyTests.swift */; };
 		8587ADCB3454954E75A631EA /* ReminderAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5803C678B7E800416B849200 /* ReminderAdapterTests.swift */; };
 		96E69B63BBEFC9144F068FE8 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B28BD72393805C3C1F3DAACA /* ContentView.swift */; };
 		984D1A1226D8E8BFE9BB0141 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B485124771DE109AA62C330 /* Foundation.framework */; };
@@ -22,6 +25,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		2E9B864B6BF70479DD97234D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 28DE6316E9B470EFE1623FFA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3EFC6D7EE2FD71D8BD68E926;
+			remoteInfo = Daymark;
+		};
 		5C5E4775B0E49F949A54D4D3 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 28DE6316E9B470EFE1623FFA /* Project object */;
@@ -33,21 +43,25 @@
 
 /* Begin PBXFileReference section */
 		089CBA317D2C278AFDB707BC /* NativeGoogleAuth.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeGoogleAuth.swift; sourceTree = "<group>"; };
+		1F446ADE7DA32E7B67E0C413 /* ar */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = ar; path = ar.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		2018FADFBBB49CF2E6F098D3 /* DaymarkProbeWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DaymarkProbeWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		2D5EC3257B315C6BD5B2C883 /* DaymarkTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DaymarkTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		43156CA91BB685C9A33A5712 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		474C528B98CCC0F7CB116346 /* GoogleAuthBridgeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GoogleAuthBridgeTests.swift; sourceTree = "<group>"; };
+		5399623D570DFEDDCCB7DA1F /* DaymarkUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DaymarkUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5803C678B7E800416B849200 /* ReminderAdapterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReminderAdapterTests.swift; sourceTree = "<group>"; };
 		77FCD92B08655AAEE6A586D1 /* Configuration.defaults.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Configuration.defaults.xcconfig; sourceTree = "<group>"; };
 		7B485124771DE109AA62C330 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		85CE70D7E74C70B1C6E3B99F /* Daymark.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Daymark.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		89A406AB976811E7D3F84A82 /* DaymarkApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DaymarkApp.swift; sourceTree = "<group>"; };
 		A8AF390F635247ED1916129F /* Configuration.example.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Configuration.example.xcconfig; sourceTree = "<group>"; };
+		ABC39BEAB49122C1C97744F3 /* en */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		AFBFEDFD90D8A8F10967DD0B /* NativeProbeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeProbeView.swift; sourceTree = "<group>"; };
 		B07E43EE23DC95719D9394E9 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B28BD72393805C3C1F3DAACA /* ContentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		D29CDCE99242362BA7C166CA /* DaymarkProbeWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DaymarkProbeWidget.swift; sourceTree = "<group>"; };
 		E14D4A80BD4132E4A40CC451 /* ReminderAdapter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReminderAdapter.swift; sourceTree = "<group>"; };
+		E3F465BE06083360C9ABEDBB /* SetupJourneyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SetupJourneyTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -56,6 +70,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				99D07F5F7E978B206CA0C4FE /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		49F36EB556E3442BF4E68208 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52F1EFA489AE4F24C1F9EDB2 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -87,6 +109,7 @@
 				34F7BA52EBF807ACCA21290E /* Daymark */,
 				DC7CDF9B862258A265603316 /* DaymarkProbeWidget */,
 				848714A7022C2621B72189CF /* DaymarkTests */,
+				62E0B293DF4D3413260C9910 /* DaymarkUITests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -101,6 +124,7 @@
 				77FCD92B08655AAEE6A586D1 /* Configuration.defaults.xcconfig */,
 				A8AF390F635247ED1916129F /* Configuration.example.xcconfig */,
 				E14D4A80BD4132E4A40CC451 /* ReminderAdapter.swift */,
+				AF333920B9FE2EDC7BF75BF1 /* InfoPlist.strings */,
 			);
 			name = Daymark;
 			path = Daymark;
@@ -112,6 +136,15 @@
 				BBD9BD7BB2041CCA47D04062 /* iOS */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		62E0B293DF4D3413260C9910 /* DaymarkUITests */ = {
+			isa = PBXGroup;
+			children = (
+				E3F465BE06083360C9ABEDBB /* SetupJourneyTests.swift */,
+			);
+			name = DaymarkUITests;
+			path = DaymarkUITests;
 			sourceTree = "<group>";
 		};
 		848714A7022C2621B72189CF /* DaymarkTests */ = {
@@ -138,6 +171,7 @@
 				85CE70D7E74C70B1C6E3B99F /* Daymark.app */,
 				2018FADFBBB49CF2E6F098D3 /* DaymarkProbeWidget.appex */,
 				2D5EC3257B315C6BD5B2C883 /* DaymarkTests.xctest */,
+				5399623D570DFEDDCCB7DA1F /* DaymarkUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -211,6 +245,24 @@
 			productReference = 85CE70D7E74C70B1C6E3B99F /* Daymark.app */;
 			productType = "com.apple.product-type.application";
 		};
+		B817EC807EEF291F49ECCE56 /* DaymarkUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1B21C2A734EAE5C8FB987728 /* Build configuration list for PBXNativeTarget "DaymarkUITests" */;
+			buildPhases = (
+				A4BC86D35D1EDBCF4CFDA670 /* Sources */,
+				49F36EB556E3442BF4E68208 /* Frameworks */,
+				BB9663789CC77E30D428C073 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EA2BE3DE12695F1EB17F3E79 /* PBXTargetDependency */,
+			);
+			name = DaymarkUITests;
+			productName = DaymarkUITests;
+			productReference = 5399623D570DFEDDCCB7DA1F /* DaymarkUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -227,6 +279,7 @@
 			knownRegions = (
 				en,
 				Base,
+				ar,
 			);
 			mainGroup = 0422FE3BC9F74531E56B594C;
 			minimizedProjectReferenceProxies = 0;
@@ -241,6 +294,7 @@
 				3EFC6D7EE2FD71D8BD68E926 /* Daymark */,
 				2B3CACB57E864E9576DF1EC5 /* DaymarkProbeWidget */,
 				03C5ABF8860DCD4B2F06F200 /* DaymarkTests */,
+				B817EC807EEF291F49ECCE56 /* DaymarkUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -257,10 +311,18 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				19F72CB20B8B338750558EE2 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		8C14581C33817117F7AB2D1E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BB9663789CC77E30D428C073 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -292,6 +354,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		A4BC86D35D1EDBCF4CFDA670 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7DD29D5C5E3BDD1009CA4979 /* SetupJourneyTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C4DD9455554E8A2346D9E43D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -330,7 +400,25 @@
 			target = 3EFC6D7EE2FD71D8BD68E926 /* Daymark */;
 			targetProxy = 5C5E4775B0E49F949A54D4D3 /* PBXContainerItemProxy */;
 		};
+		EA2BE3DE12695F1EB17F3E79 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = Daymark;
+			target = 3EFC6D7EE2FD71D8BD68E926 /* Daymark */;
+			targetProxy = 2E9B864B6BF70479DD97234D /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		AF333920B9FE2EDC7BF75BF1 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				ABC39BEAB49122C1C97744F3 /* en */,
+				1F446ADE7DA32E7B67E0C413 /* ar */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		7656BA6867488E2A26171FC9 /* Debug */ = {
@@ -413,6 +501,21 @@
 			};
 			name = Debug;
 		};
+		8000D183FD43D975DD48A0AD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.daymark.app.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Daymark;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		AC225165F08D62F4E8D18335 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -455,6 +558,20 @@
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BE0FD72BCFB70845AA481D1C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.daymark.app.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Daymark;
 			};
 			name = Debug;
 		};
@@ -594,6 +711,15 @@
 			buildConfigurations = (
 				79DEB29DC53BD13E81FDC59A /* Debug */,
 				E9A6B824B80F9636D3DED610 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1B21C2A734EAE5C8FB987728 /* Build configuration list for PBXNativeTarget "DaymarkUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8000D183FD43D975DD48A0AD /* Release */,
+				BE0FD72BCFB70845AA481D1C /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

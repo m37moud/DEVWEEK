@@ -21,6 +21,7 @@ kotlin {
     jvm { compilerOptions { jvmTarget.set(JvmTarget.JVM_21) } }
     android {
         namespace = "dev.daymark.shared"
+        androidResources.enable = true
         compileSdk = 37
         minSdk = 26
         withHostTest { }
@@ -39,6 +40,7 @@ kotlin {
             implementation(libs.lifecycle.viewmodel)
             implementation(libs.lifecycle.runtime)
             implementation(libs.navigation3.ui)
+            implementation(libs.lifecycle.navigation3)
             implementation(libs.coroutines.core)
             implementation(libs.serialization.json)
             implementation(libs.datetime)
@@ -51,7 +53,7 @@ kotlin {
             implementation(libs.coroutines.test)
             implementation(libs.ktor.mock)
         }
-        androidMain.dependencies { implementation(libs.play.location); implementation(libs.ktor.android) }
+        androidMain.dependencies { implementation(libs.play.location); implementation(libs.ktor.android); implementation(libs.activity.compose) }
         iosMain.dependencies { implementation(libs.ktor.darwin) }
         jvmMain {
             kotlin.srcDir("src/androidMain/kotlin/dev/daymark/plan")

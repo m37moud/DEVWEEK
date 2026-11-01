@@ -1,0 +1,2 @@
+"CFBundleDisplayName" = "Daymark";
+"NSLocationWhenInUseUsageDescription" = "يستخدم Daymark موقعك الدقيق عند تسجيل مكان أو اختيار التحقق من الحضور. تُحذف إحداثيات التحقق بعد استخدامِها.";

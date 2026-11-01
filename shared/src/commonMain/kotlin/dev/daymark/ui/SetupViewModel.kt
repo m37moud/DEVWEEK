@@ -16,7 +16,7 @@ import kotlin.time.Duration.Companion.seconds
 enum class SetupIssue { INVALID_INPUT, LOCATION_DENIED, LOCATION_DISABLED, LOCATION_TIMEOUT, LOCATION_UNAVAILABLE,
     LOCATION_STALE, LOCATION_INACCURATE, LOCAL_SAVE_FAILED }
 data class SetupUiState(val draft: SetupDraft = SetupDraft(), val ready: Boolean = false, val busy: Boolean = false,
-    val completed: Boolean = false, val issue: SetupIssue? = null)
+    val completed: Boolean = false, val issue: SetupIssue? = null, val draftSaved: Boolean = false)
 
 class SetupViewModel(private val service: SetupService, private val location: LocationGateway, private val permissions: LocationPermissionPort,
     private val clock: Clock, scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)) : ViewModel(scope) {
@@ -30,14 +30,17 @@ class SetupViewModel(private val service: SetupService, private val location: Lo
                 val draft = saved.copy(category = saved.category ?: TrackerCategory.WORK, schedule = saved.schedule ?: WeeklySchedule(
                     setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY),
                     LocalTime(9, 0), emptyMap(), 5, TimeZone.currentSystemDefault().id))
-                state.value = SetupUiState(draft = draft, ready = true)
+                state.value = SetupUiState(draft = draft, ready = true, draftSaved = saved == draft)
                 if (saved != draft) writes.trySend(draft)
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { state.value = SetupUiState(ready = true, issue = SetupIssue.LOCAL_SAVE_FAILED) }
         }
         viewModelScope.launch {
             for (draft in writes) {
-                try { service.saveDraft(draft) }
+                try {
+                    service.saveDraft(draft)
+                    state.update { if (it.draft == draft) it.copy(draftSaved = true) else it }
+                }
                 catch (cancelled: CancellationException) { throw cancelled }
                 catch (_: Exception) { state.update { it.copy(issue = SetupIssue.LOCAL_SAVE_FAILED) } }
             }
@@ -45,7 +48,7 @@ class SetupViewModel(private val service: SetupService, private val location: Lo
     }
     fun updateDraft(draft: SetupDraft) {
         if (!state.value.ready || state.value.busy || state.value.completed) return
-        state.update { it.copy(draft = draft, issue = null) }
+        state.update { it.copy(draft = draft, issue = null, draftSaved = false) }
         writes.trySend(draft)
     }
     fun useCurrentLocation() {
@@ -81,7 +84,7 @@ class SetupViewModel(private val service: SetupService, private val location: Lo
                         if (issue != null) state.update { it.copy(issue = issue) }
                         else {
                             val draft = state.value.draft.copy(place = RegisteredPlace(result.latitude, result.longitude, state.value.draft.place?.radiusMetres ?: 100, 1))
-                            state.update { it.copy(draft = draft) }
+                            state.update { it.copy(draft = draft, draftSaved = false) }
                             writes.trySend(draft)
                         }
                     }

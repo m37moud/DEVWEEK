@@ -15,6 +15,6 @@ class MainActivity : ComponentActivity() {
         val permissions = app.locationPermissions?.also { it.attach(this) }
             ?: AndroidLocationPermissions(this).also { app.locationPermissions = it }
         val googleAuth = app.googleAuth.also { it.attach(this) }
-        setContent { DevelopmentHost(permissions, googleAuth) }
+        setContent { DaymarkHost(permissions, googleAuth) }
     }
 }

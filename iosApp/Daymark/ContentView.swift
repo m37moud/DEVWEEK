@@ -2,12 +2,17 @@ import SwiftUI
 import DaymarkShared
 
 struct ContentView: UIViewControllerRepresentable {
+    let auth: NativeGoogleAuth
+    let reminders: ReminderPort
+    let widget: WidgetSink
     func makeUIViewController(context: Context) -> UIViewController {
-#if DEBUG
-        NativeProbeViewControllerKt.NativeProbeViewController()
-#else
-        MainViewControllerKt.MainViewController()
-#endif
+        MainViewControllerKt.MainViewController(auth: auth, reminders: reminders, widget: widget)
     }
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) { }
+}
+
+// Development boundary until the native atomic widget sink is installed in Task 12. No publication is claimed.
+final class DevelopmentWidgetSink: NSObject, WidgetSink {
+    func publish(json: String) -> Bool { false }
+    func clear() -> Bool { false }
 }

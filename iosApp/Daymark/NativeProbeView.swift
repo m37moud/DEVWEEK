@@ -5,6 +5,7 @@ import DaymarkShared
 struct NativeProbeView: View {
     let googleAuth: NativeGoogleAuth
     let reminders: ReminderPort
+    var onClose: () -> Void = {}
     @State private var message = "No reminder scheduled"
     @State private var scheduling = false
     @State private var googleBusy = false
@@ -12,7 +13,8 @@ struct NativeProbeView: View {
 
     var body: some View {
         VStack {
-            ContentView()
+            Button("Return to Daymark", action: onClose)
+            DeveloperLocationView()
             Button("Allow attendance reminders") {
                 scheduling = true
                 reminders.requestPermission { allowed in
@@ -47,5 +49,9 @@ struct NativeProbeView: View {
         guard let client = Bundle.main.object(forInfoDictionaryKey: "DAYMARK_GOOGLE_IOS_CLIENT_ID") as? String else { return false }
         return client.hasSuffix(".apps.googleusercontent.com") && !client.contains("REPLACE")
     }
+}
+private struct DeveloperLocationView: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> UIViewController { NativeProbeViewControllerKt.NativeProbeViewController() }
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) { }
 }
 #endif

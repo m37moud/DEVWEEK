@@ -1,7 +1,11 @@
 package dev.daymark.android
 
 import androidx.compose.runtime.Composable
-import dev.daymark.app.BootstrapScreen
+import androidx.compose.ui.platform.LocalContext
+import dev.daymark.app.App
 
 @Composable
-internal fun DevelopmentHost(permissions: AndroidLocationPermissions, googleAuth: AndroidGoogleAuth) { BootstrapScreen() }
+internal fun DaymarkHost(permissions: AndroidLocationPermissions, googleAuth: AndroidGoogleAuth) {
+    val app = LocalContext.current.applicationContext as DaymarkApplication
+    App(app.graph.sharedGraph(permissions))
+}

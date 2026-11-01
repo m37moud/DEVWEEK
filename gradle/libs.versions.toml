@@ -1,6 +1,7 @@
 [versions]
 kotlin = "2.4.21"
 compose = "1.12.2"
+composeAndroid = "1.12.1"
 material3 = "1.9.0"
 navigation3 = "1.2.0"
 lifecycle = "2.11.0"
@@ -29,6 +30,9 @@ compose-material3 = { module = "org.jetbrains.compose.material3:material3", vers
 compose-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "compose" }
 navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
 lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+lifecycle-navigation3 = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "lifecycle" }
+compose-ui-test = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "composeAndroid" }
+compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "composeAndroid" }
 lifecycle-runtime = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
