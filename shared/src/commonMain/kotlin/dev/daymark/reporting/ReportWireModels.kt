@@ -4,7 +4,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration
 
-data class RemoteReport(val id: String, val tabIds: Map<String, Int>, val schemaVersion: Int?, val requiredRows: Map<String, Int> = emptyMap())
+data class RemoteReport(val id: String, val tabIds: Map<String, Int>, val schemaVersion: Int?, val requiredRows: Map<String, Int> = emptyMap(), val repairHeaders: Boolean = false)
 @Serializable
 data class RawRange(val a1: String, val cells: List<List<JsonPrimitive>>) {
     override fun toString(): String = "RawRange(cells=<redacted>)"

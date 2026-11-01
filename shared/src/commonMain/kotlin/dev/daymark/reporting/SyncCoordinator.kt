@@ -17,6 +17,7 @@ class SyncCoordinator(private val store: ReportStore,private val transport: Repo
     private val token: suspend () -> String?,private val zoneId: suspend () -> String,
     private val retry: SyncRetryPolicy = SyncRetryPolicy()) {
     private val drain = Mutex()
+    private var verifiedGeneration: String? = null
     suspend fun runPass(trigger: SyncTrigger): SyncPassResult = drain.withLock {
         val initial = store.activeBinding() ?: return@withLock SyncPassResult.Idle
         var binding = initial
@@ -39,7 +40,7 @@ class SyncCoordinator(private val store: ReportStore,private val transport: Repo
             if (!store.updateBinding(refreshed)) return@withLock SyncPassResult.StaleBinding
             binding=refreshed
             // Every new foreground/reconnect session reads clean rows too: a timed-out older request can arrive after an ACK.
-            if (session || trigger == SyncTrigger.CONNECTIVITY || state.error == "ambiguous") {
+            if (session || verifiedGeneration != binding.connectionGeneration || trigger == SyncTrigger.CONNECTIVITY || state.error == "ambiguous") {
                 val needsRepair = mutableSetOf<ProjectionKey>()
                 for (projection in local) {
                     val rows=projection.ranges.flatMap(::individualRows)
@@ -47,7 +48,7 @@ class SyncCoordinator(private val store: ReportStore,private val transport: Repo
                         val remote=transport.read(binding.remote(),chunk.map { it.a1 },access)
                         for (row in chunk) {
                             val actual=remote.ranges[row.a1] ?: throw ReportAccessException("report_read_failed")
-                            if (projection.key is ProjectionKey.Day && actual.isNotEmpty()) {
+                            if (!binding.repairRequested && projection.key is ProjectionKey.Day && actual.isNotEmpty()) {
                                 val cells=actual.first()
                                 if (cells.getOrNull(0)?.content?.takeIf { it.isNotEmpty() }?.let { it != binding.trackerId } == true ||
                                     cells.getOrNull(1)?.content?.takeIf { it.isNotEmpty() }?.let { it != projection.key.date.toString() } == true)
@@ -59,12 +60,16 @@ class SyncCoordinator(private val store: ReportStore,private val transport: Repo
                 }
                 if (store.activeBinding() != binding) return@withLock SyncPassResult.StaleBinding
                 store.markDirty(needsRepair)
+                verifiedGeneration=binding.connectionGeneration
             }
             var wrote=false
             // Bound one foreground pass; the lifecycle owner schedules continuation if history exceeds this budget.
             repeat(10) {
                 batch=store.buildBatch(binding,100)
-                val next=batch ?: return@withLock if (wrote) SyncPassResult.Synced else SyncPassResult.Idle
+                val next=batch ?: run {
+                    if (binding.repairRequested) store.updateBinding(binding.copy(repairRequested=false))
+                    return@withLock if (wrote) SyncPassResult.Synced else SyncPassResult.Idle
+                }
                 store.journalBeforeDispatch(next)
                 store.markDispatched(next)
                 val result=transport.write(binding.remote(),RawPatch(next.projections.flatMap { it.ranges }),access)

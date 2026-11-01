@@ -35,6 +35,7 @@
 		AA1020261027100000000001 /* AttendanceJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1020261027100000000002 /* AttendanceJourneyTests.swift */; };
 		AA1120261027100000000003 /* PlanJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1120261027100000000004 /* PlanJourneyTests.swift */; };
 		AA1120261027100000000005 /* LocaleJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1120261027100000000006 /* LocaleJourneyTests.swift */; };
+		B9511E95F48D73AC5E105610 /* GoogleConnectionJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83DCAB1C6508AE7AEA89BBEF /* GoogleConnectionJourneyTests.swift */; };
 		F4DB18F197F8D1CA4271BEEF /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACAF64875F590726E1EB833 /* WidgetSnapshot.swift */; };
 /* End PBXBuildFile section */
 
@@ -92,6 +93,7 @@
 		6EFD2D2C22BAAEDF6595AA3A /* WidgetSnapshotTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotTests.swift; sourceTree = "<group>"; };
 		77FCD92B08655AAEE6A586D1 /* Configuration.defaults.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Configuration.defaults.xcconfig; sourceTree = "<group>"; };
 		7B485124771DE109AA62C330 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		83DCAB1C6508AE7AEA89BBEF /* GoogleConnectionJourneyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GoogleConnectionJourneyTests.swift; sourceTree = "<group>"; };
 		85CE70D7E74C70B1C6E3B99F /* Daymark.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Daymark.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		89A406AB976811E7D3F84A82 /* DaymarkApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DaymarkApp.swift; sourceTree = "<group>"; };
 		8B87294F8C2A87E0D4EA290A /* WidgetJourneyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetJourneyTests.swift; sourceTree = "<group>"; };
@@ -206,6 +208,7 @@
 				AA1120261027100000000004 /* PlanJourneyTests.swift */,
 				AA1020261027100000000002 /* AttendanceJourneyTests.swift */,
 				8B87294F8C2A87E0D4EA290A /* WidgetJourneyTests.swift */,
+				83DCAB1C6508AE7AEA89BBEF /* GoogleConnectionJourneyTests.swift */,
 			);
 			name = DaymarkUITests;
 			path = DaymarkUITests;
@@ -472,6 +475,7 @@
 				AA1120261027100000000003 /* PlanJourneyTests.swift in Sources */,
 				AA1020261027100000000001 /* AttendanceJourneyTests.swift in Sources */,
 				95537A9862A257A012E27C29 /* WidgetJourneyTests.swift in Sources */,
+				B9511E95F48D73AC5E105610 /* GoogleConnectionJourneyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -110,4 +110,16 @@ class SyncCoordinatorTest {
         } finally { db.close(); folder.toFile().deleteRecursively() }
     }
 
+    @Test fun a_new_binding_is_verified_even_when_local_change_is_the_first_trigger(): Unit = runBlocking {
+        val folder=Files.createTempDirectory("daymark-sync-first-"); val db=openJvmDatabase(folder.resolve("test.db").toString())
+        try {
+            seedDatabase(db); val clock=TestClock(); val store=RoomReportStore(db,clock)
+            store.bind(ReportBinding(db.dao().tracker()!!.id,store.beginConnection()!!,"a","r",annualTabIds=emptyMap()))
+            val server=Server()
+            val sync=SyncCoordinator(store,server,clock,token={ "token" },zoneId={ "UTC" })
+            assertEquals(SyncPassResult.Synced,sync.runPass(SyncTrigger.LOCAL_CHANGE))
+            assertTrue(server.reads>0)
+        } finally { db.close(); folder.toFile().deleteRecursively() }
+    }
+
 }

@@ -7,8 +7,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ReportBinding(val trackerId: String, val connectionGeneration: String, val accountReference: String,
     val spreadsheetId: String, val schemaVersion: Int = 1, val annualTabIds: Map<Int, Int>,
-    val managedTabIds: Map<String, Int> = emptyMap()) {
-    fun remote() = RemoteReport(spreadsheetId, managedTabIds + annualTabIds.mapKeys { "Attendance ${it.key}" }, schemaVersion)
+    val managedTabIds: Map<String, Int> = emptyMap(), val repairRequested: Boolean = false) {
+    fun remote() = RemoteReport(spreadsheetId, managedTabIds + annualTabIds.mapKeys { "Attendance ${it.key}" }, schemaVersion, repairHeaders=repairRequested)
     override fun toString() = "ReportBinding(generation=$connectionGeneration, account=<redacted>)"
 }
 @Serializable

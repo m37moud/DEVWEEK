@@ -38,10 +38,26 @@ interface DaymarkDao {
     @Query("SELECT * FROM report_batches WHERE trackerId = :trackerId ORDER BY batchIdentity") suspend fun batches(trackerId: String): List<ReportBatchEntity>
     @Query("DELETE FROM report_batches WHERE batchIdentity = :identity") suspend fun deleteBatch(identity: String)
     @Upsert suspend fun putBatch(batch: ReportBatchEntity)
+    @Query("DELETE FROM attendance") suspend fun deleteAttendance()
+    @Query("DELETE FROM time_off") suspend fun deleteTimeOffRows()
+    @Query("DELETE FROM balance_adjustments") suspend fun deleteBalanceRows()
+    @Query("DELETE FROM report_batches") suspend fun deleteReportBatches()
+    @Query("DELETE FROM dirty_projections") suspend fun deleteDirtyRows()
+    @Query("DELETE FROM report_bindings") suspend fun deleteBindings()
+    @Query("DELETE FROM plan_versions") suspend fun deletePlanVersions()
+    @Query("DELETE FROM trackers") suspend fun deleteTrackers()
+    @Query("DELETE FROM settings") suspend fun deleteSettings()
+
 }
 
 /** Caller must hold a write transaction so data changes and projection revisions remain atomic. */
 internal suspend fun DaymarkDao.markDirty(trackerId: String, key: String) {
     val before = dirtyProjection(trackerId, key)
     putDirtyProjection(before?.copy(revision = before.revision + 1) ?: DirtyProjectionEntity(trackerId, key, 1))
+}
+
+/** Caller owns the write transaction. Failure rolls back every authoritative table together. */
+internal suspend fun DaymarkDao.deleteAllLocalRows() {
+    deleteAttendance(); deleteTimeOffRows(); deleteBalanceRows(); deleteReportBatches(); deleteDirtyRows()
+    deleteBindings(); deletePlanVersions(); deleteTrackers(); deleteSettings()
 }

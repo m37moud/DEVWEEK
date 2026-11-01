@@ -89,7 +89,7 @@ internal suspend fun GoogleReportTransport.prepareOwnedTemplate(report: RemoteRe
     }
     val ready=report.copy(tabIds=ids,schemaVersion=1)
     val oldTitles=titles.filter { it !in fresh }
-    if (oldTitles.isNotEmpty()) {
+    if (oldTitles.isNotEmpty() && !report.repairHeaders) {
         val ranges=oldTitles.map { title -> "'$title'!A1:${('A'.code+headers(title).first.size-1).toChar()}2" }
         val remote=read(ready,ranges,token)
         oldTitles.zip(ranges).forEach { (title,a1) ->
@@ -97,6 +97,16 @@ internal suspend fun GoogleReportTransport.prepareOwnedTemplate(report: RemoteRe
             val expected=listOf(machine.map(::JsonPrimitive),human.map(::JsonPrimitive))
             if (!sameCells(expected,remote.ranges[a1].orEmpty())) throw ReportAccessException("schema_conflict")
         }
+    }
+    if (report.repairHeaders) oldTitles.forEach { title ->
+        val (machine,human)=headers(title)
+        requests+=buildJsonObject { putJsonObject("updateCells") {
+            putJsonObject("start") { put("sheetId",ids.getValue(title)); put("rowIndex",0); put("columnIndex",0) }
+            put("fields","userEnteredValue")
+            putJsonArray("rows") { listOf(machine,human).forEach { row -> addJsonObject { putJsonArray("values") {
+                row.forEach { text -> addJsonObject { putJsonObject("userEnteredValue") { put("stringValue",text) } } }
+            } } } }
+        } }
     }
     if (requests.isNotEmpty()) {
         val updated=client.post("https://sheets.googleapis.com/v4/spreadsheets/${report.id}:batchUpdate") {

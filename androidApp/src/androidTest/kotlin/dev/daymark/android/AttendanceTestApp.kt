@@ -19,7 +19,7 @@ import kotlin.time.Instant
 internal class AttendanceTestApp(context: Context, name: String, private val widget: WidgetSink = object : WidgetSink {
     override fun publish(json: String) = false
     override fun clear() = true
-}) {
+},private val nativeAuth: NativeGoogleAuth? = null) {
     val db = openAndroidDatabase(context,name)
     var now = Instant.parse("2026-10-27T09:02:00Z")
     var locationRequests = 0
@@ -41,7 +41,7 @@ internal class AttendanceTestApp(context: Context, name: String, private val wid
     val graph: AppGraph by lazy {
         val repo = RoomAttendanceRepository(db,clock)
         AppGraph(db,repo,AttendanceService(repo,location,clock),TimeOffService(db,clock),PlanService(db,clock),RoomPlanReader(db,clock),
-            SettingsRepository(db),location,permissions,GoogleAccess(object : NativeGoogleAuth {
+            SettingsRepository(db),location,permissions,GoogleAccess(nativeAuth ?: object : NativeGoogleAuth {
                 override fun authorize(interactive: Boolean,completion: (NativeAuthReply) -> Unit) = error("Optional Google must not be needed")
                 override fun forget(completion: (Boolean) -> Unit) { completion(true) }
             }),object : ReminderPort {

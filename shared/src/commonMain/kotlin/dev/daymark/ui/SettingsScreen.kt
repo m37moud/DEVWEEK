@@ -71,6 +71,6 @@ import kotlinx.coroutines.launch
             health.reminderThrough?.let { Text(str(Res.string.horizon_through,DisplayFormats.date(it,language))) }
         }
         if (health.needsAttention) Text(str(Res.string.effects_failed),color = MaterialTheme.colorScheme.error)
-        Text(str(Res.string.google_optional))
+        GoogleConnectionSection(graph)
     }
 }

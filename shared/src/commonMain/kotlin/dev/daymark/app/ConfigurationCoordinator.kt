@@ -42,6 +42,9 @@ class ConfigurationCoordinator(private val db: DaymarkDatabase,private val clock
         }
         ConfigurationHealth(scheduleOk,remindersOk,onWidgetRefresh(language),reminderThrough)
     }
+    suspend fun cancelTracker(trackerId: String) = mutex.withLock {
+        check(awaitNative { reminders.cancelTracker(trackerId,it) }) { "reminder_cancel_failed" }
+    }
     private suspend fun awaitNative(action: ((Boolean) -> Unit) -> Unit): Boolean = withTimeoutOrNull(10.seconds) {
         suspendCancellableCoroutine { continuation -> action { result -> if (continuation.isActive) continuation.resume(result) } }
     } ?: false

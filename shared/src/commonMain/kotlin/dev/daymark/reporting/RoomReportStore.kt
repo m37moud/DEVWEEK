@@ -42,7 +42,7 @@ class RoomReportStore(private val db: DaymarkDatabase, private val clock: Clock)
         binding.accountReference,binding.spreadsheetId,binding.schemaVersion,json.encodeToString(binding)))
     override suspend fun updateBinding(binding: ReportBinding): Boolean = db.withWriteTransaction {
         val old = current()
-        if (old == null || old.copy(annualTabIds=binding.annualTabIds,managedTabIds=binding.managedTabIds) != binding) false
+        if (old == null || old.copy(annualTabIds=binding.annualTabIds,managedTabIds=binding.managedTabIds,repairRequested=if (old.repairRequested) binding.repairRequested else false) != binding) false
         else { putBinding(binding); true }
     }
     override suspend fun invalidateBinding() { beginConnection() }

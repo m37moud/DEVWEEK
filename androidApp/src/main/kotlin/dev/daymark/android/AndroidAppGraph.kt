@@ -15,6 +15,7 @@ import dev.daymark.widgets.initializeWidgetResources
 import dev.daymark.data.*
 import dev.daymark.location.*
 import dev.daymark.plan.*
+import dev.daymark.reporting.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,7 +25,7 @@ import kotlin.time.Clock
 
 class AndroidAppGraph(context: Context) {
     private val app = context.applicationContext
-    init { initializeWidgetResources(app) }
+    init { initializeWidgetResources(app); initializeReportConnectivity(app) }
     val clock: Clock = Clock.System
     val database: DaymarkDatabase by lazy { openAndroidDatabase(app) }
     val attendanceRepository by lazy { RoomAttendanceRepository(database, clock) }
@@ -36,10 +37,12 @@ class AndroidAppGraph(context: Context) {
     val widgetSink by lazy { AndroidWidgetPublisher(app) }
     val widgets by lazy { WidgetPublisher(database,attendanceRepository,widgetSink,clock) }
     fun requestWidgetUpdate() { scope.launch { try { DaymarkWidget().updateAll(app) } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { /* A future cache/app update can retry rendering. */ } } }
+    val auth by lazy { GoogleAccess((app as DaymarkApplication).googleAuth) }
+    val reporting by lazy { ReportingRuntime(database,auth,clock,attendanceRepository,enqueueNetwork={ enqueueReportSync(app) }) }
     private var shared: AppGraph? = null
     fun sharedGraph(permissions: LocationPermissionPort): AppGraph = shared ?: AppGraph(database, attendanceRepository, attendance,
         timeOff, plans, RoomPlanReader(database, clock), settings, location, permissions,
-        GoogleAccess((app as DaymarkApplication).googleAuth), AndroidReminderPort, widgetSink, clock, refreshSchedule = { recoverSafely(publishWidget = false) },widgetPublisher = widgets).also { shared = it }
+        auth, AndroidReminderPort, widgetSink, clock, refreshSchedule = { recoverSafely(publishWidget = false) },widgetPublisher = widgets,reportingRuntime=reporting,stopExternalWork={ stopExternal() }).also { shared = it }
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val scheduler by lazy { AndroidAttendanceScheduler(WorkManager.getInstance(app), clock, scope) }
     private val failed = MutableStateFlow(false)
@@ -49,6 +52,11 @@ class AndroidAppGraph(context: Context) {
         catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { failed.value = true; false }
     private val recoveryMutex = Mutex()
+    private suspend fun stopExternal() {
+        database.dao().tracker()?.let { scheduler.cancelTrackerAwait(it.id) }
+        withContext(Dispatchers.IO) { WorkManager.getInstance(app).cancelUniqueWork(REPORT_WORK).result.get() }
+        recoveryMutex.withLock { /* Wait for any older native recovery before the final widget clear. */ }
+    }
     private fun permitted(): Boolean = androidLocationCapabilities(app).let { it.foregroundGranted && it.preciseGranted && it.backgroundGranted }
     private suspend fun disableAutomation(trackerId: String) = database.withWriteTransaction {
         database.dao().tracker()?.takeIf { it.automaticEnabled && it.id == trackerId }?.let { database.dao().putTracker(it.copy(automaticEnabled = false, changeRevision = it.changeRevision + 1)) }
@@ -56,6 +64,7 @@ class AndroidAppGraph(context: Context) {
     fun attendanceJob() = AndroidAttendanceJob(attendance, ::permitted, ::disableAutomation, ::recover)
     suspend fun recover() = recoverInternal(publishWidget = true)
     private suspend fun recoverInternal(publishWidget: Boolean) = recoveryMutex.withLock {
+        if (shared?.dataLifecycle?.deleting?.value == true) return@withLock
         attendanceRepository.reconcile(clock.now())
         if (!permitted()) database.dao().tracker()?.let { disableAutomation(it.id) }
         scheduler.replaceNextAwait(nextAttendance(clock.now(), RoomPlanReader(database, clock)))
