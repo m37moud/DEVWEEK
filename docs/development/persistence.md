@@ -28,3 +28,13 @@ Gate command (JDK 21, one worker on this constrained machine):
 ```
 
 References: [Room KMP builders and bundled driver](https://developer.android.com/kotlin/multiplatform/room), [Room host/device testing](https://developer.android.com/training/data-storage/room/testing-db), and exact 3.0.3 runtime/plugin sources from Google Maven. The Room 3 plugin uses `room3 { schemaDirectory(...) }`.
+
+## Time-off and plan mutations (schema 2)
+
+Schema 2 adds a tracker change revision and nullable adjustment note. The explicit 1→2 migration retains all schema-1 rows; no destructive fallback is enabled. A real file created from the immutable exported schema-1 SQL verifies migration preservation.
+
+Time-off previews include resulting day outcomes and the balance difference. Applying a preview rechecks its revision within the same writer transaction as the leave entries, affected cached outcomes, and report dirty revisions. Attendance evidence and automatic-claim metadata remain underneath overlays. Removing leave does not reset an automatic attempt. Repeating an identical entry or available-balance target is a no-op. Adjustment notes retain literal user text.
+
+Vacation charges distinct scheduled Work dates, including future reservations; holidays, weekly days off, School, and Course dates consume none. Historical snapshots stay frozen. Approved schedule/category/place edits create a version effective next midnight in the current attendance zone. Future reservations are recalculated against that version; an increased deduction beyond the balance is rejected. A new-zone arrival already elapsed before activation is shown as Day off rather than creating a retrospective obligation or charge. The next valid window remains eligible.
+
+Record edits, inferred deadline transitions, calendar-date changes, plan activation, leave, and balance adjustments invalidate prior previews. A preview from an erased tracker cannot match a replacement tracker. Storage failure has a separate result from invalid whole-day input; SQL-trigger tests verify rollback of entries, balances, report revisions, and preview revision together.

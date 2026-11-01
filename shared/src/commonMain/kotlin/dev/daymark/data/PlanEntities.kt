@@ -13,7 +13,8 @@ data class SettingEntity(@PrimaryKey val key: String, val value: String) {
 }
 @Entity(tableName = "trackers", indices = [Index(value = ["singleton"], unique = true)])
 data class TrackerEntity(@PrimaryKey val id: String, val displayName: String, val createdAt: String,
-    val trackingStartsAt: String, val openingBalance: Int, val automaticEnabled: Boolean, val singleton: Int = 0) {
+    val trackingStartsAt: String, val openingBalance: Int, val automaticEnabled: Boolean, val singleton: Int = 0,
+    @ColumnInfo(defaultValue = "0") val changeRevision: Long = 0) {
     override fun toString() = "TrackerEntity(id=$id, metadata=<redacted>)"
 }
 @Entity(tableName = "plan_versions", primaryKeys = ["trackerId", "version"])
@@ -36,7 +37,10 @@ data class TimeOffEntity(@PrimaryKey val id: String, val trackerId: String, val 
     override fun toString() = "TimeOffEntity(id=$id, kind=$kind, note=<redacted>)"
 }
 @Entity(tableName = "balance_adjustments")
-data class BalanceAdjustmentEntity(@PrimaryKey val id: String, val trackerId: String, val delta: Int, val createdAt: String)
+data class BalanceAdjustmentEntity(@PrimaryKey val id: String, val trackerId: String, val delta: Int, val createdAt: String,
+    val note: String? = null) {
+    override fun toString() = "BalanceAdjustmentEntity(id=$id, delta=$delta, note=<redacted>)"
+}
 
 internal fun encodeSchedule(schedule: WeeklySchedule): String = buildJsonObject {
     put("days", JsonArray(schedule.days.sortedBy { it.ordinal }.map { JsonPrimitive(it.name) }))

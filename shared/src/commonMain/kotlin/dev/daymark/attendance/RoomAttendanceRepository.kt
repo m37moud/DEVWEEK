@@ -81,6 +81,13 @@ class RoomAttendanceRepository(private val db: DaymarkDatabase, private val cloc
         val start = Instant.parse(context.tracker.trackingStartsAt)
         var date = start.toLocalDateTime(TimeZone.of(context.versions.first().schedule().zoneId)).date
         val today = now.toLocalDateTime(TimeZone.of(context.active.schedule().zoneId)).date
+        val clockKey = "planning-clock:${context.tracker.id}"
+        val clockValue = "$today:${context.active.version}"
+        if (dao.setting(clockKey)?.value != clockValue) {
+            dao.putSetting(SettingEntity(clockKey, clockValue))
+            dao.advanceRevision(context.tracker.id)
+            dao.markDirty(context.tracker.id, "OVERVIEW")
+        }
         val inserted = mutableSetOf<String>()
         while (date <= today) {
             if (date.toString() !in rows) {
@@ -199,9 +206,7 @@ class RoomAttendanceRepository(private val db: DaymarkDatabase, private val cloc
     }
     private fun project(context: Context, key: DayKey, now: Instant): AttendanceEntity? {
         if (key.trackerId != context.tracker.id) return null
-        val version = context.versions.filter { LocalDate.parse(it.effectiveDate) <= key.date }
-            .maxWithOrNull(compareBy<PlanVersionEntity> { LocalDate.parse(it.effectiveDate) }.thenBy { it.version }) ?: return null
-        val plan = resolveDay(key, version.schedule(), TrackerCategory.valueOf(version.category), version.place(), version.version)
+        val plan = projectedPlan(context.versions, key) ?: return null
         return AttendanceEntity.fromPlan(plan, now)
     }
     private fun stored(row: AttendanceEntity, entries: List<TimeOffEntity>): StoredDay {
@@ -220,6 +225,7 @@ class RoomAttendanceRepository(private val db: DaymarkDatabase, private val cloc
         if (before != null && cached == before) return before
         val saved = cached.copy(revision = (before?.revision ?: 0) + 1, updatedAt = now.toString())
         dao.putDay(saved)
+        dao.advanceRevision(saved.trackerId)
         dao.markDirty(saved.trackerId, "DAY:${saved.date}")
         dao.markDirty(saved.trackerId, "OVERVIEW")
         return saved
