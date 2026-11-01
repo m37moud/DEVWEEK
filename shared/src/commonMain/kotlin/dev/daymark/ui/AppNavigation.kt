@@ -15,21 +15,23 @@ import dev.daymark.app.*
 import dev.daymark.data.TrackerEntity
 import dev.daymark.resources.*
 import dev.daymark.settings.*
+import kotlinx.datetime.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.*
 
 @Serializable data object SetupRoute : NavKey
 @Serializable data object TodayRoute : NavKey
+@Serializable data class HistoryRoute(val year: Int, val month: Int) : NavKey
 private val navigationConfig = SavedStateConfiguration {
     serializersModule = SerializersModule { polymorphic(NavKey::class) {
-        subclass(SetupRoute::class, SetupRoute.serializer()); subclass(TodayRoute::class, TodayRoute.serializer())
+        subclass(SetupRoute::class, SetupRoute.serializer()); subclass(TodayRoute::class, TodayRoute.serializer()); subclass(HistoryRoute::class, HistoryRoute.serializer())
     } }
 }
 @Composable fun AppNavigation(graph: AppGraph, tracker: TrackerEntity?, settings: AppSettings) {
     val stack = rememberNavBackStack(navigationConfig, if (tracker == null) SetupRoute else TodayRoute)
     LaunchedEffect(tracker?.id) {
         val destination = if (tracker == null) SetupRoute else TodayRoute
-        if (stack.lastOrNull() != destination) { stack.clear(); stack.add(destination) }
+        if ((tracker == null && stack.lastOrNull() != SetupRoute) || (tracker != null && stack.lastOrNull() == SetupRoute)) { stack.clear(); stack.add(destination) }
     }
     LaunchedEffect(graph, tracker?.id) { QuickCheckIntents.events.collect {
         val current = if (tracker == null) SetupRoute else TodayRoute
@@ -43,12 +45,12 @@ private val navigationConfig = SavedStateConfiguration {
                 SetupScreen(model, graph, settings)
             }
             entry<TodayRoute> {
-                Column(Modifier.fillMaxSize().padding(24.dp).testTag("today-root"), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                    PreferenceControls(graph, settings)
-                    Text(str(Res.string.welcome_name, isolated(tracker?.displayName.orEmpty())), style = MaterialTheme.typography.headlineLarge)
-                    Text(str(Res.string.routine_ready), style = MaterialTheme.typography.titleLarge)
-                    Text(str(Res.string.local_records), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                val model = viewModel { TodayViewModel(graph.repository, graph.attendance, graph.planReader, graph.permissions, graph.clock) }
+                TodayScreen(model, tracker?.displayName.orEmpty(), onHistory = { model.uiState.value.date?.let { stack.add(HistoryRoute(it.year, it.month.number)) } })
+            }
+            entry<HistoryRoute> { route ->
+                val model = viewModel { HistoryViewModel(graph.repository, LocalDate(route.year, route.month, 1)) }
+                HistoryScreen(model, onBack = { stack.removeLastOrNull() }, onEditTimeOff = { stack.removeLastOrNull() })
             }
         })
 }
