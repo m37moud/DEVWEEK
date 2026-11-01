@@ -272,7 +272,7 @@ Also assert radius 100/accuracy 50 are inclusive, 50.001 accuracy fails, negativ
 - `StoredDay(plan: DayPlan, evidence: AttendanceEvidence?, off: TimeOffKind?, automaticState: AutomaticState, revision: Long)` uses `UNCLAIMED/CLAIMED/FINISHED/INTERRUPTED`. `ClaimResult` is `Claimed(day: StoredDay, attemptId: String)/AlreadyConsumed/Ineligible`; `Correction(key: DayKey, status: AttendanceStatus, arrivalTime: LocalTime?, note: String?)`; `CheckCommit(key: DayKey, attemptId: String?, expectedScheduleVersion: Long, expectedPlaceVersion: Long, verdict: FixVerdict, mode: CheckMode, updatedAt: Instant)`; `CheckOutcome` is `Recorded/Rejected/AlreadyRecorded/StateChanged/Busy`, carrying `currentDay: DayOutcome?` and an optional `CheckRejection` when relevant.
 - Produces: `AttendanceService.manualCheck(): CheckOutcome` and `runAutomatic(key: DayKey): CheckOutcome`. These load/claim, acquire outside the DB transaction, and commit only after revalidation.
 
-- [ ] **Step 1: Write actual database/service failure tests.** Unique `(trackerId,date)` survives concurrent inserts; two automatic claims yield one `Claimed`; kill/reopen after claim consumes it; a manual correction or time-off overlay during acquisition wins; failure cannot downgrade Present; earlier successful evidence wins; local record and dirty date/Overview revisions commit or roll back together (RF2). The service test injects a fake location gateway and asserts zero requests for stale/claimed/off days.
+- [x] **Step 1: Write actual database/service failure tests.** Unique `(trackerId,date)` survives concurrent inserts; two automatic claims yield one `Claimed`; kill/reopen after claim consumes it; a manual correction or time-off overlay during acquisition wins; failure cannot downgrade Present; earlier successful evidence wins; local record and dirty date/Overview revisions commit or roll back together (RF2). The service test injects a fake location gateway and asserts zero requests for stale/claimed/off days.
 
 ```kotlin
 // AttendanceTransactionTest.claim_is_unique_and_remains_consumed_after_reopen
@@ -286,10 +286,12 @@ assertEquals(AttendanceStatus.ABSENT, outcome.status)
 assertEquals(beforeAttendanceRevision, afterAttendanceRevision)
 assertEquals(beforeDirtyRevisions, afterDirtyRevisions)
 ```
-- [ ] **Step 2: Run red on host plus iOS reopen tests.** Use a real temporary bundled SQLite database for persistence tests, not an in-memory fake of transaction semantics.
-- [ ] **Step 3: Implement the database/repository/service.** Tables cover settings/setup draft, tracker/versioned expectations, attendance/claim/underlying evidence, time-off entries, balance adjustments, report binding, dirty projections, and in-flight batches. Store dates/instants canonically; preserve row/connection revisions. Use Room transactions for claims and revalidation. Persist only verdict metadata, not raw check coordinates. Cancellation after claim cannot release it.
-- [ ] **Step 4: Verify passing tests and cold reopen.** Include setup after today's deadline creating no retroactive automatic absence; explicit today correction still works. Reconcile missed dates using historical versions, never GPS. Database failures expose a local-save error, not a success message. No destructive migration fallback is configured.
-- [ ] **Step 5: Commit schema and transactional behavior.** `feat: persist authoritative attendance and consumed automatic attempts`.
+- [x] **Step 2: Run red on host plus iOS reopen tests.** Use a real temporary bundled SQLite database for persistence tests, not an in-memory fake of transaction semantics.
+- [x] **Step 3: Implement the database/repository/service.** Tables cover settings/setup draft, tracker/versioned expectations, attendance/claim/underlying evidence, time-off entries, balance adjustments, report binding, dirty projections, and in-flight batches. Store dates/instants canonically; preserve row/connection revisions. Use Room transactions for claims and revalidation. Persist only verdict metadata, not raw check coordinates. Cancellation after claim cannot release it.
+- [x] **Step 4: Verify passing tests and cold reopen.** Include setup after today's deadline creating no retroactive automatic absence; explicit today correction still works. Reconcile missed dates using historical versions, never GPS. Database failures expose a local-save error, not a success message. No destructive migration fallback is configured.
+- [x] **Step 5: Commit schema and transactional behavior.** `feat: persist authoritative attendance and consumed automatic attempts`.
+
+**Execution rulings:** real persistence tests use the supported JVM Room target plus iOS files, with Android wiring retained for device acceptance. `StoredDay.userEditRevision` and `CheckCommit.expectedUserEditRevision` fence user-edit ABA without rejecting earlier concurrent GPS evidence. `CheckRejection.LOCAL_SAVE_FAILED` distinguishes unsuccessful storage from sensor failures. See `docs/development/persistence.md`.
 
 ### Task 6: Retrospective time off, balance adjustments, and future-effective plan changes
 
