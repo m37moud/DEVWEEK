@@ -15,6 +15,7 @@
 		2D104AFFF41DF30B77399D44 /* DaymarkProbeWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = D29CDCE99242362BA7C166CA /* DaymarkProbeWidget.swift */; };
 		304EEA8899F4249791BFAFE2 /* DaymarkApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89A406AB976811E7D3F84A82 /* DaymarkApp.swift */; };
 		3163313B16C58AEF03F327F3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B485124771DE109AA62C330 /* Foundation.framework */; };
+		4285BD5E7091A907669C775F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2B2C75AE30FD472ADF7ADA61 /* PrivacyInfo.xcprivacy */; };
 		494E9F9E27C09D0B75A1E5A8 /* GoogleAuthBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 474C528B98CCC0F7CB116346 /* GoogleAuthBridgeTests.swift */; };
 		52F1EFA489AE4F24C1F9EDB2 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B485124771DE109AA62C330 /* Foundation.framework */; };
 		5372631C7924BAB5D9C6CEFF /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACAF64875F590726E1EB833 /* WidgetSnapshot.swift */; };
@@ -31,6 +32,7 @@
 		984D1A1226D8E8BFE9BB0141 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B485124771DE109AA62C330 /* Foundation.framework */; };
 		99D07F5F7E978B206CA0C4FE /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B485124771DE109AA62C330 /* Foundation.framework */; };
 		A119481AA23D432216F0F5EF /* WidgetSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EFD2D2C22BAAEDF6595AA3A /* WidgetSnapshotTests.swift */; };
+		A5FDE6ABF6ACBF19E00817B0 /* LocaleMatrixJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24ADA9BA4EA48D88BF239EB6 /* LocaleMatrixJourneyTests.swift */; };
 		A785D56CCA875D2F19204F33 /* WidgetSnapshotFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FED3E378E6B0337833DC3AD /* WidgetSnapshotFixtures.swift */; };
 		AA1020261027100000000001 /* AttendanceJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1020261027100000000002 /* AttendanceJourneyTests.swift */; };
 		AA1120261027100000000003 /* PlanJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1120261027100000000004 /* PlanJourneyTests.swift */; };
@@ -82,7 +84,9 @@
 		142334A597DA331C36EB7466 /* DaymarkWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DaymarkWidget.swift; sourceTree = "<group>"; };
 		1F446ADE7DA32E7B67E0C413 /* ar */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = ar; path = ar.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		2018FADFBBB49CF2E6F098D3 /* DaymarkProbeWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DaymarkProbeWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		24ADA9BA4EA48D88BF239EB6 /* LocaleMatrixJourneyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocaleMatrixJourneyTests.swift; sourceTree = "<group>"; };
 		2A186A6EF02CEC40DB19C45F /* DaymarkWidget.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = DaymarkWidget.entitlements; sourceTree = "<group>"; };
+		2B2C75AE30FD472ADF7ADA61 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		2D5EC3257B315C6BD5B2C883 /* DaymarkTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DaymarkTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		318ADA63373B7AD5E7E63C49 /* Daymark.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Daymark.entitlements; sourceTree = "<group>"; };
 		43156CA91BB685C9A33A5712 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -187,6 +191,7 @@
 				AF333920B9FE2EDC7BF75BF1 /* InfoPlist.strings */,
 				B0CC7966612A5A4FC82B7A5E /* WidgetSnapshotWriter.swift */,
 				318ADA63373B7AD5E7E63C49 /* Daymark.entitlements */,
+				2B2C75AE30FD472ADF7ADA61 /* PrivacyInfo.xcprivacy */,
 			);
 			name = Daymark;
 			path = Daymark;
@@ -209,6 +214,7 @@
 				AA1020261027100000000002 /* AttendanceJourneyTests.swift */,
 				8B87294F8C2A87E0D4EA290A /* WidgetJourneyTests.swift */,
 				83DCAB1C6508AE7AEA89BBEF /* GoogleConnectionJourneyTests.swift */,
+				24ADA9BA4EA48D88BF239EB6 /* LocaleMatrixJourneyTests.swift */,
 			);
 			name = DaymarkUITests;
 			path = DaymarkUITests;
@@ -424,6 +430,7 @@
 			files = (
 				19F72CB20B8B338750558EE2 /* InfoPlist.strings in Resources */,
 				168741C2DC802DA6CBA6AD1B /* Localizable.xcstrings in Resources */,
+				4285BD5E7091A907669C775F /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -476,6 +483,7 @@
 				AA1020261027100000000001 /* AttendanceJourneyTests.swift in Sources */,
 				95537A9862A257A012E27C29 /* WidgetJourneyTests.swift in Sources */,
 				B9511E95F48D73AC5E105610 /* GoogleConnectionJourneyTests.swift in Sources */,
+				A5FDE6ABF6ACBF19E00817B0 /* LocaleMatrixJourneyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

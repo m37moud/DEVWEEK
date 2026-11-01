@@ -26,7 +26,7 @@ class SyncCoordinator(private val store: ReportStore,private val transport: Repo
             var state = store.retryState(binding)
             val session = trigger in setOf(SyncTrigger.LAUNCH,SyncTrigger.RESUME,SyncTrigger.RECONNECT,SyncTrigger.ANDROID_WORK)
             if (state.nextAt?.let { it > clock.now() } == true) return@withLock SyncPassResult.Pending
-            if (session) { state=RetryState(); store.saveRetry(binding,0,null,null) }
+            if (session) { state=RetryState(); store.saveRetry(binding,state.attempts,null,null) }
             if (state.attempts >= 6) return@withLock SyncPassResult.Pending
             if (!session && state.error in setOf("authorization_required","schema_conflict","report_unavailable"))
                 return@withLock errorResult(state.error!!)
@@ -75,7 +75,7 @@ class SyncCoordinator(private val store: ReportStore,private val transport: Repo
                 val result=transport.write(binding.remote(),RawPatch(next.projections.flatMap { it.ranges }),access)
                 if (store.activeBinding() != binding) return@withLock SyncPassResult.StaleBinding
                 when (result) {
-                    RemoteWriteOutcome.Acknowledged -> { store.acknowledge(next); wrote=true; batch=null; store.saveRetry(binding,0,null,null) }
+                    RemoteWriteOutcome.Acknowledged -> { store.acknowledge(next); wrote=true; batch=null; store.saveRetry(binding,state.attempts,null,null) }
                     RemoteWriteOutcome.Ambiguous, is RemoteWriteOutcome.Retryable -> {
                         store.markAmbiguous(next)
                         val delay=retry.nextDelay(state.attempts,(result as? RemoteWriteOutcome.Retryable)?.retryAfter)

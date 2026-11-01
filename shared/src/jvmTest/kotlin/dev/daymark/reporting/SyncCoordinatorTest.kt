@@ -122,4 +122,26 @@ class SyncCoordinatorTest {
         } finally { db.close(); folder.toFile().deleteRecursively() }
     }
 
+    @Test fun successful_batches_do_not_reset_the_active_session_transient_budget(): Unit = runBlocking {
+        val folder=Files.createTempDirectory("daymark-sync-budget-"); val db=openJvmDatabase(folder.resolve("test.db").toString())
+        try {
+            seedDatabase(db); val clock=TestClock(); val store=RoomReportStore(db,clock)
+            store.bind(ReportBinding(db.dao().tracker()!!.id,store.beginConnection()!!,"a","r",annualTabIds=emptyMap()))
+            val server=Server()
+            val sync=SyncCoordinator(store,server,clock,token={ "token" },zoneId={ "UTC" },retry=SyncRetryPolicy { kotlin.time.Duration.ZERO })
+            repeat(6) { attempt ->
+                server.reject=true
+                store.markDirty(setOf(ProjectionKey.Overview))
+                assertEquals(SyncPassResult.Pending,sync.runPass(if (attempt==0) SyncTrigger.LAUNCH else SyncTrigger.LOCAL_CHANGE))
+                clock.value+=2.minutes
+                server.reject=false
+                sync.runPass(SyncTrigger.RETRY)
+            }
+            assertEquals(6,store.retryState(store.activeBinding()!!).attempts)
+            val dispatched=server.writes
+            assertEquals(SyncPassResult.Pending,sync.runPass(SyncTrigger.RETRY))
+            assertEquals(dispatched,server.writes)
+        } finally { db.close(); folder.toFile().deleteRecursively() }
+    }
+
 }

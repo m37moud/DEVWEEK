@@ -26,7 +26,17 @@ class WidgetJourneyTest {
         val folder = File(context.noBackupFilesDir,"widget-test-$id").apply { mkdirs() }
         val file = File(folder,"snapshot.json")
         val sink = AndroidWidgetPublisher(context,file,onChanged = {})
-        val fixture = AttendanceTestApp(context,name,sink)
+        val publications=java.util.concurrent.CopyOnWriteArrayList<String>()
+        val trackedSink=object : dev.daymark.widgets.WidgetSink {
+            override fun publish(json: String): Boolean {
+                val snapshot=dev.daymark.widgets.decodeWidgetSnapshot(json)
+                val saved=sink.publish(json)
+                publications+="${snapshot?.statusCode}:${snapshot?.attendanceDate}:${snapshot?.effectiveLocale}:$saved"
+                return saved
+            }
+            override fun clear()=sink.clear()
+        }
+        val fixture = AttendanceTestApp(context,name,trackedSink)
         var shown by mutableStateOf(true)
         try {
             runBlocking {
@@ -49,11 +59,15 @@ class WidgetJourneyTest {
                 Assert.assertNull(fixture.graph.repository.loadDay(DayKey(current.plan.key.trackerId,LocalDate(2026,10,27)))?.evidence)
             }
             Assert.assertEquals(1,fixture.locationRequests)
-            compose.waitUntil(10_000) { AndroidWidgetPublisher.readFile(file)?.statusCode == "LATE" }
+            try { compose.waitUntil(10_000) { AndroidWidgetPublisher.readFile(file)?.statusCode == "LATE" } }
+            catch (failure: Exception) {
+                throw AssertionError("Widget cache status=${AndroidWidgetPublisher.readFile(file)?.statusCode}; publications=$publications; trackerRevision=${runBlocking { fixture.db.dao().tracker()?.changeRevision }}",failure)
+            }
             compose.onNodeWithTag("nav-settings").performClick()
             compose.waitUntil(10_000) { compose.onAllNodesWithTag("settings-language-en").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("settings-language-en").performScrollTo().performClick()
-            compose.waitUntil(10_000) { AndroidWidgetPublisher.readFile(file)?.effectiveLocale == "en" }
+            try { compose.waitUntil(10_000) { AndroidWidgetPublisher.readFile(file)?.effectiveLocale == "en" } }
+            catch (failure: Exception) { throw AssertionError("Expected English widget; publications=$publications; current=${AndroidWidgetPublisher.readFile(file)?.effectiveLocale}",failure) }
             Assert.assertEquals("2026-10-28",AndroidWidgetPublisher.readFile(file)!!.attendanceDate)
             Assert.assertEquals("Late",AndroidWidgetPublisher.readFile(file)!!.displayStatus)
             Assert.assertEquals(1,fixture.locationRequests)
