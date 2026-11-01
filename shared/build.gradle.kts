@@ -28,6 +28,7 @@ kotlin {
             implementation(libs.compose.resources)
             implementation(libs.coroutines.core)
             implementation(libs.serialization.json)
+            implementation(libs.datetime)
             implementation(libs.ktor.core)
         }
         commonTest.dependencies {

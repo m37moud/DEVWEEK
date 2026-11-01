@@ -239,7 +239,7 @@ assertEquals(setOf("https://www.googleapis.com/auth/drive.file"), requestedScope
 - Produces: `AttendanceStatus` (`SCHEDULED/AWAITING_CHECK/PRESENT/LATE/ABSENT/DAY_OFF/HOLIDAY/VACATION`), `AttendanceSource` (`NONE/AUTOMATIC_GPS/MANUAL_GPS/MANUAL_CORRECTION/MANUAL_TIME_OFF`), `CheckMode` (`AUTOMATIC/USER_INITIATED`), `AttendanceEvidence(status: AttendanceStatus, source: AttendanceSource, confirmedAt: Instant?, note: String?, updatedAt: Instant)`, and `DayOutcome(status: AttendanceStatus, source: AttendanceSource, confirmedAt: Instant?, offReason: TimeOffKind?)`; `TimeOffKind` is `HOLIDAY/VACATION`.
 - Produces: `resolveLocalArrival(date: LocalDate, time: LocalTime, zoneId: String): Instant`, `resolveDay(key: DayKey, schedule: WeeklySchedule, category: TrackerCategory, place: RegisteredPlace, scheduleVersion: Long): DayPlan`, `evaluateDay(plan: DayPlan, evidence: AttendanceEvidence?, off: TimeOffKind?, now: Instant): DayOutcome`, and `classifyFix(plan: DayPlan, fix: LocationResult.Fix, mode: CheckMode, now: Instant): FixVerdict`. `FixVerdict` is `Accepted(status: AttendanceStatus, confirmedAt: Instant)` or `Rejected(reason: CheckRejection)`; `TrackerCategory` is `WORK/SCHOOL/COURSE`. Define `CheckRejection` for `BEFORE_WINDOW/AFTER_AUTOMATIC_WINDOW/STALE_FIX/INVALID_FIX/INACCURATE_FIX/OUTSIDE_AREA/NO_TRACKER/DAY_OFF/LOCATION_DENIED/LOCATION_DISABLED/LOCATION_TIMEOUT/UNAVAILABLE/CANCELLED/STATE_CHANGED`.
 
-- [ ] **Step 1: Add explicit boundary assertions.** `fixturePlan()` uses 27 October 2026, UTC, 09:00, grace 5, radius 100, and a fixed tracker UUID; `fixtureFix()` defaults to the registered center, accuracy 10 m, and age zero. Pin the central rule:
+- [x] **Step 1: Add explicit boundary assertions.** `fixturePlan()` uses 27 October 2026, UTC, 09:00, grace 5, radius 100, and a fixed tracker UUID; `fixtureFix()` defaults to the registered center, accuracy 10 m, and age zero. Pin the central rule:
 
 ```kotlin
 // AttendanceRulesTest.inclusive_grace_and_freshness
@@ -251,10 +251,12 @@ assertEquals(CheckRejection.STALE_FIX, assertIs<FixVerdict.Rejected>(stale).reas
 ```
 
 Also assert radius 100/accuracy 50 are inclusive, 50.001 accuracy fails, negative/NaN/infinite/unknown/future sample data fails, pre-arrival capture fails, and an automatic post-deadline sample cannot yield Late (RF1). Define `at(localTime: String): Instant` and `acceptedStatus(plan, localTime, mode)` only as test fixtures. `fixtureFix` defaults its capture to 09:02 and receipt to capture plus `ageSeconds`, keeping stale-age tests internally consistent.
-- [ ] **Step 2: Run both test classes red.** Expected: missing pure rule/resolution functions or their behavioral failures.
-- [ ] **Step 3: Implement pure rules and native zone resolution.** Use distance-to-registered-center plus the separate accuracy threshold. Resolve a DST gap to the first valid instant and an overlap to the earlier instant, using Java zone rules and Foundation calendar matching policies; do not rely on a default resolver that shifts a nonexistent 02:30 to 03:30.
-- [ ] **Step 4: Verify host and iOS tests.** Pin `America/New_York` 8 March 2026 02:30 → 07:00Z and 1 November 2026 01:30 → 05:30Z; Thursday override 09:30; zero grace; empty weekdays rejection; fixed attendance-zone behavior after travel; and Gregorian date identity after locale change (RF3). Expected: identical results on both targets.
-- [ ] **Step 5: Commit.** `feat: define deterministic attendance and schedule rules`.
+- [x] **Step 2: Run both test classes red.** Expected: missing pure rule/resolution functions or their behavioral failures.
+- [x] **Step 3: Implement pure rules and native zone resolution.** Use distance-to-registered-center plus the separate accuracy threshold. Resolve a DST gap to the first valid instant and an overlap to the earlier instant, using Java zone rules and Foundation calendar matching policies; do not rely on a default resolver that shifts a nonexistent 02:30 to 03:30.
+- [x] **Step 4: Verify host and iOS tests.** Pin `America/New_York` 8 March 2026 02:30 → 07:00Z and 1 November 2026 01:30 → 05:30Z; Thursday override 09:30; zero grace; empty weekdays rejection; fixed attendance-zone behavior after travel; and Gregorian date identity after locale change (RF3). Expected: identical results on both targets.
+- [x] **Step 5: Commit.** `feat: define deterministic attendance and schedule rules`.
+
+**Execution ruling:** reject a resolved arrival/grace window crossing the attendance-zone calendar date; overnight shifts are excluded and GPS confirmation belongs to one date. Near-midnight users must choose a grace ending on that date.
 
 ### Task 5: Room transactions, automatic claims, and local attendance service
 
