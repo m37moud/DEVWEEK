@@ -10,9 +10,3 @@ struct ContentView: UIViewControllerRepresentable {
     }
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) { }
 }
-
-// Development boundary until the native atomic widget sink is installed in Task 12. No publication is claimed.
-final class DevelopmentWidgetSink: NSObject, WidgetSink {
-    func publish(json: String) -> Bool { false }
-    func clear() -> Bool { false }
-}

@@ -73,6 +73,7 @@ class TodayViewModelTest {
         val model = TodayViewModel(repo, AttendanceService(repo, gateway, clock), plans, permissions, clock, backgroundScope)
         model.uiState.first { it.canCheck }
         model.checkAttendance(); model.checkAttendance()
+        model.requestQuickCheck(fixturePlan().key.trackerId); model.requestQuickCheck(fixturePlan().key.trackerId)
         runCurrent()
         assertTrue(model.uiState.value.busy)
         assertEquals(1, calls)
@@ -169,6 +170,46 @@ class TodayViewModelTest {
         assertFalse(model.uiState.first { it.outcome?.status == AttendanceStatus.VACATION }.canCheck)
         repo.off = null
         assertTrue(model.uiState.first { it.outcome?.status == AttendanceStatus.ABSENT }.canCheck)
+    }
+
+    @Test fun widget_routes_resolve_current_day_and_do_not_trust_a_deleted_tracker() = runTest {
+        val clock = TestClock(Instant.parse("2026-10-28T09:18:00Z")); val repo = Repository(clock)
+        var calls = 0
+        val location = object : LocationGateway { override suspend fun requestFix(budget: Duration): LocationResult { calls++; return fixtureFix(capturedAt = clock.now()) } }
+        val model = TodayViewModel(repo,AttendanceService(repo,location,clock),plans,permissions,clock,backgroundScope)
+        model.uiState.first { it.canCheck }
+        model.requestQuickCheck("6afba670-5b46-48bc-abff-d57bc453ef29")
+        runCurrent(); assertEquals(0,calls)
+        model.requestQuickCheck(fixturePlan().key.trackerId)
+        model.uiState.first { !it.busy && it.outcome?.status == AttendanceStatus.LATE }
+        assertEquals(setOf(LocalDate(2026,10,28)),repo.evidence.keys)
+        assertEquals(1,calls)
+    }
+    @Test fun a_widget_tap_before_arrival_is_consumed_without_a_future_queued_sensor_request() = runTest {
+        val clock = TestClock(at("08:59:00")); val repo = Repository(clock)
+        var calls = 0
+        val location = object : LocationGateway { override suspend fun requestFix(budget: Duration): LocationResult { calls++; return fixtureFix(capturedAt = clock.now()) } }
+        val model = TodayViewModel(repo,AttendanceService(repo,location,clock),plans,permissions,clock,backgroundScope)
+        model.uiState.first { it.ready }
+        model.requestQuickCheck(fixturePlan().key.trackerId)
+        assertEquals(CheckRejection.BEFORE_WINDOW,model.uiState.value.error)
+        clock.value = at("09:00:00"); advanceTimeBy(60_001); runCurrent()
+        assertTrue(model.uiState.first { it.canCheck }.canCheck)
+        assertEquals(0,calls)
+        assertTrue(repo.evidence.isEmpty())
+    }
+    @Test fun inactive_host_does_not_load_or_check_until_started() = runTest {
+        val clock = TestClock(); val repo = Repository(clock)
+        var calls = 0
+        val location = object : LocationGateway { override suspend fun requestFix(budget: Duration): LocationResult { calls++; return fixtureFix() } }
+        val model = TodayViewModel(repo,AttendanceService(repo,location,clock),plans,permissions,clock,backgroundScope,initiallyActive = false)
+        model.requestQuickCheck(fixturePlan().key.trackerId)
+        runCurrent(); assertEquals(0,repo.reconciliations); assertEquals(0,calls)
+        model.setActive(true)
+        model.uiState.first { it.ready && it.active }
+        model.requestQuickCheck(fixturePlan().key.trackerId)
+        model.uiState.first { !it.busy && it.outcome?.status == AttendanceStatus.PRESENT }
+        assertEquals(1,calls)
     }
 
 }

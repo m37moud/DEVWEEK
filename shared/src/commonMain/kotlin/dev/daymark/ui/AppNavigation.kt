@@ -21,6 +21,7 @@ import dev.daymark.data.TrackerEntity
 import dev.daymark.resources.*
 import dev.daymark.settings.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import kotlinx.datetime.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.*
@@ -40,7 +41,11 @@ private val navigationConfig = SavedStateConfiguration {
 @Composable fun AppNavigation(graph: AppGraph,tracker: TrackerEntity?,settings: AppSettings) {
     val stack = rememberNavBackStack(navigationConfig,if (tracker == null) SetupRoute else TodayRoute)
     val scope = rememberCoroutineScope()
-    fun go(route: NavKey) { if (stack.lastOrNull() != route) { stack.clear(); stack.add(route) } }
+    var pendingCheck by remember { mutableStateOf<QuickCheckRequest?>(null) }
+    fun go(route: NavKey) {
+        if (route != TodayRoute) pendingCheck = null
+        if (stack.lastOrNull() != route) { stack.clear(); stack.add(route) }
+    }
     fun history() { scope.launch {
         val context = graph.planReader.context() ?: return@launch
         val date = graph.clock.now().toLocalDateTime(TimeZone.of(context.zoneId)).date
@@ -49,7 +54,10 @@ private val navigationConfig = SavedStateConfiguration {
     LaunchedEffect(tracker?.id) {
         if (tracker == null) go(SetupRoute) else if (stack.lastOrNull() == SetupRoute) go(TodayRoute)
     }
-    LaunchedEffect(graph,tracker?.id) { QuickCheckIntents.events.collect { go(if (tracker == null) SetupRoute else TodayRoute) } }
+    LaunchedEffect(graph,tracker?.id) { QuickCheckIntents.events.collect { request ->
+        go(if (tracker == null) SetupRoute else TodayRoute)
+        pendingCheck = request.takeIf { tracker != null && (it.allowCurrentTracker || it.route != null) }
+    } }
     Scaffold(bottomBar = {
         if (tracker != null) NavigationBar {
             val current = stack.lastOrNull()
@@ -72,7 +80,15 @@ private val navigationConfig = SavedStateConfiguration {
                     SetupScreen(model,graph,settings)
                 }
                 entry<TodayRoute> {
-                    val model = viewModel { TodayViewModel(graph.repository,graph.attendance,graph.planReader,graph.permissions,graph.clock) }
+                    val model = viewModel { TodayViewModel(graph.repository,graph.attendance,graph.planReader,graph.permissions,graph.clock,initiallyActive = false) }
+                    val request = pendingCheck
+                    LaunchedEffect(model,request?.token) {
+                        if (request != null) {
+                            model.uiState.first { it.ready && it.active }
+                            model.requestQuickCheck(request.route?.trackerId)
+                            if (pendingCheck?.token == request.token) pendingCheck = null
+                        }
+                    }
                     TodayScreen(model,tracker?.displayName.orEmpty(),onHistory = ::history)
                 }
                 entry<HistoryRoute> { route ->

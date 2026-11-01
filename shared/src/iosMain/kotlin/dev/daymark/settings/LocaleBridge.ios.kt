@@ -5,7 +5,7 @@ import androidx.compose.ui.uikit.LocalUIViewController
 import platform.Foundation.*
 import platform.UIKit.*
 
-private object IosAppLocale {
+internal object IosAppLocale {
     private val defaults = NSUserDefaults.standardUserDefaults
     private val arguments = defaults.volatileDomainForName(NSArgumentDomain)
     val systemTags = NSLocale.preferredLanguages.mapNotNull { it as? String }

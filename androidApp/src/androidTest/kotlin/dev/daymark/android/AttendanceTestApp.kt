@@ -16,11 +16,16 @@ import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Instant
 
-internal class AttendanceTestApp(context: Context, name: String) {
+internal class AttendanceTestApp(context: Context, name: String, private val widget: WidgetSink = object : WidgetSink {
+    override fun publish(json: String) = false
+    override fun clear() = true
+}) {
     val db = openAndroidDatabase(context,name)
-    val clock = object : Clock { override fun now() = Instant.parse("2026-10-27T09:02:00Z") }
+    var now = Instant.parse("2026-10-27T09:02:00Z")
+    var locationRequests = 0
+    val clock = object : Clock { override fun now() = now }
     private val location = object : LocationGateway {
-        override suspend fun requestFix(budget: Duration) = LocationResult.Fix(0.0,0.0,10.0,clock.now(),clock.now(),Duration.ZERO)
+        override suspend fun requestFix(budget: Duration): LocationResult { locationRequests++; return LocationResult.Fix(0.0,0.0,10.0,clock.now(),clock.now(),Duration.ZERO) }
     }
     private val permissions = object : LocationPermissionPort {
         override fun current() = LocationCapabilities(true,true,true,true)
@@ -43,9 +48,6 @@ internal class AttendanceTestApp(context: Context, name: String) {
                 override fun requestPermission(completion: (Boolean) -> Unit) { completion(false) }
                 override fun replace(remindersJson: String,completion: (Boolean) -> Unit) { completion(false) }
                 override fun cancelTracker(trackerId: String,completion: (Boolean) -> Unit) { completion(true) }
-            },object : WidgetSink {
-                override fun publish(json: String) = false
-                override fun clear() = true
-            },clock)
+            },widget,clock)
     }
 }

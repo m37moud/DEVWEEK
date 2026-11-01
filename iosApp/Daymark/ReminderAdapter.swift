@@ -137,13 +137,17 @@ final class IosReminderAdapter: NSObject, ReminderPort {
 
 @MainActor
 final class DaymarkNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
-    private let openQuickCheck: () -> Void
-    init(openQuickCheck: @escaping () -> Void) { self.openQuickCheck = openQuickCheck }
+    private let openQuickCheck: (String) -> Void
+    init(openQuickCheck: @escaping (String) -> Void) { self.openQuickCheck = openQuickCheck }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void) {
         let owned = response.notification.request.identifier.hasPrefix("daymark.reminder:")
         let quickCheck = response.notification.request.content.userInfo["intent"] as? String == "quick-check"
-        if owned && quickCheck { Task { @MainActor in openQuickCheck() } }
+        let parts = response.notification.request.identifier.split(separator: ":")
+        if owned && quickCheck && parts.count == 3, let tracker = UUID(uuidString: String(parts[1])) {
+            let route = "daymark://quick-check?v=1&trackerId=\(tracker.uuidString.lowercased())"
+            Task { @MainActor in openQuickCheck(route) }
+        }
         completionHandler()
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,

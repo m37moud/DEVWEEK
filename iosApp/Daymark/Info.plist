@@ -45,5 +45,7 @@
 	<string>$(DAYMARK_GOOGLE_IOS_CLIENT_ID)</string>
 	<key>DAYMARK_GOOGLE_REDIRECT_URI</key>
 	<string>$(DAYMARK_GOOGLE_REDIRECT_URI)</string>
+	<key>DAYMARK_APP_GROUP_IDENTIFIER</key>
+	<string>$(DAYMARK_APP_GROUP_IDENTIFIER)</string>
 </dict>
 </plist>

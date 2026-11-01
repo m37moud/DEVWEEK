@@ -1,0 +1,16 @@
+<resources>
+    <string name="widget_status_scheduled">مجدول</string>
+    <string name="widget_status_awaiting_check">حان وقت تسجيل الحضور</string>
+    <string name="widget_status_present">حاضر</string>
+    <string name="widget_status_late">متأخر</string>
+    <string name="widget_status_absent">غائب</string>
+    <string name="widget_status_day_off">يوم راحة</string>
+    <string name="widget_status_holiday">عطلة</string>
+    <string name="widget_status_vacation">إجازة</string>
+    <string name="widget_not_started">لم يبدأ التتبع المجدول بعد. يمكنك تسجيل حضور اليوم يدويًا.</string>
+    <string name="widget_open">افتح التطبيق</string>
+    <string name="widget_check">تسجيل الحضور</string>
+    <string name="widget_updated">آخر تحديث · %1$s</string>
+    <string name="widget_stale">افتح التطبيق للاطلاع على سجل اليوم</string>
+    <string name="widget_deadline">حاضر حتى · %1$s</string>
+</resources>

@@ -25,6 +25,8 @@ class SettingsRepository(private val db: DaymarkDatabase) {
             dao.markDirty(it.id, "OVERVIEW")
         }
     }
+    internal suspend fun snapshot(): AppSettings = decode(dao.setting("ui-settings")?.value).let { it.copy(displayName = dao.tracker()?.displayName ?: it.displayName) }
+
     private fun decode(text: String?): AppSettings = text?.let { runCatching {
         val json = Json.parseToJsonElement(it).jsonObject
         AppSettings(json["displayName"]?.jsonPrimitive?.content.orEmpty(),

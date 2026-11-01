@@ -17,8 +17,8 @@ struct DaymarkApp: App {
         googleDriver = driver
         googleAuth = IosGoogleAuthAdapter(driver: driver)
         reminders = IosReminderAdapter()
-        widget = DevelopmentWidgetSink()
-        let delegate = DaymarkNotificationDelegate { QuickCheckIntents.shared.request() }
+        widget = WidgetSnapshotWriter()
+        let delegate = DaymarkNotificationDelegate { route in QuickCheckIntents.shared.requestRoute(raw: route) }
         notificationDelegate = delegate
         UNUserNotificationCenter.current().delegate = delegate
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["daymark-native-reminder-probe"])
@@ -37,7 +37,7 @@ struct DaymarkApp: App {
 #endif
             }
             .onOpenURL { url in
-                if url.scheme == "daymark", url.host == "check-in" { QuickCheckIntents.shared.request(); return }
+                if url.scheme == "daymark", ["quick-check", "check-in"].contains(url.host ?? "") { QuickCheckIntents.shared.requestRoute(raw: url.absoluteString); return }
 #if DEBUG
                 if url.scheme == "daymark", ["developer-probe", "native-probe"].contains(url.host ?? "") { showDeveloperProbe = true; return }
 #endif

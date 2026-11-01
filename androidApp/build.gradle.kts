@@ -27,6 +27,7 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
     debugImplementation(libs.compose.ui.test.manifest)
+    implementation(libs.glance.appwidget)
     implementation(libs.work.runtime)
     implementation(libs.room.runtime)
     implementation(libs.datetime)

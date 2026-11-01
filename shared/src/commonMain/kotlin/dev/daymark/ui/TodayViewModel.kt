@@ -20,6 +20,7 @@ data class TodayUiState(
     val canCheck: Boolean = false,
     val error: CheckRejection? = null,
     val ready: Boolean = false,
+    val active: Boolean = false,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -30,10 +31,11 @@ class TodayViewModel(
     private val permissions: LocationPermissionPort,
     private val clock: Clock,
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    initiallyActive: Boolean = true,
 ) : ViewModel(scope) {
-    private val state = MutableStateFlow(TodayUiState())
+    private val state = MutableStateFlow(TodayUiState(active = initiallyActive))
     val uiState = state.asStateFlow()
-    private val active = MutableStateFlow(true)
+    private val active = MutableStateFlow(initiallyActive)
     private val refresh = Channel<Unit>(Channel.CONFLATED)
     private var check: Job? = null
 
@@ -50,7 +52,7 @@ class TodayViewModel(
                         val context = plans.context()
                         val day = repository.loadCurrentDay(now)
                         if (context == null || day == null) {
-                            state.value = TodayUiState(ready = true, error = CheckRejection.NO_TRACKER)
+                            state.value = TodayUiState(ready = true, error = CheckRejection.NO_TRACKER, active = active.value)
                         } else coroutineScope {
                             val zone = TimeZone.of(day.plan.zoneId)
                             val tomorrow = day.plan.key.date.plus(1, DateTimeUnit.DAY).atStartOfDayIn(zone)
@@ -63,7 +65,7 @@ class TodayViewModel(
                                     val sameDay = old.plan?.key == day.plan.key
                                     val next = old.copy(date = day.plan.key.date, plan = day.plan, outcome = outcome,
                                         ready = true, error = if (sameDay) old.error else null)
-                                    next.copy(canCheck = canCheck(next, (stored?.off ?: if (stored == null) day.off else null) != null))
+                                    next.copy(canCheck = canCheck(next, (stored ?: day).off != null))
                                 }
                             }
                         }
@@ -87,10 +89,20 @@ class TodayViewModel(
     fun setActive(value: Boolean) {
         if (active.value == value) return
         active.value = value
+        state.update { it.copy(active = value, ready = if (value) false else it.ready, canCheck = false) }
         if (!value) {
             check?.cancel()
             state.update { it.copy(canCheck = false) }
         }
+    }
+
+    fun requestQuickCheck(expectedTrackerId: String? = null) {
+        val current = state.value
+        if (!current.ready || !current.active || current.busy) return
+        val plan = current.plan ?: return
+        if (expectedTrackerId != null && expectedTrackerId != plan.key.trackerId) return
+        if (current.canCheck) checkAttendance()
+        else if (clock.now() < plan.arrival) state.update { it.copy(error = CheckRejection.BEFORE_WINDOW) }
     }
 
     fun openLocationSettings() = permissions.openSystemSettings()
