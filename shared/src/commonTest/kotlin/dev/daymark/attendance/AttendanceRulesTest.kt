@@ -12,6 +12,18 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class AttendanceRulesTest {
+    @Test fun school_and_course_leave_is_day_off_and_preserves_underlying_attendance() {
+        val evidence = AttendanceEvidence(AttendanceStatus.PRESENT, AttendanceSource.MANUAL_GPS, at("09:01:00"), null, at("09:01:00"))
+        for (category in listOf(TrackerCategory.SCHOOL, TrackerCategory.COURSE)) {
+            val plan = fixturePlan().copy(category = category)
+            val outcome = evaluateDay(plan, evidence, TimeOffKind.VACATION, at("12:00:00"))
+            assertEquals(AttendanceStatus.DAY_OFF, outcome.status)
+            assertEquals(TimeOffKind.VACATION, outcome.offReason)
+            assertEquals(AttendanceSource.MANUAL_TIME_OFF, outcome.source)
+            assertEquals(AttendanceStatus.PRESENT, evaluateDay(plan, evidence, null, at("12:00:00")).status)
+        }
+        assertEquals(AttendanceStatus.VACATION, evaluateDay(fixturePlan(), evidence, TimeOffKind.VACATION, at("12:00:00")).status)
+    }
     @Test fun inclusive_grace_and_freshness() {
         val p = fixturePlan()
         assertEquals(AttendanceStatus.PRESENT, acceptedStatus(p, "09:05:00", CheckMode.USER_INITIATED))

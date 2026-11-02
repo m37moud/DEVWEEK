@@ -71,3 +71,24 @@ Final complete candidate gate passed (2026-11-01): **145 JVM +89 shared Android 
 ## Post-review gate
 
 The single final fix pass passed all **281 tests: 158 JVM +91 shared Android host +16 Android app host +16 Huawei instrumentation**, zero failures/errors/skipped (`final-fix-suite.log`). Lint remains 0 errors/8 warnings. Debug/test APKs and the unsigned release APK rebuilt. `final-fix-compile.log` verifies the final shared iOS source and Android test sources; updated Swift syntax and plists also pass. The independent review and exact fixes/deferred minors are recorded in [final-review.md](final-review.md). No second review was dispatched. All native/live release gates above remain open; this does not authorize distribution.
+
+## Plan follow-up — 2 November 2026
+
+Reviewed merged checkout `dfb4d21` against the original plan, its historical execution ledger and the final review. Implementation for all fifteen tasks is present; the stale plan checkboxes now distinguish implemented/tested steps from incomplete native/live/release acceptance. The user explicitly chose direct implementation in this checkout. Existing local Gradle, IDE, Xcode and script changes were preserved.
+
+Resolved the two deferred code findings: Overview totals and work balance are JSON numbers under RAW encoding, with literal names and blank non-work balance retained. Session reconciliation repairs legacy text totals, accepts numerically equivalent `1`/`1.0`, and avoids needless repeat writes. School/course vacation-kind overlays derive `DAY_OFF` using the date's historical category; leave reason/source and underlying attendance remain intact, and Work retains `VACATION`.
+
+The two original regressions failed before their fixes (numeric `1` versus string `"1"`; `DAY_OFF` versus `VACATION`). A third regression reproduced a clean legacy report remaining unrepaired (`Idle` instead of `Synced`) before making cell comparison type-aware. All three pass in the complete final host suite.
+
+Executed with JDK 21 and existing dependencies, without changing global toolchain settings:
+
+```sh
+JAVA_HOME=/Users/m37moud/Library/Java/JavaVirtualMachines/jbr-21.0.11/Contents/Home \
+./gradlew :shared:jvmTest :shared:testAndroidHostTest :androidApp:testDebugUnitTest \
+  :androidApp:lintDebug :androidApp:assembleDebug :shared:compileKotlinIosSimulatorArm64 \
+  --offline --no-daemon -Pkotlin.compiler.execution.strategy=in-process --max-workers=1
+```
+
+Result: **BUILD SUCCESSFUL, 1m28s; 269 host tests (161 JVM +92 shared Android host +16 Android app host), zero failures/errors/skipped.** Android lint: **0 errors, 9 warnings**, covering the guarded API constant, version-only attributes/resource folders, widget loading overdraw and URI extension suggestions. No warning was suppressed. Debug APK packaging and shared iOS source compilation pass; these do not establish native iOS linking/runtime or physical-device acceptance. `git diff --check` passes. Evidence is saved in this checkout's `.superpowers/sdd/2026-10-27-attendance-mvp/` as `follow-up-{red,types-red,final}.log`, with Gradle XML/lint reports under the module build directories.
+
+One independent read-only reviewer inspected this follow-up diff and its connected rule/projection/reconciliation paths; no Important/Critical findings. This is a scoped follow-up review, not a new certification of the whole application. No new physical-device, live OAuth, signed release, iOS native host/UI/WidgetKit or minimum-OS/privacy archive gate was run. All open gates in the table above remain open; no merge, push or distribution was performed in this follow-up.

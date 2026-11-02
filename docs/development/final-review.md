@@ -15,9 +15,11 @@ Additional account-ownership coverage prevents discovery from adopting a previou
 
 Final verified local gate: **158 JVM +91 shared Android host +16 Android app host +16 Huawei instrumentation tests =281 executed tests; zero failures/errors/skipped.** Android lint: **0 errors, 8 warnings**. Debug/test and unsigned release APKs build; shared iOS source compilation, updated Swift syntax and plist checks pass. This is author verification of the fixes, not a second independent review or native/live release certification.
 
-Deferred Minor findings:
+Minor findings from the original review (resolved in the 2 November follow-up):
 
 - Overview counts/balance are RAW text cells. They display the correct values but numeric primitives would improve spreadsheet arithmetic/charts.
 - School/course vacation-kind entries display Vacation outside Plan rather than category-aware Day off. Effective off-day priority and work-only balance deductions are correct.
+
+The follow-up exports Overview counts/work balance as numbers and repairs legacy text totals on a new sync session, without rewriting equivalent numeric representations. School/course leave derives `DAY_OFF` using the date's original category, preserving the specific leave reason/source and underlying attendance. Tests reproduced both original defects and the legacy report-repair defect before their fixes. See the current [release verification](release-verification.md) for follow-up commands and results; the original review and its 281-test evidence above remain historical.
 
 The reviewer did not certify user-deferred iOS host/UI, physical iPhone GPS/reminders/WidgetKit/App Group, Huawei launcher pin/tap, modern-Android manufacturer/Doze reliability, live Google OAuth/Drive/Sheets, signed distribution/final identifiers/icon/enrollment, compiled iOS privacy/minimum-OS compatibility, or full visual/glyph/screen-reader acceptance. Excluded multi-device/import/overnight/continuous/payroll/accrual features remain outside scope. Each boundary and its cost is recorded in [implementation decisions](implementation-decisions.md); actual release gates remain open in [release verification](release-verification.md).

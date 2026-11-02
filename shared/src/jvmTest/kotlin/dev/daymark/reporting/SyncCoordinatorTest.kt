@@ -16,6 +16,31 @@ import kotlin.test.*
 import kotlin.time.Duration.Companion.minutes
 
 class SyncCoordinatorTest {
+    @Test fun new_session_repairs_legacy_text_totals_without_rewriting_equivalent_numbers(): Unit = runBlocking {
+        val folder=Files.createTempDirectory("daymark-report-types-"); val db=openJvmDatabase(folder.resolve("test.db").toString())
+        try {
+            seedDatabase(db); val clock=TestClock(); val store=RoomReportStore(db,clock)
+            store.bind(ReportBinding(db.dao().tracker()!!.id,store.beginConnection()!!,"a","r",annualTabIds=emptyMap()))
+            val server=Server()
+            val sync=SyncCoordinator(store,server,clock,token={ "token" },zoneId={ "UTC" })
+            assertEquals(SyncPassResult.Synced,sync.runPass(SyncTrigger.LAUNCH))
+            val numericRows=server.cells.filter { (a1,rows) -> a1.startsWith("'Overview'") && !rows.single()[2].isString }.keys.toList()
+            assertEquals(4,numericRows.size)
+            numericRows.forEach { a1 ->
+                val row=server.cells.getValue(a1).single()
+                server.cells[a1]=listOf(row.take(2)+JsonPrimitive(row[2].content))
+            }
+            assertEquals(SyncPassResult.Synced,sync.runPass(SyncTrigger.RESUME))
+            numericRows.forEach { a1 ->
+                val row=server.cells.getValue(a1).single()
+                assertFalse(row[2].isString)
+                server.cells[a1]=listOf(row.take(2)+JsonPrimitive(row[2].double))
+            }
+            val writes=server.writes
+            assertEquals(SyncPassResult.Idle,sync.runPass(SyncTrigger.RESUME))
+            assertEquals(writes,server.writes)
+        } finally { db.close(); folder.toFile().deleteRecursively() }
+    }
     private class Server : ReportTransport {
         val cells = mutableMapOf<String,List<List<JsonPrimitive>>>()
         var delayed: RawPatch? = null

@@ -11,7 +11,9 @@ import kotlin.time.Instant
 fun evaluateDay(plan: DayPlan, evidence: AttendanceEvidence?, off: TimeOffKind?, now: Instant): DayOutcome {
     if (off == TimeOffKind.HOLIDAY) return DayOutcome(AttendanceStatus.HOLIDAY, AttendanceSource.MANUAL_TIME_OFF, null, off)
     if (!plan.isScheduled) return DayOutcome(AttendanceStatus.DAY_OFF, AttendanceSource.NONE, null, null)
-    if (off == TimeOffKind.VACATION) return DayOutcome(AttendanceStatus.VACATION, AttendanceSource.MANUAL_TIME_OFF, null, off)
+    if (off == TimeOffKind.VACATION) return DayOutcome(
+        if (plan.category == TrackerCategory.WORK) AttendanceStatus.VACATION else AttendanceStatus.DAY_OFF,
+        AttendanceSource.MANUAL_TIME_OFF, null, off)
     if (evidence != null) {
         val keep = when (evidence.source) {
             AttendanceSource.MANUAL_CORRECTION -> evidence.status in setOf(AttendanceStatus.PRESENT, AttendanceStatus.LATE, AttendanceStatus.ABSENT)

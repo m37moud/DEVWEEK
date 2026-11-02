@@ -66,13 +66,15 @@ class RoomReportStore(private val db: DaymarkDatabase, private val clock: Clock)
         val timeOff = projectTimeOff(state.entries,dirty["TIME_OFF"]?.revision ?: 1,capacity)
         val actual = state.rows.keys.map { state.outcome(it).status }
         fun field(key: String,label: String,value: String) = Triple(key,label,JsonPrimitive(value))
+        fun count(key: String,label: String,value: Int) = Triple(key,label,JsonPrimitive(value))
         val overview = projectOverview(listOf(
             field("trackerId","Tracker / المتابع",state.tracker.id),field("name","Name / الاسم",state.tracker.displayName),
             field("category","Category / النوع",state.active.category),field("zoneId","Time zone / المنطقة الزمنية",state.active.schedule().zoneId),
-            field("present","Present / حاضر",actual.count { it == AttendanceStatus.PRESENT }.toString()),
-            field("late","Late / متأخر",actual.count { it == AttendanceStatus.LATE }.toString()),
-            field("absent","Absent / غائب",actual.count { it == AttendanceStatus.ABSENT }.toString()),
-            field("vacationBalance","Vacation balance / رصيد الإجازة",if (state.active.category == "WORK") state.balance().toString() else "")),dirty["OVERVIEW"]?.revision ?: 1)
+            count("present","Present / حاضر",actual.count { it == AttendanceStatus.PRESENT }),
+            count("late","Late / متأخر",actual.count { it == AttendanceStatus.LATE }),
+            count("absent","Absent / غائب",actual.count { it == AttendanceStatus.ABSENT }),
+            if (state.active.category == "WORK") count("vacationBalance","Vacation balance / رصيد الإجازة",state.balance())
+            else field("vacationBalance","Vacation balance / رصيد الإجازة","")),dirty["OVERVIEW"]?.revision ?: 1)
         return days + timeOff + overview
     }
     override suspend fun localProjections(binding: ReportBinding): List<ReportProjection> = db.withWriteTransaction {

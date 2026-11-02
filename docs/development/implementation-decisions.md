@@ -110,8 +110,10 @@ Recorded in execution order, with reasons and costs. Native/live gates remain op
 
 54. Final: Ruling: Preserve the plan workspace and managed worktree while full native/live acceptance remains incomplete — user deferred required gates, so the plan's full completion/cleanup condition is not met — cost if wrong: about 24 MB of task evidence remains until those gates are closed or the user chooses cleanup.
 
-## Deferred minors
+## Follow-up — 2 November 2026
 
-- Final: minor (deferred): Overview numeric counts/balance are RAW text cells; spreadsheet arithmetic/chart ergonomics need numeric primitives, while values remain readable and local accounting correct.
+55. Tasks 6/10/12/13: Ruling: Derive `DAY_OFF` for school/course vacation-kind overlays in the shared attendance rule, using each date's historical category — all existing UI, widget and report consumers then use the bilingual Day off status without independent presentation mappings. Retain `VACATION` as the specific off reason, `MANUAL_TIME_OFF` as source, and underlying evidence. Work trackers retain `VACATION`; balance rules are unchanged. Cost if wrong: consumers that previously displayed school/course `VACATION` must accept the already-supported `DAY_OFF` code. Foreground reconciliation and report verification refresh old cached values without a schema change.
 
-- Final: minor (deferred): School/course vacation-kind entries say Vacation outside Plan rather than category-aware Day off; effective off-day priority and work-only balance deductions remain correct.
+56. Task 13: Ruling: Publish Overview counts and work balance as JSON numbers, retaining literal strings and the blank non-work balance. Compare remote primitive types during reconciliation while accepting numerically equal JSON numbers (such as `1` and `1.0`) — a new session must repair totals written as text by earlier builds. Cost if wrong: formerly type-mismatched managed cells are rewritten once from local truth; unrelated cells are untouched.
+
+57. Execution: Ruling: Continue in the current checkout, as explicitly requested by the user on 2 November; preserve the pre-existing local Gradle/IDE/Xcode/script changes. Native/live release prerequisites remain open and no earlier user deferral is revoked by local source/test work.

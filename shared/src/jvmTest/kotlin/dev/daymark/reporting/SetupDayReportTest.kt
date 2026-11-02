@@ -6,11 +6,35 @@ import dev.daymark.data.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.*
+import kotlinx.serialization.json.JsonPrimitive
 import dev.daymark.plan.*
 import java.nio.file.Files
 import kotlin.test.*
 
 class SetupDayReportTest {
+    @Test fun overview_exports_numeric_totals_and_balance_but_keeps_names_literal(): Unit = runBlocking {
+        val folder=Files.createTempDirectory("daymark-numeric-report-"); val db=openJvmDatabase(folder.resolve("test.db").toString())
+        try {
+            seedDatabase(db)
+            val tracker=db.dao().tracker()!!
+            db.dao().putTracker(tracker.copy(displayName="=1+2"))
+            val clock=TestClock(at("09:20:00")); val repo=RoomAttendanceRepository(db,clock)
+            repo.correct(Correction(fixturePlan().key,AttendanceStatus.PRESENT,LocalTime(9,0),null))
+            val store=RoomReportStore(db,clock)
+            val binding=ReportBinding(tracker.id,store.beginConnection()!!,"a","r",annualTabIds=mapOf(2026 to 3))
+            store.bind(binding)
+            val overview=store.localProjections(binding).single { it.key==ProjectionKey.Overview }.ranges.single().cells.associate { it[0].content to it[2] }
+            assertEquals(JsonPrimitive(1),overview.getValue("present"))
+            assertEquals(JsonPrimitive(0),overview.getValue("late"))
+            assertEquals(JsonPrimitive(0),overview.getValue("absent"))
+            assertEquals(JsonPrimitive(10),overview.getValue("vacationBalance"))
+            assertEquals(JsonPrimitive("=1+2"),overview.getValue("name"))
+            val version=db.dao().versions(tracker.id).single()
+            db.dao().putVersion(version.copy(category="SCHOOL"))
+            val school=store.localProjections(binding).single { it.key==ProjectionKey.Overview }.ranges.single().cells.associate { it[0].content to it[2] }
+            assertEquals(JsonPrimitive(""),school.getValue("vacationBalance"))
+        } finally { db.close(); folder.toFile().deleteRecursively() }
+    }
     @Test fun explicit_setup_day_corrections_match_history_annual_and_overview_totals(): Unit = runBlocking {
         val folder=Files.createTempDirectory("daymark-setup-report-"); val db=openJvmDatabase(folder.resolve("test.db").toString())
         try {

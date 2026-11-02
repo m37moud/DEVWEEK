@@ -155,5 +155,6 @@ internal fun sameCells(expected: List<List<JsonPrimitive>>,actual: List<List<Jso
     expected.indices.all { row -> expected[row].indices.all { column ->
         val want=expected[row][column]
         val got=actual.getOrNull(row)?.getOrNull(column) ?: JsonPrimitive("")
-        if (!want.isString && !got.isString && want.doubleOrNull != null) want.doubleOrNull == got.doubleOrNull else want.content == got.content
+        want.isString == got.isString &&
+            (if (!want.isString && want.doubleOrNull != null) want.doubleOrNull == got.doubleOrNull else want.content == got.content)
     } } && actual.drop(expected.size).all { row -> row.all { it.content.isEmpty() } }

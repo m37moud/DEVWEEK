@@ -10,7 +10,20 @@
 
 **Spec:** Approved [promoted design v2](../reviews/2026-10-27-attendance-mvp/04-promoted-design-v2.md), incorporating the complete immutable [v1 specification](../reviews/2026-10-27-attendance-mvp/01-design-v1-frozen.md), SHA-256 `99843eeb6012ddb80a51c114daf5cd82054d99735a768bf278cc98a9d4e20e53`. Read both before implementation. The [senior review](../reviews/2026-10-27-attendance-mvp/03-senior-review.md) explains the v2 amendments.
 
-**Status:** Approved for Native execution by the user on 31 October 2026. Implementation is in progress in the isolated `feature/attendance-mvp` worktree. Completion requires the recorded native/test gates and one independent whole-branch review; unchecked steps are unfinished.
+**Status (reviewed 2 November 2026):** Native implementation and the independent review/fix pass were merged into `main` at `dfb4d21`. The original checkboxes after Task 5 had not been maintained. Checked steps below now reflect the committed implementation and recorded test evidence, including the execution rulings in [implementation decisions](../../development/implementation-decisions.md). They do not claim a fresh native run. Remaining unchecked steps contain incomplete physical-device, iOS native, live-provider, or release-input gates; partially verified steps remain unchecked. See [release verification](../../development/release-verification.md) for evidence and prerequisites. The two deferred code findings from the final review are addressed in the 2 November follow-up; this does not clear the release gates.
+
+### Remaining acceptance work
+
+| Tasks | Outstanding gate | Required input/evidence |
+| --- | --- | --- |
+| 2, 7, 15 | Android background reliability and manual recovery | Signed physical release measurements on modern Android, Doze/battery saver/reboot, and product acceptance of missed checks. |
+| 3, 14 | Live Google connection/report journeys on both platforms | Matching OAuth applications and user-driven native consent, including account changes, revocation and schema repair. |
+| 8, 12 | iOS notification delivery and native widgets | Signed iPhone, provisioned App Group, delivery/termination and home-screen journeys. Huawei launcher pin/tap also remains open. |
+| 9–12, 15 | Full bilingual native UI/accessibility and iOS host execution | iOS host/UI/WidgetKit execution, eight platform/language/theme configurations, visual/glyph and screen-reader review. Android action reachability already has recorded device evidence. |
+| 1, 15 | iOS minimum-OS/toolchain qualification and compiled privacy audit | Resolve the recorded native ICU availability warning and verify the supported OS floor and final archive. |
+| 15 | Distribution preparation | Owner's final identifiers, icon, signing, privacy disclosures/policy and account route. Publication needs a separate instruction. |
+
+No remaining gate is closed by a mock provider, source-only check, or simulator GPS result.
 
 ## Global Constraints
 
@@ -306,7 +319,7 @@ assertEquals(beforeDirtyRevisions, afterDirtyRevisions)
 - Produces: `TimeOffService.preview(command: TimeOffCommand): TimeOffPreview`, `apply(command: TimeOffCommand, expectedRevision: Long): PlanMutationResult`, `setAvailableBalance(targetDays: Int, note: String?): PlanMutationResult`; `PlanMutationResult` is `Applied/StalePreview/Invalid/InsufficientBalance`. It also exposes `observeEntries(): Flow<List<TimeOffEntry>>` and `observeAvailableBalance(): Flow<Int?>`; `TimeOffEntry(id: String, kind: TimeOffKind, from: LocalDate, through: LocalDate, updatedAt: Instant)` is defined in `TimeOffModels.kt`.
 - Produces: suspend `PlanService.previewChange(command: PlanChange): TimeOffPreview` and `applyChange(command: PlanChange, expectedRevision: Long): PlanMutationResult`, plus `observePlan(): Flow<PlanState?>`. `PlanState(current: PlanChange, pending: PlanChange?, effectiveFrom: LocalDate?)`; `PlanChange(schedule: WeeklySchedule, category: TrackerCategory, place: RegisteredPlace)` applies next local day; the preview's `effectiveFrom` contains that date. Use a tracker-level change revision to fence stale previews. TimeOffService's preview/apply/balance methods are also suspend database operations.
 
-- [ ] **Step 1: Add pure and transaction assertions.** For Monday–Friday, opening 12, vacation 2–3 November 2026 → available 10; add a holiday on the 3rd → 11; remove that holiday → 10; repeat saves → unchanged. Overlapping vacation entries deduct distinct eligible dates once; weekends consume zero. Add a past vacation over Absent, observe Vacation, remove it, observe Absent. Preserve a prior Present/manual correction underneath (RF2).
+- [x] **Step 1: Add pure and transaction assertions.** For Monday–Friday, opening 12, vacation 2–3 November 2026 → available 10; add a holiday on the 3rd → 11; remove that holiday → 10; repeat saves → unchanged. Overlapping vacation entries deduct distinct eligible dates once; weekends consume zero. Add a past vacation over Absent, observe Vacation, remove it, observe Absent. Preserve a prior Present/manual correction underneath (RF2).
 
 ```kotlin
 // TimeOffTransactionTest.holiday_refund_and_repeat_save_are_idempotent
@@ -319,10 +332,10 @@ assertEquals(AttendanceStatus.VACATION, covered.status)
 assertEquals(AttendanceStatus.ABSENT, restored.status)
 assertEquals(AttendanceSource.MANUAL_CORRECTION, restoredCorrection.source)
 ```
-- [ ] **Step 2: Run red.** Expected: missing preview/apply/ledger behavior; distinguish whole-day input validation from storage failure.
-- [ ] **Step 3: Implement previews and atomic differences.** Use historical category/schedule expectations for past dates and projected next-day expectations for future changes. Reject an increasing deduction that exceeds the available balance. Keep manual adjustment history; never auto-reset annually. Update affected date/Time off/Overview dirty revisions in the same transaction. Invalid dates, negative/fractional targets, and stale preview versions do not partially mutate state.
-- [ ] **Step 4: Verify all mutation paths.** Include edit/delete/current-day overlay while a check runs; removing today's overlay never resets a consumed claim; future schedule/category changes recalculate future reservations while preserving historical deductions. Show a stale preview instead of silently replacing an outcome the user did not review.
-- [ ] **Step 5: Commit.** `feat: support historical time off and transactional vacation balance`.
+- [x] **Step 2: Run red.** Expected: missing preview/apply/ledger behavior; distinguish whole-day input validation from storage failure.
+- [x] **Step 3: Implement previews and atomic differences.** Use historical category/schedule expectations for past dates and projected next-day expectations for future changes. Reject an increasing deduction that exceeds the available balance. Keep manual adjustment history; never auto-reset annually. Update affected date/Time off/Overview dirty revisions in the same transaction. Invalid dates, negative/fractional targets, and stale preview versions do not partially mutate state.
+- [x] **Step 4: Verify all mutation paths.** Include edit/delete/current-day overlay while a check runs; removing today's overlay never resets a consumed claim; future schedule/category changes recalculate future reservations while preserving historical deductions. Show a stale preview instead of silently replacing an outcome the user did not review.
+- [x] **Step 5: Commit.** `feat: support historical time off and transactional vacation balance`.
 
 ### Task 7: Production Android scheduling and permission recovery
 
@@ -337,7 +350,7 @@ assertEquals(AttendanceSource.MANUAL_CORRECTION, restoredCorrection.source)
 - Produces: `ScheduledCheck(key: DayKey, arrival: Instant, deadline: Instant)` and suspend `nextAttendance(now: Instant, plans: PlanReader): ScheduledCheck?`; `AndroidAttendanceScheduler.replaceNext(check: ScheduledCheck?): Unit` and `cancelTracker(trackerId: String): Unit`.
 - Produces: `ScheduleContext(trackerId: String, zoneId: String, trackingStartsAt: Instant, automaticEnabled: Boolean)`; `PlannedDay(plan: DayPlan, off: TimeOffKind?, hasSuccessOrCorrection: Boolean, automaticConsumed: Boolean)`; interface `PlanReader.context(): ScheduleContext?` and `day(date: LocalDate): PlannedDay` (both suspend), implemented by `RoomPlanReader`. `nextAttendance` chooses the earliest eligible window that has not ended, including today during grace, with `plan.arrival >= trackingStartsAt`; the host uses `max(now, arrival)` as the trigger. Disabled/unconfigured/no available occurrence returns null. Projecting future dates must not freeze them against subsequent approved changes.
 
-- [ ] **Step 1: Write worker tests with a counting gateway.** A worker at 09:06 for a 09:05 deadline requests location zero times; retry after a consumed claim requests zero; denial disables automation without deleting records; successful/failed completion schedules the next eligible date. Reboot/zone recovery does not duplicate a date's claim (RF3). Recovery at 09:02 retains today's unclaimed window with zero delay; recovery after 09:05:00 skips it.
+- [x] **Step 1: Write worker tests with a counting gateway.** A worker at 09:06 for a 09:05 deadline requests location zero times; retry after a consumed claim requests zero; denial disables automation without deleting records; successful/failed completion schedules the next eligible date. Reboot/zone recovery does not duplicate a date's claim (RF3). Recovery at 09:02 retains today's unclaimed window with zero delay; recovery after 09:05:00 skips it.
 
 ```kotlin
 // AttendanceWorkerTest.late_dispatch_never_requests_location
@@ -349,10 +362,10 @@ assertEquals(LocalDate(2026, 10, 27), requireNotNull(nextAt0902).key.date)
 assertEquals(Duration.ZERO, delayAt0902)
 assertEquals(LocalDate(2026, 10, 28), requireNotNull(nextAfterDeadline).key.date)
 ```
-- [ ] **Step 2: Run red with WorkManager testing utilities.** Expected: scheduling/worker assertions fail; use fake clock and controlled worker dispatch, not sleep-based timing tests.
-- [ ] **Step 3: Implement one-time unique work.** One key per tracker/date; no network constraint for attendance. Recompute the next eligible occurrence, recover after restart/configuration changes, and use successful completion rather than GPS retry for denied/timeout/ineligible outcomes. Transaction failures before claim may recover; claimed work never takes a second location sample. Request background access only through the explicit UI flow, not from the Worker.
+- [x] **Step 2: Run red with WorkManager testing utilities.** Expected: scheduling/worker assertions fail; use fake clock and controlled worker dispatch, not sleep-based timing tests.
+- [x] **Step 3: Implement one-time unique work.** One key per tracker/date; no network constraint for attendance. Recompute the next eligible occurrence, recover after restart/configuration changes, and use successful completion rather than GPS retry for denied/timeout/ineligible outcomes. Transaction failures before claim may recover; claimed work never takes a second location sample. Request background access only through the explicit UI flow, not from the Worker.
 - [ ] **Step 4: Verify host/device journeys.** Check merged manifest excludes exact-alarm permissions/continuous location service; test foreground/background permission revocation, locked screen, Doze, restart, and changed device zone. Record observed scheduling delay and false-absence/manual-recovery behavior; do not assert precise wake guarantees.
-- [ ] **Step 5: Commit.** `feat: schedule one eligible Android attendance attempt per date`.
+- [x] **Step 5: Commit.** `feat: schedule one eligible Android attendance attempt per date`.
 
 ### Task 8: iOS reminder planning and native notification entry
 
@@ -365,7 +378,7 @@ assertEquals(LocalDate(2026, 10, 28), requireNotNull(nextAfterDeadline).key.date
 - Produces: `ReminderSpec(id: String, trackerId: String, attendanceDate: String, fireAtEpochMillis: Long, title: String, body: String, localeTag: String)` and `ReminderCopy(localeTag: String, title: String, body: String)`; suspend `planReminders(now: Instant, reader: PlanReader, copy: ReminderCopy): List<ReminderSpec>` for the next 30 calendar days, excluding past trigger instants/off days. Task 9 supplies localized copy; this task does not depend on its later AppLanguage type.
 - Produces: callback-based native `ReminderPort.requestPermission(completion: (Boolean) -> Unit)`, `replace(remindersJson: String, completion: (Boolean) -> Unit)`, and `cancelTracker(trackerId: String, completion: (Boolean) -> Unit)`. Notification opening emits a current quick-check intent; it does not record attendance.
 
-- [ ] **Step 1: Add planning and adapter tests.** Assert the inclusive 30-calendar-day horizon, Thursday override, holiday/vacation suppression, no immediate duplicate of a past trigger, deterministic IDs, and replacement after language/schedule change (RF3). A denied notification grant leaves manual location checking available.
+- [x] **Step 1: Add planning and adapter tests.** Assert the inclusive 30-calendar-day horizon, Thursday override, holiday/vacation suppression, no immediate duplicate of a past trigger, deterministic IDs, and replacement after language/schedule change (RF3). A denied notification grant leaves manual location checking available.
 
 ```kotlin
 // ReminderPlannerTest.horizon_is_thirty_calendar_dates_not_thirty_occurrences
@@ -379,9 +392,9 @@ assertEquals(beforeEpochs, afterTravelAndArabicEpochs)
 assertTrue(arabicReminders.all { it.localeTag == "ar" })
 ```
 - [ ] **Step 2: Run shared/XCTest tests red.** Native pending-request assertions use an injected notification-center wrapper; delivery is a separate physical test.
-- [ ] **Step 3: Implement plan/replace/cancel.** Use `UNUserNotificationCenter`; remove only this tracker's owned future requests. Construct nonrepeating triggers from UTC date components of the planned epoch instant, explicitly setting their calendar/time zone, so device travel cannot move an already planned attendance instant. No background location mode/Always permission and no notification at the grace deadline. Route notification taps through the host's normal foreground check destination; retire the Task-2 reminder probe.
+- [x] **Step 3: Implement plan/replace/cancel.** Use `UNUserNotificationCenter`; remove only this tracker's owned future requests. Construct nonrepeating triggers from UTC date components of the planned epoch instant, explicitly setting their calendar/time zone, so device travel cannot move an already planned attendance instant. No background location mode/Always permission and no notification at the grace deadline. Route notification taps through the host's normal foreground check destination; retire the Task-2 reminder probe.
 - [ ] **Step 4: Verify notification delivery on a signed physical iPhone and pending queue contents.** Test app termination and denied presentation, record delivery/health limitations, and expose the finite reminder horizon to the later Settings screen. Simulator-only success leaves the physical gate incomplete.
-- [ ] **Step 5: Commit.** `feat: add bounded iOS attendance reminders`.
+- [x] **Step 5: Commit.** `feat: add bounded iOS attendance reminders`.
 
 ### Task 9: EN/AR theme, locale infrastructure, and durable onboarding
 
@@ -399,7 +412,7 @@ assertTrue(arabicReminders.all { it.localeTag == "ar" })
 - Produces: `SetupDraft(displayName: String, category: TrackerCategory?, placeName: String, place: RegisteredPlace?, schedule: WeeklySchedule?, openingBalanceText: String)` and complete `SetupCommand(displayName: String, category: TrackerCategory, placeName: String, place: RegisteredPlace, schedule: WeeklySchedule, openingBalance: Int)`; `SetupService.observeDraft(): Flow<SetupDraft>`, suspend `saveDraft(draft: SetupDraft): Unit` and `complete(command: SetupCommand): SetupResult` (`Completed/Invalid`). `SetupViewModel.uiState: StateFlow<SetupUiState>`, `useCurrentLocation()`, and `submit()`; a denied location leaves an incomplete draft, never invented coordinates.
 - Produces: `AppGraph(db: DaymarkDatabase, repository: AttendanceRepository, attendance: AttendanceService, timeOff: TimeOffService, plans: PlanService, planReader: PlanReader, settings: SettingsRepository, location: LocationGateway, permissions: LocationPermissionPort, auth: GoogleAccess, reminders: ReminderPort, widgetSink: WidgetSink, clock: Clock)` and `@Composable fun App(graph: AppGraph)`; production `fun MainViewController(auth: NativeGoogleAuth, reminders: ReminderPort, widget: WidgetSink): UIViewController`. Declare native `WidgetSink.publish(json: String): Boolean`/`clear(): Boolean` in `widgets/WidgetSink.kt`; Task 12 implements its atomic native sinks and reports publication failure separately from local attendance success. Update the Swift host in this task to use the new entry; the Task-1 no-argument bootstrap is retired. Before native widgets exist, use an explicit development-only no-op sink, not a simulated success UI.
 
-- [ ] **Step 1: Add language/format/setup tests.** Assert unsupported system language falls back to English, explicit AR produces RTL, all required resources have EN/AR entries, Arabic `١٢` and English `12` parse as 12, fractions/negative balance reject, and locale change preserves canonical dates (RF4). Setup denial retains the draft and cannot complete a fake location; Google/notifications can be skipped.
+- [x] **Step 1: Add language/format/setup tests.** Assert unsupported system language falls back to English, explicit AR produces RTL, all required resources have EN/AR entries, Arabic `١٢` and English `12` parse as 12, fractions/negative balance reject, and locale change preserves canonical dates (RF4). Setup denial retains the draft and cannot complete a fake location; Google/notifications can be skipped.
 
 ```kotlin
 // LocaleControllerTest.fallback_and_whole_day_input
@@ -414,9 +427,9 @@ assertEquals("أحمد / Ahmed", reopenedDraftName)
 assertEquals(0, completedTrackerCount)
 ```
 - [ ] **Step 2: Run the tests red.** Native UI assertions must inspect visible Arabic strings/direction and saved/reopened draft behavior, not just resource-file existence.
-- [ ] **Step 3: Implement the locale/theme/onboarding slice.** Follow the approved palette through Material 3 tokens, use shared parameterized/plural resources and start/end alignment, isolate numeric/bidirectional content, and persist preferences in Room. Use platform locale bridges without modifying global device language. OS-owned permission/account dialogs follow platform language; ship both native usage-description localizations and keep all app-owned rationale/widget/notification copy localized. Setup records the fixed IANA zone and next eligible automatic start; no pre-installation absence backfill.
+- [x] **Step 3: Implement the locale/theme/onboarding slice.** Follow the approved palette through Material 3 tokens, use shared parameterized/plural resources and start/end alignment, isolate numeric/bidirectional content, and persist preferences in Room. Use platform locale bridges without modifying global device language. OS-owned permission/account dialogs follow platform language; ship both native usage-description localizations and keep all app-owned rationale/widget/notification copy localized. Setup records the fixed IANA zone and next eligible automatic start; no pre-installation absence backfill.
 - [ ] **Step 4: Verify setup in EN/LTR and AR/RTL, light/dark, large text, restart, denied location, and skipped Google.** Use Navigation 3's serializable shared routes and current entry decorators; no Android reflection-only route serialization. Check system/explicit locale switching and correct Arabic glyph shaping on iOS.
-- [ ] **Step 5: Commit.** `feat: add bilingual themed onboarding and shared app composition`.
+- [x] **Step 5: Commit.** `feat: add bilingual themed onboarding and shared app composition`.
 
 ### Task 10: Today, History, foreground check, and manual corrections
 
@@ -429,7 +442,7 @@ assertEquals(0, completedTrackerCount)
 - Consumes: `AttendanceRepository.observeDay`, `AttendanceService.manualCheck`, `correct(Correction)`, `DisplayFormats`, and setup state.
 - Produces: `TodayViewModel.uiState: StateFlow<TodayUiState>` and `checkAttendance()`; `HistoryViewModel.uiState: StateFlow<HistoryUiState>`, `selectMonth(year: Int, month: Int)`, and `saveCorrection(command: Correction)`. `TodayUiState` includes `outcome: DayOutcome?`, `busy: Boolean`, `canCheck: Boolean`, current date, permission/error state, formatted arrival/deadline, and source label; history state exposes monthly counts and visible records.
 
-- [ ] **Step 1: Write controller/journey assertions.** At 09:02 show a check action and 09:05 deadline; successful fresh fix → Present; at 09:18 → Late; outside/unavailable → no successful record. Before 09:00 the action is disabled. Double tap calls `manualCheck()` once while busy (RF2). Advance the foreground clock past the deadline and observe one Absent reconciliation without another GPS request.
+- [x] **Step 1: Write controller/journey assertions.** At 09:02 show a check action and 09:05 deadline; successful fresh fix → Present; at 09:18 → Late; outside/unavailable → no successful record. Before 09:00 the action is disabled. Double tap calls `manualCheck()` once while busy (RF2). Advance the foreground clock past the deadline and observe one Absent reconciliation without another GPS request.
 
 ```kotlin
 // TodayViewModelTest.duplicate_taps_share_one_check
@@ -445,9 +458,9 @@ assertEquals(AttendanceStatus.LATE, reopenedOutcome.status)
 assertEquals("اجتماع / Meeting =1+2", reopenedNote)
 ```
 - [ ] **Step 2: Run red.** Use the task-specific host test and both native journey suites; timing tests use a fake clock/test scheduler.
-- [ ] **Step 3: Implement Today/History and correction sheets.** Observe local truth, render status with text/icons, allow all tracked months/years, and label manual corrections separately. Require a time for Present/Late correction but preserve its explicitly chosen status. Off-day records open time-off editing rather than hiding an active overlay with an attendance edit. Coalesce UI taps; stop the date/deadline ticker when inactive and never poll GPS.
+- [x] **Step 3: Implement Today/History and correction sheets.** Observe local truth, render status with text/icons, allow all tracked months/years, and label manual corrections separately. Require a time for Present/Late correction but preserve its explicitly chosen status. Off-day records open time-off editing rather than hiding an active overlay with an attendance edit. Coalesce UI taps; stop the date/deadline ticker when inactive and never poll GPS.
 - [ ] **Step 4: Verify reopen, correction persistence, offline operation, and long mixed Arabic/Latin names/notes (RF4).** Move to a different device zone and cross midnight while the app is active; refresh the current day without modifying past keys. Check monthly counts exclude future/off dates and source labels match actual saved operations.
-- [ ] **Step 5: Commit.** `feat: add daily attendance history and explicit corrections`.
+- [x] **Step 5: Commit.** `feat: add daily attendance history and explicit corrections`.
 
 ### Task 11: Plan, time-off editing, and profile/locale/permission settings
 
@@ -460,7 +473,7 @@ assertEquals("اجتماع / Meeting =1+2", reopenedNote)
 - Consumes: `PlanService.previewChange/applyChange`, `TimeOffService.preview/apply/setAvailableBalance`, and settings store.
 - Produces: `PlanViewModel.preview(command: PlanChange)`, `confirm(expectedRevision: Long)`, `previewTimeOff(command: TimeOffCommand)`, `confirmTimeOff(expectedRevision: Long)`; `SettingsViewModel.setLanguage(language: LanguagePreference)`, `setTheme(theme: ThemePreference)`, `setDisplayName(name: String)`, and explicit permission-setup actions. State exposes effective date, balance delta, affected outcomes, pending reminder horizon, and stale-preview/error messages.
 
-- [ ] **Step 1: Add UI/model tests.** Toggle any weekday override; reject zero selected days; grace 0/5/120 works; invalid radius outside 100–500 rejects. Save a 09:30 future default and verify today/past still use 09:00. Edit/remove a historical vacation and display/commit the exact balance/outcome difference. A stale preview asks for a refreshed review instead of partially saving.
+- [x] **Step 1: Add UI/model tests.** Toggle any weekday override; reject zero selected days; grace 0/5/120 works; invalid radius outside 100–500 rejects. Save a 09:30 future default and verify today/past still use 09:00. Edit/remove a historical vacation and display/commit the exact balance/outcome difference. A stale preview asks for a refreshed review instead of partially saving.
 
 ```kotlin
 // PlanViewModelTest.schedule_change_preserves_today_and_stale_preview_cannot_commit
@@ -475,9 +488,9 @@ assertEquals("ar", publishedWidgetLocale)
 assertTrue(pendingNotificationLocales.all { it == "ar" })
 ```
 - [ ] **Step 2: Run red.** Verify both native locales using persisted real data rather than prototype selectors.
-- [ ] **Step 3: Implement Plan and settings.** Include registration/radius updates, next-day schedule/category changes, historical/current/future time off, whole-day balance adjustment, system/EN/AR language and theme preference, and separate Android automation consent. Hide the balance for school/course. Add notification/automation health and the 30-day iOS horizon. Google connection and destructive local deletion are wired in Task 14, not simulated as successful actions here.
-- [ ] **Step 4: Verify configuration side effects.** Refresh pending reminders/scheduling and widget publication hooks after effective mutations; language changes leave dates/status codes untouched and replace future notification copy (RF3). Denied/revoked permissions retain manual operation and local history.
-- [ ] **Step 5: Commit.** `feat: add editable plans time off and localized settings`.
+- [x] **Step 3: Implement Plan and settings.** Include registration/radius updates, next-day schedule/category changes, historical/current/future time off, whole-day balance adjustment, system/EN/AR language and theme preference, and separate Android automation consent. Hide the balance for school/course. Add notification/automation health and the 30-day iOS horizon. Google connection and destructive local deletion are wired in Task 14, not simulated as successful actions here.
+- [x] **Step 4: Verify configuration side effects.** Refresh pending reminders/scheduling and widget publication hooks after effective mutations; language changes leave dates/status codes untouched and replace future notification copy (RF3). Denied/revoked permissions retain manual operation and local history.
+- [x] **Step 5: Commit.** `feat: add editable plans time off and localized settings`.
 
 ### Task 12: Native home-screen widgets and safe foreground routing
 
@@ -492,7 +505,7 @@ assertTrue(pendingNotificationLocales.all { it == "ar" })
 - Produces: `QuickCheckRoute(schemaVersion: Int = 1, trackerId: String)`, `encodeQuickCheckRoute(route: QuickCheckRoute): String`, and `parseQuickCheckRoute(raw: String): QuickCheckRoute?`; use `daymark://quick-check?v=1&trackerId=<UUID>` and reject malformed/unknown versions. `WidgetSnapshot(schemaVersion: Int = 1, trackerId: String, generatedAtEpochMillis: Long, attendanceDate: String, effectiveLocale: String, displayStatus: String, statusCode: String, placeLabel: String, deadlineDisplay: String?, deadlineEpochMillis: Long?, zoneId: String, quickCheckRoute: String)`.
 - Produces: `WidgetPublisher.refresh(): Unit` and `clear(): Unit` as suspend operations; native sinks implement the Task-9 Boolean-result contract. The status code/epoch/zone supplement the v2 display snapshot to support native formatting without a DB/token.
 
-- [ ] **Step 1: Add route/snapshot tests.** Missing/invalid tracker, invalid JSON/version, deleted tracker, yesterday's snapshot, and duplicate opens fall back to current Today/setup or coalesce the normal action; none directly writes attendance. Assert snapshots contain no token, DB path, registered coordinates, or raw fix. Native EN/AR decoding preserves dates (RF3).
+- [x] **Step 1: Add route/snapshot tests.** Missing/invalid tracker, invalid JSON/version, deleted tracker, yesterday's snapshot, and duplicate opens fall back to current Today/setup or coalesce the normal action; none directly writes attendance. Assert snapshots contain no token, DB path, registered coordinates, or raw fix. Native EN/AR decoding preserves dates (RF3).
 
 ```kotlin
 // QuickCheckRouteTest.rejects_untrusted_route_shape
@@ -507,7 +520,7 @@ assertFalse(snapshotContainsCredentialsOrCoordinates)
 - [ ] **Step 2: Run red.** Use shared host tests and Swift Codable round trips, then native widget journeys.
 - [ ] **Step 3: Implement Glance and WidgetKit.** Publish small JSON snapshots atomically; iOS uses the provisioned App Group and native strings. Show a last-updated cue, place/deadline/status and one foreground quick-check action. Resolve current tracker/date and early-check/permission rules in the host; a route is not confirmation evidence. Retire the Task-2 development widget target once its production replacement passes.
 - [ ] **Step 4: Verify on both physical platforms.** Tap from home screen, check Present/Late/off/denied states, switch EN/AR and light/dark, recreate the widget from stale data, and clear it on tracker deletion. Missing App Group signing/provisioning remains an explicit incomplete gate.
-- [ ] **Step 5: Commit.** `feat: add localized native attendance widgets`.
+- [x] **Step 5: Commit.** `feat: add localized native attendance widgets`.
 
 ### Task 13: Report projections, durable batches, and ambiguous-write reconciliation
 
@@ -524,7 +537,7 @@ assertFalse(snapshotContainsCredentialsOrCoordinates)
 - Extend Task-3 transport with suspend `prepareTemplate(report: RemoteReport, trackerId: String, zoneId: String, years: Set<Int>, token: String): RemoteReport`, validating/creating only app-owned tabs and returning their stable IDs. Annual titles are `Attendance YYYY`. Define schema-1 machine columns A:O as `trackerId,date,category,scheduledArrival,graceDeadline,status,statusLabel,confirmedArrival,source,note,updatedAt,revision,offReason,attendanceZoneId,confirmedAtUtc`; row 2 has bilingual human labels. Arrival/deadline display fields are local ISO time strings with the row's zone; UTC instants remain canonical where indicated.
 - Produces: `SyncCoordinator.runPass(trigger: SyncTrigger): SyncPassResult`; trigger is `LAUNCH/RESUME/LOCAL_CHANGE/CONNECTIVITY/RECONNECT/RETRY/ANDROID_WORK`; result is `Idle/Synced/Pending/AuthorizationRequired/SchemaConflict/ReportUnavailable/StaleBinding`. `SyncRetryPolicy.nextDelay(attempt: Int, retryAfter: Duration?): Duration?` uses 2-second exponential base, 60-second base cap, jitter 0–1 second, at most six transient dispatch attempts per active session, and honors a longer server Retry-After.
 
-- [ ] **Step 1: Add projection/journal assertions.** Annual row = `dayOfYear + 2` including 29 February; bilingual headings and stable status/source codes; optional-field removal sends empty strings, not null/skipped cells; `=1+2` stays literal; time-off removal clears old report cells and updates Overview. Duplicate writes target one date row (RF4).
+- [x] **Step 1: Add projection/journal assertions.** Annual row = `dayOfYear + 2` including 29 February; bilingual headings and stable status/source codes; optional-field removal sends empty strings, not null/skipped cells; `=1+2` stays literal; time-off removal clears old report cells and updates Overview. Duplicate writes target one date row (RF4).
 
 ```kotlin
 // ReportProjectionTest.leap_day_row_and_explicit_optional_clearing
@@ -535,7 +548,7 @@ assertEquals(JsonPrimitive("=1+2"), withNote.cells.single()[9])
 assertEquals(JsonPrimitive(""), withoutNote.cells.single()[9])
 assertTrue(clearedTimeOffCells.all { it == JsonPrimitive("") })
 ```
-- [ ] **Step 2: Add failure-order tests and run red.** Write N becomes ambiguous; write N+1 is acknowledged; fake server later applies N; a new session reads even clean rows and repairs N+1. A correction during upload remains dirty; process death after dispatch retains uncertainty; generation A callbacks cannot acknowledge generation B (RF5). Use MockEngine plus a stateful fake server and real journal reopen tests, not only canned HTTP responses.
+- [x] **Step 2: Add failure-order tests and run red.** Write N becomes ambiguous; write N+1 is acknowledged; fake server later applies N; a new session reads even clean rows and repairs N+1. A correction during upload remains dirty; process death after dispatch retains uncertainty; generation A callbacks cannot acknowledge generation B (RF5). Use MockEngine plus a stateful fake server and real journal reopen tests, not only canned HTTP responses.
 
 ```kotlin
 // SyncCoordinatorTest.later_session_repairs_old_write_after_new_ack
@@ -549,10 +562,10 @@ assertTrue(newBindingProjectionStillDirty)
 assertNull(policy.nextDelay(attempt = 6, retryAfter = null))
 assertTrue(requireNotNull(policy.nextDelay(0, 120.seconds)) >= 120.seconds)
 ```
-- [ ] **Step 3: Implement complete projections and schema validation.** Create Overview, annual Attendance, and Time off tabs with app-owned tracker/schema metadata. Use full `RAW` matrices with explicit blank cells for clearing old optional/trailing values; formulas are app-authored template operations. Reconcile managed tab identity/date/revisions before writing. Structural damage returns `SchemaConflict`; unrelated tabs are untouched. Cap one dispatch batch below 2 MB and split by complete projection/date rows.
-- [ ] **Step 4: Implement a serialized drain with durable uncertainty.** Journal before dispatch, read the latest local projections for retry, conditionally acknowledge only matching current revisions/generation, and read/repair previously acknowledged rows at new foreground/reconnect sessions. Do not claim remote compare-and-swap, monotonic reads, or immediate remote cancellation. Persist retry timing/pending errors; stop on auth/schema/unavailable states instead of looping.
-- [ ] **Step 5: Run all reporting tests green and inject the ambiguity sequence across process reopen.** Verify six-attempt bounded backoff, long-history quota batching, no GPS calls, no paid quota escalation, and recovery to the latest local projection after outstanding writes settle. No record is lost if a journal/write fails.
-- [ ] **Step 6: Commit.** `feat: publish and reconcile durable app-managed attendance reports`.
+- [x] **Step 3: Implement complete projections and schema validation.** Create Overview, annual Attendance, and Time off tabs with app-owned tracker/schema metadata. Use full `RAW` matrices with explicit blank cells for clearing old optional/trailing values; formulas are app-authored template operations. Reconcile managed tab identity/date/revisions before writing. Structural damage returns `SchemaConflict`; unrelated tabs are untouched. Cap one dispatch batch below 2 MB and split by complete projection/date rows.
+- [x] **Step 4: Implement a serialized drain with durable uncertainty.** Journal before dispatch, read the latest local projections for retry, conditionally acknowledge only matching current revisions/generation, and read/repair previously acknowledged rows at new foreground/reconnect sessions. Do not claim remote compare-and-swap, monotonic reads, or immediate remote cancellation. Persist retry timing/pending errors; stop on auth/schema/unavailable states instead of looping.
+- [x] **Step 5: Run all reporting tests green and inject the ambiguity sequence across process reopen.** Verify six-attempt bounded backoff, long-history quota batching, no GPS calls, no paid quota escalation, and recovery to the latest local projection after outstanding writes settle. No record is lost if a journal/write fails.
+- [x] **Step 6: Commit.** `feat: publish and reconcile durable app-managed attendance reports`.
 
 ### Task 14: Reporting lifecycle, connection UI, account changes, and local deletion
 
@@ -567,7 +580,7 @@ assertTrue(requireNotNull(policy.nextDelay(0, 120.seconds)) >= 120.seconds)
 - Produces: `DataLifecycleService.deleteLocalData(): DeletionResult` (`Deleted/Failed`), called only after the UI confirmation. It invalidates the connection generation, stops external work, clears authoritative local data transactionally, forgets native credentials, clears widget snapshots, and returns to setup.
 - Extend the Task-9 graph/composition roots with `connection: ConnectionService`, `sync: SyncCoordinator`, `lifecycle: AppLifecycleCoordinator`, and `dataLifecycle: DataLifecycleService`; update every native host and test factory in this task. These are explicit additions to the constructor, not a second incompatible graph API.
 
-- [ ] **Step 1: Add lifecycle/binding assertions and run red.** Closing iOS during a dispatched upload preserves an ambiguous journal; reopening automatically drains/verifies it. Non-interactive token refresh cannot show account UI. Disconnect invalidates the generation before cancellation; late callbacks cannot mutate/acknowledge a new connection. Reconnect to account B does not overwrite account A's report (RF5).
+- [x] **Step 1: Add lifecycle/binding assertions and run red.** Closing iOS during a dispatched upload preserves an ambiguous journal; reopening automatically drains/verifies it. Non-interactive token refresh cannot show account UI. Disconnect invalidates the generation before cancellation; late callbacks cannot mutate/acknowledge a new connection. Reconnect to account B does not overwrite account A's report (RF5).
 
 ```kotlin
 // AppLifecycleCoordinatorTest.resume_recovers_interrupted_upload_without_upload_tap
@@ -580,11 +593,11 @@ assertNotEquals(accountAReportId, accountBReportId)
 assertEquals(0, writesToAccountAAfterSwitch)
 assertEquals(0, googleDeleteRequests)
 ```
-- [ ] **Step 2: Implement connection/discovery and health UI.** Confirm the account reference using the same narrow scope, discover/create only the current tracker's report, persist each new binding generation, and enqueue all local projections. Uncertain creation stays pending and is searched later rather than blindly repeated. Surface last sync/pending count/error/Retry and explicit rebuild/new-report choices; no incoming record import. Preserve old reports on disconnect/reinstall.
-- [ ] **Step 3: Wire execution ownership.** Launch/resume, local commits while active, reconnect, active network recovery, and Retry request foreground drains. Backgrounding cancels only the foreground-owned operation and leaves durable uncertainty. Android additionally enqueues separate network-constrained report work; this worker never invokes location. Do not introduce iOS background location/refresh modes to hide pending uploads.
-- [ ] **Step 4: Implement/test confirmed local deletion.** Assert cancellation of attendance/reminders/report work, invalidated generations, no restoration by stale callbacks, empty local records and widget/setup state, and zero Google delete requests. An unconfirmed dialog does nothing; a database failure reports failure and never displays “deleted” after a partial/noncommitted clear. Keep the schema and preserve existing remote reports.
+- [x] **Step 2: Implement connection/discovery and health UI.** Confirm the account reference using the same narrow scope, discover/create only the current tracker's report, persist each new binding generation, and enqueue all local projections. Uncertain creation stays pending and is searched later rather than blindly repeated. Surface last sync/pending count/error/Retry and explicit rebuild/new-report choices; no incoming record import. Preserve old reports on disconnect/reinstall.
+- [x] **Step 3: Wire execution ownership.** Launch/resume, local commits while active, reconnect, active network recovery, and Retry request foreground drains. Backgrounding cancels only the foreground-owned operation and leaves durable uncertainty. Android additionally enqueues separate network-constrained report work; this worker never invokes location. Do not introduce iOS background location/refresh modes to hide pending uploads.
+- [x] **Step 4: Implement/test confirmed local deletion.** Assert cancellation of attendance/reminders/report work, invalidated generations, no restoration by stale callbacks, empty local records and widget/setup state, and zero Google delete requests. An unconfirmed dialog does nothing; a database failure reports failure and never displays “deleted” after a partial/noncommitted clear. Keep the schema and preserve existing remote reports.
 - [ ] **Step 5: Verify live EN/AR connection journeys on both platforms.** Connect, cancel consent, go offline, edit, close/reopen iOS, reconnect/revoke, change account, retry a damaged/missing report, and disconnect. The UI must distinguish saved locally/pending upload from observed sync. Complete any previously blocked Task-3 live probe before marking this task done.
-- [ ] **Step 6: Commit.** `feat: integrate lifecycle-safe reporting and local data controls`.
+- [x] **Step 6: Commit.** `feat: integrate lifecycle-safe reporting and local data controls`.
 
 ### Task 15: Complete acceptance, non-destructive upgrade checks, and release handoff
 
@@ -613,7 +626,7 @@ assertTrue(verifiedConfigurations.all { it.noClipping && it.coreActionsReachable
 - [ ] **Step 2: Run the complete automated gate.** `./gradlew :shared:testAndroidHostTest :shared:iosSimulatorArm64Test :androidApp:testDebugUnitTest :androidApp:lintDebug :androidApp:assembleDebug`, Android connected journeys, and iOS `xcodebuild ... test`. Expected: exit 0 and executed tests with no skipped core suite. Source-only checks, zero-test runs, simulator location, and the HTML concept cannot substitute for native device results.
 - [ ] **Step 3: Perform physical release-build journeys.** Use Android including a non-Google manufacturer, battery saver/Doze/reboot, and a signed iPhone with the real App Group. Verify reminder horizon, foreground sync after suspension, denied/revoked permissions, claims after process death, absence/manual Late, historical leave correction, account change, and pending/error recovery. Present measured Android missed-check behavior for the product decision required by v2 before release.
 - [ ] **Step 4: Verify privacy/cost/provisioning boundaries.** Review license and transitive advisory results, merged permissions, token/position/note-free logs, appropriate backup exclusions for credentials/widget state, and documented local-data loss/reinstall behavior. Confirm the final identifiers/accounts/store privacy disclosures and privacy-policy hosting as release inputs; do not enroll, enable billing, upload to stores, or publish.
-- [ ] **Step 5: Record rollback and handoff evidence.** A failing integration pauses its side effects and preserves local records/dirty revisions. Prefer a forward-compatible fix; never downgrade a newer database destructively. Missing physical hardware, signing, OAuth, or a failed native feasibility result remains an explicit incomplete gate. Request design review if meeting it needs changed permissions/workflow/support floors.
+- [x] **Step 5: Record rollback and handoff evidence.** A failing integration pauses its side effects and preserves local records/dirty revisions. Prefer a forward-compatible fix; never downgrade a newer database destructively. Missing physical hardware, signing, OAuth, or a failed native feasibility result remains an explicit incomplete gate. Request design review if meeting it needs changed permissions/workflow/support floors.
 - [ ] **Step 6: Commit the verified candidate and evidence.** `test: verify bilingual cross-platform attendance release candidate`. Run the execution method's required final independent review, resolve actionable findings, and report precisely which native/release gates passed. Distribution still needs a separate user instruction.
 
 ---
