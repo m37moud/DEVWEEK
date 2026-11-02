@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		DA1020261102000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DA1020261102000000000002 /* Assets.xcassets */; };
 		0727772FB2EB03F40AA01C7A /* ReminderAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E14D4A80BD4132E4A40CC451 /* ReminderAdapter.swift */; };
 		168741C2DC802DA6CBA6AD1B /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = B3D276E9DBC6C4701EF738D4 /* Localizable.xcstrings */; };
 		19F72CB20B8B338750558EE2 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = AF333920B9FE2EDC7BF75BF1 /* InfoPlist.strings */; };
@@ -80,6 +81,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		DA1020261102000000000002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		089CBA317D2C278AFDB707BC /* NativeGoogleAuth.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeGoogleAuth.swift; sourceTree = "<group>"; };
 		142334A597DA331C36EB7466 /* DaymarkWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DaymarkWidget.swift; sourceTree = "<group>"; };
 		1F446ADE7DA32E7B67E0C413 /* ar */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = ar; path = ar.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -180,6 +182,7 @@
 		34F7BA52EBF807ACCA21290E /* Daymark */ = {
 			isa = PBXGroup;
 			children = (
+				DA1020261102000000000002 /* Assets.xcassets */,
 				89A406AB976811E7D3F84A82 /* DaymarkApp.swift */,
 				B28BD72393805C3C1F3DAACA /* ContentView.swift */,
 				43156CA91BB685C9A33A5712 /* Info.plist */,
@@ -428,6 +431,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DA1020261102000000000001 /* Assets.xcassets in Resources */,
 				19F72CB20B8B338750558EE2 /* InfoPlist.strings in Resources */,
 				168741C2DC802DA6CBA6AD1B /* Localizable.xcstrings in Resources */,
 				4285BD5E7091A907669C775F /* PrivacyInfo.xcprivacy in Resources */,

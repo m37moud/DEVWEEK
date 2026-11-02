@@ -5,7 +5,8 @@ import org.gradle.api.tasks.testing.Test
 import org.gradle.process.CommandLineArgumentProvider
 
 class CrashProbeClasspath(@get:Classpath val files: FileCollection) : CommandLineArgumentProvider {
-    override fun asArguments(): Iterable<String> = listOf("-Ddaymark.test.classpath=${files.asPath}")
+    override fun asArguments(): Iterable<String> =
+        listOf("-Ddaymark.test.classpath=${files.asPath}")
 }
 
 plugins {
@@ -36,6 +37,7 @@ kotlin {
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
+            implementation(libs.material.icons.core)
             implementation(libs.compose.resources)
             implementation(libs.lifecycle.viewmodel)
             implementation(libs.lifecycle.runtime)
@@ -47,13 +49,19 @@ kotlin {
             implementation(libs.room.runtime)
             implementation(libs.sqlite.bundled)
             implementation(libs.ktor.core)
+            implementation(libs.font.awesome)
+
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(libs.coroutines.test)
             implementation(libs.ktor.mock)
         }
-        androidMain.dependencies { implementation(libs.play.location); implementation(libs.ktor.android); implementation(libs.activity.compose) }
+        androidMain.dependencies {
+            implementation(libs.play.location); implementation(libs.ktor.android); implementation(
+            libs.activity.compose
+        )
+        }
         iosMain.dependencies { implementation(libs.ktor.darwin) }
         jvmMain {
             kotlin.srcDir("src/androidMain/kotlin/dev/daymark/plan")
@@ -61,7 +69,11 @@ kotlin {
         }
         jvmTest.dependencies { implementation(libs.kotlin.test.junit); implementation(libs.junit) }
         getByName("androidHostTest").dependencies { implementation(libs.junit) }
-        getByName("androidDeviceTest").dependencies { implementation(libs.test.runner); implementation(libs.test.ext.junit) }
+        getByName("androidDeviceTest").dependencies {
+            implementation(libs.test.runner); implementation(
+            libs.test.ext.junit
+        )
+        }
     }
 }
 dependencies {

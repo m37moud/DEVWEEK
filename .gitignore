@@ -10,3 +10,5 @@ local.properties
 **/DerivedData/
 *.xcuserstate
 iosApp/Daymark/Configuration.xcconfig
+/artifacts/
+.hotswan/
