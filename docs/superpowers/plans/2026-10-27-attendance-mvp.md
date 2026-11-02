@@ -10,7 +10,7 @@
 
 **Spec:** Approved [promoted design v2](../reviews/2026-10-27-attendance-mvp/04-promoted-design-v2.md), incorporating the complete immutable [v1 specification](../reviews/2026-10-27-attendance-mvp/01-design-v1-frozen.md), SHA-256 `99843eeb6012ddb80a51c114daf5cd82054d99735a768bf278cc98a9d4e20e53`. Read both before implementation. The [senior review](../reviews/2026-10-27-attendance-mvp/03-senior-review.md) explains the v2 amendments.
 
-**Status:** Plan written for review on 27 October 2026. V2 is approved; implementation and the execution method are not yet approved. No task below has been executed.
+**Status:** Approved for Native execution by the user on 31 October 2026. Implementation is in progress in the isolated `feature/attendance-mvp` worktree. Completion requires the recorded native/test gates and one independent whole-branch review; unchecked steps are unfinished.
 
 ## Global Constraints
 
@@ -94,6 +94,8 @@ This machine is arm64, has JDK 21 installed, and currently selects JDK 24 and Xc
 
 Primary version sources: [CMP](https://kotlinlang.org/docs/multiplatform/compose-compatibility-and-versioning.html), [Room](https://developer.android.com/jetpack/androidx/releases/room3), [AGP](https://developer.android.com/build/releases/agp-9-3-0-release-notes), [KSP](https://github.com/google/ksp/releases), [Ktor](https://ktor.io/docs/releases.html), [Google Sign-In iOS](https://developers.google.com/identity/sign-in/ios/release), and published metadata under `https://repo.maven.apache.org/maven2/` and `https://dl.google.com/dl/android/maven2/` using the exact artifact coordinates above. Material 3 and Navigation 3 have versions independent of the CMP plugin; do not substitute the Android-only artifacts in shared code.
 
+**Execution ruling, 31 October 2026:** Xcode 27.1 is the observed local-development toolchain after both arm64 frameworks compiled, the Swift host built with strict dependency verification, and Compose rendered in the iOS 27.0 simulator. This replaces obtaining 26.4 before feature work; official compatibility qualification and older-OS/physical-device evidence remain release gates. Android/iOS support floors are unchanged. See `docs/development/toolchain.md` and the execution ledger for evidence and the cost of this ruling.
+
 ### File map
 
 Paths below are repository-relative. Feature tests mirror their production packages; all new production Kotlin uses `dev.daymark`. No module-per-layer framework or DI container is added.
@@ -155,11 +157,11 @@ Test code below gives named assertion excerpts. Each named test owns its arrange
 - Consumes: approved pins, platform floors, and per-command runtime selection above.
 - Produces: `@Composable fun BootstrapScreen()` and `fun MainViewController(): UIViewController` for the temporary bootstrap host; a static `DaymarkShared` framework for `iosArm64` and `iosSimulatorArm64`. Task 9 explicitly replaces this bootstrap entry with its injected production entry.
 
-- [ ] **Step 1: Run the prerequisite check.** Inspect JDK/Xcode/simulator/Android SDK availability and record the matrix, including the known active Xcode 27.1 mismatch. Obtain/select the supported runtime only during authorized execution. Missing prerequisites fail this gate; do not suppress version checks.
-- [ ] **Step 2: Create the two hosts and exact version catalog.** Use Android's KMP library plugin for shared and the application plugin/built-in Kotlin integration for the Android host. Enable Compose resources, KSP targets, host/device tests, JVM 21, SDK 37/minimum 26, and iOS 16. Use SPM rather than CocoaPods. Add dependency verification/checksums and exclude local credentials/build outputs from Git.
-- [ ] **Step 3: Compile both routes into the bootstrap screen.** Run `./gradlew :shared:compileAndroidMain :shared:linkDebugFrameworkIosSimulatorArm64 :shared:linkDebugFrameworkIosArm64 :androidApp:assembleDebug`, then the simulator `xcodebuild ... build` command above. Expected: all commands exit 0, the shared framework links, and both apps show the bootstrap screen. Configuration work uses compile/run checks, not an artificial unit test of literal build constants.
-- [ ] **Step 4: Freeze the proven matrix and task names.** Record compiler/runtime warnings, resolved direct/transitive versions, wrapper checksum, test task names, and actual simulator in `toolchain.md`. A hard incompatibility stops dependent work; correct the stable pin with primary-source evidence and repeat Step 3 before moving on. No support-floor or workflow change is implicit.
-- [ ] **Step 5: Commit the runnable foundation.** Commit listed build/host files and lockfiles as `build: establish Android and iOS CMP hosts`.
+- [x] **Step 1: Run the prerequisite check.** Inspect JDK/Xcode/simulator/Android SDK availability and record the matrix, including the known active Xcode 27.1 mismatch. Obtain/select the supported runtime only during authorized execution. Missing prerequisites fail this gate; do not suppress version checks.
+- [x] **Step 2: Create the two hosts and exact version catalog.** Use Android's KMP library plugin for shared and the application plugin/built-in Kotlin integration for the Android host. Enable Compose resources, KSP targets, host/device tests, JVM 21, SDK 37/minimum 26, and iOS 16. Use SPM rather than CocoaPods. Add dependency verification/checksums and exclude local credentials/build outputs from Git.
+- [x] **Step 3: Compile both routes into the bootstrap screen.** Run `./gradlew :shared:compileAndroidMain :shared:linkDebugFrameworkIosSimulatorArm64 :shared:linkDebugFrameworkIosArm64 :androidApp:assembleDebug`, then the simulator `xcodebuild ... build` command above. Expected: all commands exit 0, the shared framework links, and both apps show the bootstrap screen. Configuration work uses compile/run checks, not an artificial unit test of literal build constants.
+- [x] **Step 4: Freeze the proven matrix and task names.** Record compiler/runtime warnings, resolved direct/transitive versions, wrapper checksum, test task names, and actual simulator in `toolchain.md`. A hard incompatibility stops dependent work; correct the stable pin with primary-source evidence and repeat Step 3 before moving on. No support-floor or workflow change is implicit.
+- [x] **Step 5: Commit the runnable foundation.** Commit listed build/host files and lockfiles as `build: establish Android and iOS CMP hosts`.
 
 ### Task 2: Fresh native location adapters and the background feasibility probe
 
@@ -175,7 +177,7 @@ Test code below gives named assertion excerpts. Each named test owns its arrange
 - Produces: `interface LocationGateway { suspend fun requestFix(budget: Duration): LocationResult }`; `LocationResult.Fix(latitude: Double, longitude: Double, horizontalAccuracyMetres: Double, capturedAt: Instant, receivedAt: Instant, ageAtReceipt: Duration?)` and `Failure(reason: LocationFailure)` with `PERMISSION_DENIED`, `SERVICES_DISABLED`, `TIMEOUT`, `UNAVAILABLE`, `CANCELLED`.
 - Produces: `LocationCapabilities(foregroundGranted: Boolean, backgroundGranted: Boolean, preciseGranted: Boolean, servicesEnabled: Boolean)` and `LocationPermissionPort.current(): LocationCapabilities`, `requestForeground(): LocationCapabilities`, `requestBackground(): LocationCapabilities` (both requests suspend), and `openSystemSettings(): Unit`. Request UI is user-initiated; iOS background access is never requested. The iOS implementation lives alongside its gateway and Android activity-result implementation lives in the host.
 
-- [ ] **Step 1: Add adapter tests with controlled native callbacks.** Assert one request is cancelled at 30 seconds, denial returns `PERMISSION_DENIED`, cancellation never retries, and malformed coordinates/timestamps yield `UNAVAILABLE` (RF1). Test a callback arriving after cancellation is ignored and no raw position reaches captured logs.
+- [x] **Step 1: Add adapter tests with controlled native callbacks.** Assert one request is cancelled at 30 seconds, denial returns `PERMISSION_DENIED`, cancellation never retries, and malformed coordinates/timestamps yield `UNAVAILABLE` (RF1). Test a callback arriving after cancellation is ignored and no raw position reaches captured logs.
 
 ```kotlin
 // AndroidLocationGatewayTest.timeout_cancels_once_and_ignores_late_fix
@@ -186,10 +188,10 @@ assertEquals(1, nativeCancellationCount)
 assertEquals(LocationFailure.UNAVAILABLE, assertIs<LocationResult.Failure>(result).reason)
 assertFalse(logsContainCoordinates)
 ```
-- [ ] **Step 2: Run the tests before the adapter implementation.** Use the Android host command for `AndroidLocationGatewayTest` and `:shared:iosSimulatorArm64Test`. Expected: unresolved adapter/API or behavior failure, not a broken test harness.
-- [ ] **Step 3: Implement the adapters.** Android uses fused `getCurrentLocation` with an explicit cache-age budget and cancellation; iOS uses a one-shot Core Location delegate and When In Use capability. Calculate native freshness at receipt; unknown age is represented explicitly. Map disabled/denied/timeout states and discard raw positions after the caller finishes.
+- [x] **Step 2: Run the tests before the adapter implementation.** Use the Android host command for `AndroidLocationGatewayTest` and `:shared:iosSimulatorArm64Test`. Expected: unresolved adapter/API or behavior failure, not a broken test harness.
+- [x] **Step 3: Implement the adapters.** Android uses fused `getCurrentLocation` with an explicit cache-age budget and cancellation; iOS uses a one-shot Core Location delegate and When In Use capability. Calculate native freshness at receipt; unknown age is represented explicitly. Map disabled/denied/timeout states and discard raw positions after the caller finishes.
 - [ ] **Step 4: Run passing tests and physical probes.** On Android exercise foreground, locked-screen/background, denied background access, battery saver/Doze, and one non-Google manufacturer. On iOS exercise foreground precise/denied/unavailable cases without relying on debugger execution, one native local reminder, and a development widget URL opening the foreground probe. These minimal reminder/widget probes store no attendance and are replaced by Tasks 8/12; do not postpone their feasibility until full feature implementation. Record request count, delay, fix age/accuracy verdict, and outcome without coordinates. A missed background fix is an observed limitation, not permission to add retries/FGS/exact alarms. Return to design review if the chosen mode needs a different mechanism.
-- [ ] **Step 5: Commit.** `feat: add bounded native location adapters and feasibility probes`.
+- [x] **Step 5: Commit.** `feat: add bounded native location adapters and feasibility probes`.
 
 ### Task 3: Native Google authorization and a literal report connectivity probe
 
@@ -204,7 +206,7 @@ assertFalse(logsContainCoordinates)
 - Produces: `GoogleAccess.accessToken(interactive: Boolean): AccessResult` and `forget(): Unit` as suspend wrappers. `AccessResult` is `Granted(token: String)/NeedsInteraction/Cancelled/Failed(errorKey: String)` with redacted string output. `GoogleReportTransport` produces suspend methods `accountReference(token: String): String`, `discover(trackerId: String, token: String): ReportDiscovery`, `create(title: String, trackerId: String, token: String): ReportCreation`, `read(report: RemoteReport, ranges: List<String>, token: String): RemoteSnapshot`, and `write(report: RemoteReport, patch: RawPatch, token: String): RemoteWriteOutcome`.
 - Wire DTOs: `RemoteReport(id: String, tabIds: Map<String, Int>, schemaVersion: Int?)`; `RawPatch(ranges: List<RawRange>)`; `RawRange(a1: String, cells: List<List<JsonPrimitive>>)`; `RemoteSnapshot(ranges: Map<String, List<List<JsonPrimitive>>>)`. `ReportDiscovery` is `None/Found(report: RemoteReport)/Multiple(reports: List<RemoteReport>)`; `ReportCreation` is `Ready(report: RemoteReport)/Ambiguous/Unavailable`; write outcomes are `Acknowledged/Retryable(retryAfter: Duration?)/Ambiguous/AuthorizationRequired/SchemaConflict/ReportUnavailable`.
 
-- [ ] **Step 1: Write auth/HTTP tests using callbacks and Ktor MockEngine.** Assert `interactive=false` never opens account UI, cancellation remains cancellation, tokens are redacted, only `drive.file` is requested, HTTP 401 pauses for authorization, and a note `=1+2` is sent as `RAW`. Assert account A/B are distinct and callback completion is delivered once (RF5).
+- [x] **Step 1: Write auth/HTTP tests using callbacks and Ktor MockEngine.** Assert `interactive=false` never opens account UI, cancellation remains cancellation, tokens are redacted, only `drive.file` is requested, HTTP 401 pauses for authorization, and a note `=1+2` is sent as `RAW`. Assert account A/B are distinct and callback completion is delivered once (RF5).
 
 ```kotlin
 // GoogleAccessTest.silent_access_cannot_launch_consent
@@ -217,10 +219,12 @@ assertEquals("=1+2", sentNote)
 assertNotEquals(accountAReference, accountBReference)
 assertEquals(setOf("https://www.googleapis.com/auth/drive.file"), requestedScopes)
 ```
-- [ ] **Step 2: Run the two shared test classes and Swift bridge test.** Expected: missing implementations or failed behavioral assertions. A missing developer credential is not a unit-test failure or a passed live probe.
-- [ ] **Step 3: Implement authorization and minimal transport.** Use AuthorizationClient on Android and Google Sign-In 10.1.0 through SPM on iOS; present native consent on the UI thread/main actor and deliver a completion at most once. Never request a server auth code or store a refresh token in Room. Obtain the opaque account reference with Drive `about.get?fields=user(permissionId)` under the same scope; do not assume AuthorizationResult supplies an account or add profile scopes. Use Drive file app-properties (`daymarkTrackerId`) for discovery/creation of app-owned spreadsheets, and Sheets REST v4 for values. An ambiguous create is discovered later, not blindly repeated; multiple matches need an explicit report selection.
+- [x] **Step 2: Run the two shared test classes and Swift bridge test.** Expected: missing implementations or failed behavioral assertions. A missing developer credential is not a unit-test failure or a passed live probe.
+- [x] **Step 3: Implement authorization and minimal transport.** Use AuthorizationClient on Android and Google Sign-In 10.1.0 through SPM on iOS; present native consent on the UI thread/main actor and deliver a completion at most once. Never request a server auth code or store a refresh token in Room. Obtain the opaque account reference with Drive `about.get?fields=user(permissionId)` under the same scope; do not assume AuthorizationResult supplies an account or add profile scopes. Use Drive file app-properties (`daymarkTrackerId`) for discovery/creation of app-owned spreadsheets, and Sheets REST v4 for values. An ambiguous create is discovered later, not blindly repeated; multiple matches need an explicit report selection.
 - [ ] **Step 4: Verify a real connect/create/write/read on each platform.** With the user's OAuth configuration and consent, create an explicitly named developer test report, write/read a literal test row, and cancel/reconnect. Retain the test report for the user to remove; no silent cloud deletion. Record success or the exact provisioning blocker. See [Android authorization/account behavior](https://developer.android.com/identity/authorization), [Drive about scope](https://developers.google.com/workspace/drive/api/reference/rest/v3/about/get), and [Drive permission ID](https://developers.google.com/workspace/drive/api/reference/rest/v3/User).
-- [ ] **Step 5: Commit adapters, mocks, and provisioning instructions.** `feat: add narrow Google authorization and report transport`; exclude credentials and live token/report dumps.
+- [x] **Step 5: Commit adapters, mocks, and provisioning instructions.** `feat: add narrow Google authorization and report transport`; exclude credentials and live token/report dumps.
+
+**Execution ruling:** iOS uses exact AppAuth 3.0.0 (revision `a972daac82d449d58ab119e91c68153e29ddac33`) instead of the initially proposed Google Sign-In SDK, which unconditionally adds email/profile scopes. The approved `drive.file` limit stands. See `docs/development/provisioning.md`. Native/mock gates pass; Step 4 remains open without OAuth configuration and live consent.
 
 ### Task 4: Calendar resolution and pure attendance rules
 
@@ -235,7 +239,7 @@ assertEquals(setOf("https://www.googleapis.com/auth/drive.file"), requestedScope
 - Produces: `AttendanceStatus` (`SCHEDULED/AWAITING_CHECK/PRESENT/LATE/ABSENT/DAY_OFF/HOLIDAY/VACATION`), `AttendanceSource` (`NONE/AUTOMATIC_GPS/MANUAL_GPS/MANUAL_CORRECTION/MANUAL_TIME_OFF`), `CheckMode` (`AUTOMATIC/USER_INITIATED`), `AttendanceEvidence(status: AttendanceStatus, source: AttendanceSource, confirmedAt: Instant?, note: String?, updatedAt: Instant)`, and `DayOutcome(status: AttendanceStatus, source: AttendanceSource, confirmedAt: Instant?, offReason: TimeOffKind?)`; `TimeOffKind` is `HOLIDAY/VACATION`.
 - Produces: `resolveLocalArrival(date: LocalDate, time: LocalTime, zoneId: String): Instant`, `resolveDay(key: DayKey, schedule: WeeklySchedule, category: TrackerCategory, place: RegisteredPlace, scheduleVersion: Long): DayPlan`, `evaluateDay(plan: DayPlan, evidence: AttendanceEvidence?, off: TimeOffKind?, now: Instant): DayOutcome`, and `classifyFix(plan: DayPlan, fix: LocationResult.Fix, mode: CheckMode, now: Instant): FixVerdict`. `FixVerdict` is `Accepted(status: AttendanceStatus, confirmedAt: Instant)` or `Rejected(reason: CheckRejection)`; `TrackerCategory` is `WORK/SCHOOL/COURSE`. Define `CheckRejection` for `BEFORE_WINDOW/AFTER_AUTOMATIC_WINDOW/STALE_FIX/INVALID_FIX/INACCURATE_FIX/OUTSIDE_AREA/NO_TRACKER/DAY_OFF/LOCATION_DENIED/LOCATION_DISABLED/LOCATION_TIMEOUT/UNAVAILABLE/CANCELLED/STATE_CHANGED`.
 
-- [ ] **Step 1: Add explicit boundary assertions.** `fixturePlan()` uses 27 October 2026, UTC, 09:00, grace 5, radius 100, and a fixed tracker UUID; `fixtureFix()` defaults to the registered center, accuracy 10 m, and age zero. Pin the central rule:
+- [x] **Step 1: Add explicit boundary assertions.** `fixturePlan()` uses 27 October 2026, UTC, 09:00, grace 5, radius 100, and a fixed tracker UUID; `fixtureFix()` defaults to the registered center, accuracy 10 m, and age zero. Pin the central rule:
 
 ```kotlin
 // AttendanceRulesTest.inclusive_grace_and_freshness
@@ -247,10 +251,12 @@ assertEquals(CheckRejection.STALE_FIX, assertIs<FixVerdict.Rejected>(stale).reas
 ```
 
 Also assert radius 100/accuracy 50 are inclusive, 50.001 accuracy fails, negative/NaN/infinite/unknown/future sample data fails, pre-arrival capture fails, and an automatic post-deadline sample cannot yield Late (RF1). Define `at(localTime: String): Instant` and `acceptedStatus(plan, localTime, mode)` only as test fixtures. `fixtureFix` defaults its capture to 09:02 and receipt to capture plus `ageSeconds`, keeping stale-age tests internally consistent.
-- [ ] **Step 2: Run both test classes red.** Expected: missing pure rule/resolution functions or their behavioral failures.
-- [ ] **Step 3: Implement pure rules and native zone resolution.** Use distance-to-registered-center plus the separate accuracy threshold. Resolve a DST gap to the first valid instant and an overlap to the earlier instant, using Java zone rules and Foundation calendar matching policies; do not rely on a default resolver that shifts a nonexistent 02:30 to 03:30.
-- [ ] **Step 4: Verify host and iOS tests.** Pin `America/New_York` 8 March 2026 02:30 → 07:00Z and 1 November 2026 01:30 → 05:30Z; Thursday override 09:30; zero grace; empty weekdays rejection; fixed attendance-zone behavior after travel; and Gregorian date identity after locale change (RF3). Expected: identical results on both targets.
-- [ ] **Step 5: Commit.** `feat: define deterministic attendance and schedule rules`.
+- [x] **Step 2: Run both test classes red.** Expected: missing pure rule/resolution functions or their behavioral failures.
+- [x] **Step 3: Implement pure rules and native zone resolution.** Use distance-to-registered-center plus the separate accuracy threshold. Resolve a DST gap to the first valid instant and an overlap to the earlier instant, using Java zone rules and Foundation calendar matching policies; do not rely on a default resolver that shifts a nonexistent 02:30 to 03:30.
+- [x] **Step 4: Verify host and iOS tests.** Pin `America/New_York` 8 March 2026 02:30 → 07:00Z and 1 November 2026 01:30 → 05:30Z; Thursday override 09:30; zero grace; empty weekdays rejection; fixed attendance-zone behavior after travel; and Gregorian date identity after locale change (RF3). Expected: identical results on both targets.
+- [x] **Step 5: Commit.** `feat: define deterministic attendance and schedule rules`.
+
+**Execution ruling:** reject a resolved arrival/grace window crossing the attendance-zone calendar date; overnight shifts are excluded and GPS confirmation belongs to one date. Near-midnight users must choose a grace ending on that date.
 
 ### Task 5: Room transactions, automatic claims, and local attendance service
 
@@ -266,7 +272,7 @@ Also assert radius 100/accuracy 50 are inclusive, 50.001 accuracy fails, negativ
 - `StoredDay(plan: DayPlan, evidence: AttendanceEvidence?, off: TimeOffKind?, automaticState: AutomaticState, revision: Long)` uses `UNCLAIMED/CLAIMED/FINISHED/INTERRUPTED`. `ClaimResult` is `Claimed(day: StoredDay, attemptId: String)/AlreadyConsumed/Ineligible`; `Correction(key: DayKey, status: AttendanceStatus, arrivalTime: LocalTime?, note: String?)`; `CheckCommit(key: DayKey, attemptId: String?, expectedScheduleVersion: Long, expectedPlaceVersion: Long, verdict: FixVerdict, mode: CheckMode, updatedAt: Instant)`; `CheckOutcome` is `Recorded/Rejected/AlreadyRecorded/StateChanged/Busy`, carrying `currentDay: DayOutcome?` and an optional `CheckRejection` when relevant.
 - Produces: `AttendanceService.manualCheck(): CheckOutcome` and `runAutomatic(key: DayKey): CheckOutcome`. These load/claim, acquire outside the DB transaction, and commit only after revalidation.
 
-- [ ] **Step 1: Write actual database/service failure tests.** Unique `(trackerId,date)` survives concurrent inserts; two automatic claims yield one `Claimed`; kill/reopen after claim consumes it; a manual correction or time-off overlay during acquisition wins; failure cannot downgrade Present; earlier successful evidence wins; local record and dirty date/Overview revisions commit or roll back together (RF2). The service test injects a fake location gateway and asserts zero requests for stale/claimed/off days.
+- [x] **Step 1: Write actual database/service failure tests.** Unique `(trackerId,date)` survives concurrent inserts; two automatic claims yield one `Claimed`; kill/reopen after claim consumes it; a manual correction or time-off overlay during acquisition wins; failure cannot downgrade Present; earlier successful evidence wins; local record and dirty date/Overview revisions commit or roll back together (RF2). The service test injects a fake location gateway and asserts zero requests for stale/claimed/off days.
 
 ```kotlin
 // AttendanceTransactionTest.claim_is_unique_and_remains_consumed_after_reopen
@@ -280,10 +286,12 @@ assertEquals(AttendanceStatus.ABSENT, outcome.status)
 assertEquals(beforeAttendanceRevision, afterAttendanceRevision)
 assertEquals(beforeDirtyRevisions, afterDirtyRevisions)
 ```
-- [ ] **Step 2: Run red on host plus iOS reopen tests.** Use a real temporary bundled SQLite database for persistence tests, not an in-memory fake of transaction semantics.
-- [ ] **Step 3: Implement the database/repository/service.** Tables cover settings/setup draft, tracker/versioned expectations, attendance/claim/underlying evidence, time-off entries, balance adjustments, report binding, dirty projections, and in-flight batches. Store dates/instants canonically; preserve row/connection revisions. Use Room transactions for claims and revalidation. Persist only verdict metadata, not raw check coordinates. Cancellation after claim cannot release it.
-- [ ] **Step 4: Verify passing tests and cold reopen.** Include setup after today's deadline creating no retroactive automatic absence; explicit today correction still works. Reconcile missed dates using historical versions, never GPS. Database failures expose a local-save error, not a success message. No destructive migration fallback is configured.
-- [ ] **Step 5: Commit schema and transactional behavior.** `feat: persist authoritative attendance and consumed automatic attempts`.
+- [x] **Step 2: Run red on host plus iOS reopen tests.** Use a real temporary bundled SQLite database for persistence tests, not an in-memory fake of transaction semantics.
+- [x] **Step 3: Implement the database/repository/service.** Tables cover settings/setup draft, tracker/versioned expectations, attendance/claim/underlying evidence, time-off entries, balance adjustments, report binding, dirty projections, and in-flight batches. Store dates/instants canonically; preserve row/connection revisions. Use Room transactions for claims and revalidation. Persist only verdict metadata, not raw check coordinates. Cancellation after claim cannot release it.
+- [x] **Step 4: Verify passing tests and cold reopen.** Include setup after today's deadline creating no retroactive automatic absence; explicit today correction still works. Reconcile missed dates using historical versions, never GPS. Database failures expose a local-save error, not a success message. No destructive migration fallback is configured.
+- [x] **Step 5: Commit schema and transactional behavior.** `feat: persist authoritative attendance and consumed automatic attempts`.
+
+**Execution rulings:** real persistence tests use the supported JVM Room target plus iOS files, with Android wiring retained for device acceptance. `StoredDay.userEditRevision` and `CheckCommit.expectedUserEditRevision` fence user-edit ABA without rejecting earlier concurrent GPS evidence. `CheckRejection.LOCAL_SAVE_FAILED` distinguishes unsuccessful storage from sensor failures. See `docs/development/persistence.md`.
 
 ### Task 6: Retrospective time off, balance adjustments, and future-effective plan changes
 

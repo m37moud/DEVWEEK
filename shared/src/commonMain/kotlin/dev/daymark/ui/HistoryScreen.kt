@@ -1,0 +1,102 @@
+package dev.daymark.ui
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleStartEffect
+import dev.daymark.attendance.*
+import dev.daymark.resources.*
+import dev.daymark.settings.*
+import kotlinx.datetime.*
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable fun HistoryScreen(model: HistoryViewModel, onBack: () -> Unit, onEditTimeOff: (LocalDate) -> Unit) {
+    val state by model.uiState.collectAsStateWithLifecycle()
+    LifecycleStartEffect(model) { model.setActive(true); onStopOrDispose { model.setActive(false) } }
+    val language = LocalAppLanguage.current
+    var editing by remember { mutableStateOf<HistoryRecord?>(null) }
+    var offDate by remember { mutableStateOf<LocalDate?>(null) }
+    LaunchedEffect(state.savedKey) { if (editing?.plan?.key == state.savedKey) editing = null }
+    var selectedDate by rememberSaveable(state.year,state.month) { mutableStateOf<String?>(null) }
+    val selected=selectedDate?.let(LocalDate::parse)
+    val shown=state.history.records.filter { selected==null || it.plan.key.date==selected }
+    LazyColumn(Modifier.fillMaxSize().safeDrawingPadding().testTag("history-root"),
+        contentPadding=PaddingValues(horizontal=20.dp,vertical=12.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        item { TextButton(onClick=onBack) { Text(str(Res.string.back)) } }
+        item { Text(str(Res.string.history),style=MaterialTheme.typography.headlineLarge) }
+        item { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+            TextButton(onClick={ val date=LocalDate(state.year,state.month,1).minus(1,DateTimeUnit.MONTH); model.selectMonth(date.year,date.month.number) }) { Text(str(Res.string.previous_month)) }
+            TextButton(onClick={ val date=LocalDate(state.year,state.month,1).plus(1,DateTimeUnit.MONTH); model.selectMonth(date.year,date.month.number) }) { Text(str(Res.string.next_month)) }
+        } }
+        item { Text(DisplayFormats.date(LocalDate(state.year,state.month,1),language),style=MaterialTheme.typography.titleMedium) }
+        item { Text(str(Res.string.month_counts,DisplayFormats.number(state.history.present,language),DisplayFormats.number(state.history.late,language),DisplayFormats.number(state.history.absent,language))) }
+        item { AttendanceCalendar(state.year,state.month,state.history.records,state.today,selected) { selectedDate=it.toString() } }
+        if (selected!=null) item {
+            TextButton(onClick={ selectedDate=null },modifier=Modifier.testTag("history-show-all")) { Text(str(Res.string.show_all_records)) }
+            if (selected>state.today && state.history.records.none { it.plan.key.date==selected }) {
+                Text(str(Res.string.future_date_plan),modifier=Modifier.testTag("history-future-plan"))
+                TextButton(onClick={ onEditTimeOff(selected) }) { Text(str(Res.string.edit_time_off)) }
+            }
+        }
+        if (state.storageError) item { Text(str(Res.string.load_failed),color=MaterialTheme.colorScheme.error) }
+        if (!state.ready) item { CircularProgressIndicator() }
+        else if (shown.isEmpty() && (selected==null || selected<=state.today)) item { Text(str(Res.string.no_records),Modifier.padding(vertical=24.dp)) }
+        items(shown,key={ it.plan.key.date.toString() }) { record ->
+            Card(onClick={ if (!record.plan.isScheduled || record.outcome.offReason!=null) offDate=record.plan.key.date else editing=record },
+                modifier=Modifier.fillMaxWidth().testTag("history-record-${record.plan.key.date}")) {
+                Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                    Text(DisplayFormats.date(record.plan.key.date,language),style=MaterialTheme.typography.titleMedium)
+                    Text(str(record.outcome.status.label()))
+                    record.outcome.confirmedAt?.let { at -> Text(str(Res.string.confirmed_at,DisplayFormats.time(at,record.plan.zoneId,language)),modifier=Modifier.testTag("history-confirmed-${record.plan.key.date}")) }
+                    Text(str(record.outcome.source.label()),color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    record.evidence?.note?.takeIf { it.isNotEmpty() }?.let { Text(isolated(it),maxLines=4,overflow=TextOverflow.Ellipsis) }
+                }
+            }
+        }
+    }
+    if (offDate != null) AlertDialog(onDismissRequest = { offDate = null }, title = { Text(str(Res.string.edit_time_off)) },
+        text = { Text(str(Res.string.time_off_edit_help)) }, confirmButton = { TextButton(modifier = Modifier.testTag("history-time-off-action"), onClick = { val date = offDate; offDate = null; date?.let(onEditTimeOff) }) { Text(str(Res.string.edit_time_off)) } },
+        dismissButton = { TextButton(onClick = { offDate = null }) { Text(str(Res.string.cancel)) } })
+    editing?.let { record -> key(record.plan.key) {
+        var status by rememberSaveable { mutableStateOf(record.outcome.status.takeIf { it in listOf(AttendanceStatus.PRESENT,AttendanceStatus.LATE,AttendanceStatus.ABSENT) } ?: AttendanceStatus.ABSENT) }
+        var note by rememberSaveable { mutableStateOf(record.evidence?.note.orEmpty()) }
+        val initial = record.evidence?.confirmedAt?.toLocalDateTime(TimeZone.of(record.plan.zoneId))?.time
+        var arrival by rememberSaveable { mutableStateOf(initial?.toString()) }
+        var pickTime by remember { mutableStateOf(false) }
+        AlertDialog(onDismissRequest = { if (!state.busy) editing = null }, title = { Text(str(Res.string.edit_record)) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(str(Res.string.correction_help))
+                    for (option in listOf(AttendanceStatus.PRESENT,AttendanceStatus.LATE,AttendanceStatus.ABSENT)) {
+                        FilterChip(selected = status == option, onClick = { status = option }, label = { Text(str(option.label())) })
+                    }
+                    if (status != AttendanceStatus.ABSENT) OutlinedButton(onClick = { pickTime = true }, modifier = Modifier.testTag("correction-time")) {
+                        Text(arrival?.let { DisplayFormats.time(dev.daymark.plan.resolveLocalArrival(record.plan.key.date,LocalTime.parse(it),record.plan.zoneId), record.plan.zoneId,language) } ?: str(Res.string.correction_time))
+                    }
+                    OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text(str(Res.string.correction_note)) }, modifier = Modifier.testTag("correction-note"), maxLines = 4)
+                    TextButton(onClick = { editing = null; onEditTimeOff(record.plan.key.date) }) { Text(str(Res.string.edit_time_off)) }
+                    if (state.noteTooLong || dev.daymark.reporting.exceedsReportTextLimit(note)) Text(str(Res.string.note_too_long,DisplayFormats.number(dev.daymark.reporting.REPORT_TEXT_LIMIT,language)),color=MaterialTheme.colorScheme.error)
+                    else if (state.invalidCorrection) Text(str(Res.string.invalid_correction), color = MaterialTheme.colorScheme.error)
+                    if (state.storageError) Text(str(Res.string.local_save_failed), color = MaterialTheme.colorScheme.error)
+                }
+            }, confirmButton = { TextButton(enabled = !state.busy, modifier = Modifier.testTag("correction-save"), onClick = {
+                model.saveCorrection(Correction(record.plan.key,status,arrival?.let(LocalTime::parse),note.takeIf { it.isNotEmpty() }))
+            }) { Text(str(Res.string.save)) } }, dismissButton = { TextButton(enabled = !state.busy, onClick = { editing = null }) { Text(str(Res.string.cancel)) } })
+        if (pickTime) {
+            val time = rememberTimePickerState(initialHour = initial?.hour ?: 9, initialMinute = initial?.minute ?: 0, is24Hour = true)
+            AlertDialog(onDismissRequest = { pickTime = false }, title = { Text(str(Res.string.correction_time)) }, text = { TimePicker(time) },
+                confirmButton = { TextButton(onClick = { arrival = LocalTime(time.hour,time.minute).toString(); pickTime = false }) { Text(str(Res.string.save)) } },
+                dismissButton = { TextButton(onClick = { pickTime = false }) { Text(str(Res.string.cancel)) } })
+        }
+    } }
+}

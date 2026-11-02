@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Daymark</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Daymark checks this device’s location when you choose to register a place or check attendance.</string>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>dev.daymark.native-probe</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>daymark</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>dev.daymark.google-oauth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(DAYMARK_GOOGLE_REDIRECT_SCHEME)</string>
+			</array>
+		</dict>
+	</array>
+	<key>DAYMARK_GOOGLE_IOS_CLIENT_ID</key>
+	<string>$(DAYMARK_GOOGLE_IOS_CLIENT_ID)</string>
+	<key>DAYMARK_GOOGLE_REDIRECT_URI</key>
+	<string>$(DAYMARK_GOOGLE_REDIRECT_URI)</string>
+	<key>DAYMARK_APP_GROUP_IDENTIFIER</key>
+	<string>$(DAYMARK_APP_GROUP_IDENTIFIER)</string>
+</dict>
+</plist>

@@ -1,0 +1,2 @@
+"CFBundleDisplayName" = "Daymark";
+"NSLocationWhenInUseUsageDescription" = "Daymark uses your precise location when you register a place or choose to check attendance. Raw attendance check coordinates are discarded.";

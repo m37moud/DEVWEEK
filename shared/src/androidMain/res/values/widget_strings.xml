@@ -1,0 +1,16 @@
+<resources>
+    <string name="widget_status_scheduled">Scheduled</string>
+    <string name="widget_status_awaiting_check">Ready to check in</string>
+    <string name="widget_status_present">Present</string>
+    <string name="widget_status_late">Late</string>
+    <string name="widget_status_absent">Absent</string>
+    <string name="widget_status_day_off">Day off</string>
+    <string name="widget_status_holiday">Holiday</string>
+    <string name="widget_status_vacation">Vacation</string>
+    <string name="widget_not_started">Scheduled tracking has not started. You can still check in manually today.</string>
+    <string name="widget_open">Open Daymark</string>
+    <string name="widget_check">Check attendance</string>
+    <string name="widget_updated">Updated · %1$s</string>
+    <string name="widget_stale">Open Daymark for today’s record</string>
+    <string name="widget_deadline">Present through · %1$s</string>
+</resources>

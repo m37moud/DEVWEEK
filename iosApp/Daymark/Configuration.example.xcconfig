@@ -1,0 +1,7 @@
+// Copy to ignored Configuration.xcconfig and supply your public native client ID.
+DAYMARK_GOOGLE_IOS_CLIENT_ID = REPLACE_WITH_PUBLIC_IOS_CLIENT_ID.apps.googleusercontent.com
+DAYMARK_GOOGLE_REDIRECT_SCHEME = com.googleusercontent.apps.REPLACE_WITH_REVERSED_CLIENT_ID
+
+// Register the same App Group for both host and widget, and provision both bundle identifiers.
+DAYMARK_APP_GROUP_IDENTIFIER = group.REPLACE_WITH_REGISTERED_APP_GROUP
+DAYMARK_WIDGET_BUNDLE_IDENTIFIER = REPLACE_WITH_WIDGET_BUNDLE_IDENTIFIER
