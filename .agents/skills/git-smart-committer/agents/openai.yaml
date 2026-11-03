@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git Smart Committer"
+  short_description: "Plan and create safe, well-grouped Git commits"
+  default_prompt: "Use $git-smart-committer to inspect my working tree, group related changes, and create safe, focused commits with strong messages."
