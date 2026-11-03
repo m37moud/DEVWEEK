@@ -1,9 +1,18 @@
 package dev.daymark.settings
 
-import androidx.room3.*
-import dev.daymark.data.*
-import kotlinx.coroutines.flow.*
-import kotlinx.serialization.json.*
+import androidx.room3.withWriteTransaction
+import dev.daymark.data.DaymarkDatabase
+import dev.daymark.data.SettingEntity
+import dev.daymark.data.markDirty
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 data class AppSettings(
     val displayName: String = "",

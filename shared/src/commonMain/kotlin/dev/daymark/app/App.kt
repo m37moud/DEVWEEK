@@ -1,30 +1,75 @@
 package dev.daymark.app
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
-import dev.daymark.resources.*
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Language
-import compose.icons.fontawesomeicons.solid.Lock
 import compose.icons.fontawesomeicons.solid.Sun
-import dev.daymark.reminders.ReminderCopy
-import kotlinx.coroutines.CancellationException
 import dev.daymark.data.TrackerEntity
-import dev.daymark.settings.*
-import dev.daymark.ui.*
-import kotlinx.coroutines.flow.*
+import dev.daymark.reminders.ReminderCopy
+import dev.daymark.resources.Res
+import dev.daymark.resources.app_name
+import dev.daymark.resources.reminder_body
+import dev.daymark.resources.reminder_title
+import dev.daymark.resources.retry
+import dev.daymark.resources.storage_unavailable
+import dev.daymark.settings.AppLanguage
+import dev.daymark.settings.AppSettings
+import dev.daymark.settings.LocalAppLanguage
+import dev.daymark.settings.WithPlatformLocale
+import dev.daymark.settings.applyAppLocale
+import dev.daymark.settings.effectiveLanguage
+import dev.daymark.settings.str
+import dev.daymark.settings.systemLanguageTags
+import dev.daymark.ui.AppNavigation
+import dev.daymark.ui.DaymarkTheme
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 
 private data class BootState(
@@ -108,49 +153,31 @@ fun App(graph: AppGraph) {
             DaymarkTheme(ready.settings.theme) {
                 val drawerState = rememberDrawerState(DrawerValue.Closed)
                 val scope = rememberCoroutineScope()
-                ModalNavigationDrawer(
-                    drawerState = drawerState,
-                    drawerContent = {
-                        ModalDrawerSheet {
-                            Text(
-                                str(Res.string.app_name),
-                                modifier = Modifier.padding(16.dp),
-                                style = MaterialTheme.typography.titleLarge
-                            )
-                            NavigationDrawerItem(
-                                label = { Text(str(Res.string.app_name)) },
-                                selected = true,
-                                onClick = { scope.launch { drawerState.close() } },
-                                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                            )
-                        }
-                    }
-                ) {
-                    Scaffold(
-                        topBar = {
-                            TopAppBar(
-                                title = { Text(str(Res.string.app_name)) },
-                                actions = {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        IconButton(
-                                            onClick = {},
-                                            content = {
-                                                Icon(
-                                                    imageVector = FontAwesomeIcons.Solid.Sun,
-                                                    contentDescription = str(Res.string.app_name)
-                                                )
-                                            })
+                Scaffold(
+                    topBar = {
+                        TopAppBar(
+                            title = { Text(str(Res.string.app_name)) },
+                            actions = {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    IconButton(
+                                        onClick = {},
+                                        content = {
+                                            Icon(
+                                                imageVector = FontAwesomeIcons.Solid.Sun,
+                                                contentDescription = str(Res.string.app_name)
+                                            )
+                                        })
 
-                                        IconButton(
-                                            onClick = {},
-                                            content = {
-                                                Icon(
-                                                    imageVector = FontAwesomeIcons.Solid.Language,
-                                                    contentDescription = str(Res.string.app_name)
-                                                )
-                                            })
-                                    }
+                                    IconButton(
+                                        onClick = {},
+                                        content = {
+                                            Icon(
+                                                imageVector = FontAwesomeIcons.Solid.Language,
+                                                contentDescription = str(Res.string.app_name)
+                                            )
+                                        })
                                 }
+                            }
 //                                navigationIcon = {
 //                                    IconButton(
 //                                        onClick = { scope.launch { drawerState.open() } },
@@ -162,29 +189,28 @@ fun App(graph: AppGraph) {
 //                                        }
 //                                    )
 //                                }
-                            )
-                        }
+                        )
+                    }
+                ) {
+                    Surface(
+                        Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
                     ) {
-                        Surface(
-                            Modifier.fillMaxSize(),
-                            color = MaterialTheme.colorScheme.background
+                        Box(
+                            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
                         ) {
-                            Box(
-                                Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
-                            ) {
-                                if (ready.failed) {
-                                    Column(
-                                        Modifier.padding(24.dp),
-                                        verticalArrangement = Arrangement.spacedBy(20.dp)
-                                    ) {
-                                        Text(
-                                            str(Res.string.storage_unavailable),
-                                            modifier = Modifier.testTag("app-storage-error")
-                                        )
-                                        Button(onClick = { retry++ }) { Text(str(Res.string.retry)) }
-                                    }
-                                } else AppNavigation(graph, ready.tracker, ready.settings)
-                            }
+                            if (ready.failed) {
+                                Column(
+                                    Modifier.padding(24.dp),
+                                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                                ) {
+                                    Text(
+                                        str(Res.string.storage_unavailable),
+                                        modifier = Modifier.testTag("app-storage-error")
+                                    )
+                                    Button(onClick = { retry++ }) { Text(str(Res.string.retry)) }
+                                }
+                            } else AppNavigation(graph, ready.tracker, ready.settings)
                         }
                     }
                 }

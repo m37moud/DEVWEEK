@@ -5,7 +5,11 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -19,7 +23,10 @@ internal class ControlledLocationSource : OneShotLocationSource {
         this.callback = callback
         return LocationCancellation { cancellations++ }
     }
-    fun reply(result: LocationResult) { requireNotNull(callback)(result) }
+
+    fun reply(result: LocationResult) {
+        requireNotNull(callback)(result)
+    }
 }
 
 internal fun sampleFix(
@@ -78,7 +85,10 @@ internal fun invalidDataContract(factory: (OneShotLocationSource) -> LocationGat
         runCurrent()
         source.reply(fix)
         runCurrent()
-        assertEquals(LocationFailure.UNAVAILABLE, assertIs<LocationResult.Failure>(request.await()).reason)
+        assertEquals(
+            LocationFailure.UNAVAILABLE,
+            assertIs<LocationResult.Failure>(request.await()).reason
+        )
         assertEquals(1, source.cancellations)
     }
 }
@@ -90,7 +100,10 @@ internal fun denialContract(factory: (OneShotLocationSource) -> LocationGateway)
     runCurrent()
     source.reply(LocationResult.Failure(LocationFailure.PERMISSION_DENIED))
     runCurrent()
-    assertEquals(LocationFailure.PERMISSION_DENIED, assertIs<LocationResult.Failure>(request.await()).reason)
+    assertEquals(
+        LocationFailure.PERMISSION_DENIED,
+        assertIs<LocationResult.Failure>(request.await()).reason
+    )
     advanceTimeBy(60_000)
     assertEquals(1, source.requests)
 }
@@ -109,7 +122,8 @@ internal fun successContract(factory: (OneShotLocationSource) -> LocationGateway
 }
 
 class LocationPrivacyTest {
-    @Test fun debug_strings_cannot_expose_sensor_coordinates() {
+    @Test
+    fun debug_strings_cannot_expose_sensor_coordinates() {
         val text = sampleFix().toString()
         assertFalse(text.contains("25.123456"))
         assertFalse(text.contains("30.654321"))

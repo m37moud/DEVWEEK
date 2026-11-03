@@ -1,8 +1,4 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.gradle.api.file.FileCollection
-import org.gradle.api.tasks.Classpath
-import org.gradle.api.tasks.testing.Test
-import org.gradle.process.CommandLineArgumentProvider
 
 class CrashProbeClasspath(@get:Classpath val files: FileCollection) : CommandLineArgumentProvider {
     override fun asArguments(): Iterable<String> =

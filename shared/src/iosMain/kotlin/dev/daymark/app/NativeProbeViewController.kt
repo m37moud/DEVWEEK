@@ -2,12 +2,11 @@
 
 package dev.daymark.app
 
-import androidx.compose.ui.window.ComposeUIViewController
 import androidx.compose.material3.Text
+import androidx.compose.ui.window.ComposeUIViewController
 import dev.daymark.location.IosLocationGateway
 import dev.daymark.location.IosLocationPermissions
 import dev.daymark.ui.LocationProbeContent
-import kotlin.native.Platform
 import platform.UIKit.UIViewController
 
 fun NativeProbeViewController(): UIViewController {

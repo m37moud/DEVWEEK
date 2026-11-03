@@ -1,88 +1,203 @@
 package dev.daymark.reporting
 
-import dev.daymark.*
-import dev.daymark.attendance.*
-import dev.daymark.data.*
+import dev.daymark.at
+import dev.daymark.attendance.AttendanceStatus
+import dev.daymark.attendance.Correction
+import dev.daymark.attendance.RoomAttendanceRepository
+import dev.daymark.attendance.TestClock
+import dev.daymark.attendance.TrackerCategory
+import dev.daymark.data.PlanVersionEntity
+import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.seedDatabase
+import dev.daymark.fixtureDate
+import dev.daymark.fixturePlace
+import dev.daymark.fixturePlan
+import dev.daymark.fixtureSchedule
+import dev.daymark.plan.PlanChange
+import dev.daymark.plan.PlanMutationResult
+import dev.daymark.plan.PlanService
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.*
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atTime
+import kotlinx.datetime.toInstant
 import kotlinx.serialization.json.JsonPrimitive
-import dev.daymark.plan.*
 import java.nio.file.Files
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 class SetupDayReportTest {
-    @Test fun overview_exports_numeric_totals_and_balance_but_keeps_names_literal(): Unit = runBlocking {
-        val folder=Files.createTempDirectory("daymark-numeric-report-"); val db=openJvmDatabase(folder.resolve("test.db").toString())
+    @Test
+    fun overview_exports_numeric_totals_and_balance_but_keeps_names_literal(): Unit = runBlocking {
+        val folder = Files.createTempDirectory("daymark-numeric-report-");
+        val db = openJvmDatabase(folder.resolve("test.db").toString())
         try {
             seedDatabase(db)
-            val tracker=db.dao().tracker()!!
-            db.dao().putTracker(tracker.copy(displayName="=1+2"))
-            val clock=TestClock(at("09:20:00")); val repo=RoomAttendanceRepository(db,clock)
-            repo.correct(Correction(fixturePlan().key,AttendanceStatus.PRESENT,LocalTime(9,0),null))
-            val store=RoomReportStore(db,clock)
-            val binding=ReportBinding(tracker.id,store.beginConnection()!!,"a","r",annualTabIds=mapOf(2026 to 3))
+            val tracker = db.dao().tracker()!!
+            db.dao().putTracker(tracker.copy(displayName = "=1+2"))
+            val clock = TestClock(at("09:20:00"));
+            val repo = RoomAttendanceRepository(db, clock)
+            repo.correct(
+                Correction(
+                    fixturePlan().key,
+                    AttendanceStatus.PRESENT,
+                    LocalTime(9, 0),
+                    null
+                )
+            )
+            val store = RoomReportStore(db, clock)
+            val binding = ReportBinding(
+                tracker.id,
+                store.beginConnection()!!,
+                "a",
+                "r",
+                annualTabIds = mapOf(2026 to 3)
+            )
             store.bind(binding)
-            val overview=store.localProjections(binding).single { it.key==ProjectionKey.Overview }.ranges.single().cells.associate { it[0].content to it[2] }
-            assertEquals(JsonPrimitive(1),overview.getValue("present"))
-            assertEquals(JsonPrimitive(0),overview.getValue("late"))
-            assertEquals(JsonPrimitive(0),overview.getValue("absent"))
-            assertEquals(JsonPrimitive(10),overview.getValue("vacationBalance"))
-            assertEquals(JsonPrimitive("=1+2"),overview.getValue("name"))
-            val version=db.dao().versions(tracker.id).single()
-            db.dao().putVersion(version.copy(category="SCHOOL"))
-            val school=store.localProjections(binding).single { it.key==ProjectionKey.Overview }.ranges.single().cells.associate { it[0].content to it[2] }
-            assertEquals(JsonPrimitive(""),school.getValue("vacationBalance"))
-        } finally { db.close(); folder.toFile().deleteRecursively() }
+            val overview = store.localProjections(binding)
+                .single { it.key == ProjectionKey.Overview }.ranges.single().cells.associate { it[0].content to it[2] }
+            assertEquals(JsonPrimitive(1), overview.getValue("present"))
+            assertEquals(JsonPrimitive(0), overview.getValue("late"))
+            assertEquals(JsonPrimitive(0), overview.getValue("absent"))
+            assertEquals(JsonPrimitive(10), overview.getValue("vacationBalance"))
+            assertEquals(JsonPrimitive("=1+2"), overview.getValue("name"))
+            val version = db.dao().versions(tracker.id).single()
+            db.dao().putVersion(version.copy(category = "SCHOOL"))
+            val school = store.localProjections(binding)
+                .single { it.key == ProjectionKey.Overview }.ranges.single().cells.associate { it[0].content to it[2] }
+            assertEquals(JsonPrimitive(""), school.getValue("vacationBalance"))
+        } finally {
+            db.close(); folder.toFile().deleteRecursively()
+        }
     }
-    @Test fun explicit_setup_day_corrections_match_history_annual_and_overview_totals(): Unit = runBlocking {
-        val folder=Files.createTempDirectory("daymark-setup-report-"); val db=openJvmDatabase(folder.resolve("test.db").toString())
-        try {
-            seedDatabase(db,createdAt=at("09:20:00"),trackingStartsAt=kotlin.time.Instant.parse("2026-10-28T09:00:00Z"))
-            val clock=TestClock(at("09:20:00")); val repo=RoomAttendanceRepository(db,clock); val store=RoomReportStore(db,clock)
-            val tracker=db.dao().tracker()!!.id
-            val binding=ReportBinding(tracker,store.beginConnection()!!,"a","r",annualTabIds=mapOf(2026 to 3))
-            store.bind(binding)
-            for (status in listOf(AttendanceStatus.PRESENT,AttendanceStatus.LATE,AttendanceStatus.ABSENT)) {
-                repo.correct(Correction(fixturePlan().key,status,if (status==AttendanceStatus.ABSENT) null else LocalTime(9,10),null))
-                val history=repo.observeMonth(2026,10).first()
-                assertEquals(status,history.records.single().outcome.status)
-                val projections=store.localProjections(binding)
-                assertEquals(status.name,projections.single { it.key is ProjectionKey.Day }.ranges.single().cells.single()[5].content)
-                val overview=projections.single { it.key==ProjectionKey.Overview }.ranges.single().cells.associate { it[0].content to it[2].content }
-                assertEquals(history.present,overview.getValue("present").toInt())
-                assertEquals(history.late,overview.getValue("late").toInt())
-                assertEquals(history.absent,overview.getValue("absent").toInt())
+
+    @Test
+    fun explicit_setup_day_corrections_match_history_annual_and_overview_totals(): Unit =
+        runBlocking {
+            val folder = Files.createTempDirectory("daymark-setup-report-");
+            val db = openJvmDatabase(folder.resolve("test.db").toString())
+            try {
+                seedDatabase(
+                    db,
+                    createdAt = at("09:20:00"),
+                    trackingStartsAt = kotlin.time.Instant.parse("2026-10-28T09:00:00Z")
+                )
+                val clock = TestClock(at("09:20:00"));
+                val repo = RoomAttendanceRepository(db, clock);
+                val store = RoomReportStore(db, clock)
+                val tracker = db.dao().tracker()!!.id
+                val binding = ReportBinding(
+                    tracker,
+                    store.beginConnection()!!,
+                    "a",
+                    "r",
+                    annualTabIds = mapOf(2026 to 3)
+                )
+                store.bind(binding)
+                for (status in listOf(
+                    AttendanceStatus.PRESENT,
+                    AttendanceStatus.LATE,
+                    AttendanceStatus.ABSENT
+                )) {
+                    repo.correct(
+                        Correction(
+                            fixturePlan().key,
+                            status,
+                            if (status == AttendanceStatus.ABSENT) null else LocalTime(9, 10),
+                            null
+                        )
+                    )
+                    val history = repo.observeMonth(2026, 10).first()
+                    assertEquals(status, history.records.single().outcome.status)
+                    val projections = store.localProjections(binding)
+                    assertEquals(
+                        status.name,
+                        projections.single { it.key is ProjectionKey.Day }.ranges.single().cells.single()[5].content
+                    )
+                    val overview =
+                        projections.single { it.key == ProjectionKey.Overview }.ranges.single().cells.associate { it[0].content to it[2].content }
+                    assertEquals(history.present, overview.getValue("present").toInt())
+                    assertEquals(history.late, overview.getValue("late").toInt())
+                    assertEquals(history.absent, overview.getValue("absent").toInt())
+                }
+            } finally {
+                db.close(); folder.toFile().deleteRecursively()
             }
-        } finally { db.close(); folder.toFile().deleteRecursively() }
-    }
-    @Test fun westward_zone_cutover_does_not_hide_previously_recorded_dates_from_totals_or_week(): Unit = runBlocking {
-        val folder=Files.createTempDirectory("daymark-zone-report-"); val db=openJvmDatabase(folder.resolve("test.db").toString())
-        try {
-            val start=LocalDate(2026,10,20)
-            val begins=start.atTime(9,0).toInstant(TimeZone.of("Pacific/Kiritimati"))
-            seedDatabase(db,createdAt=begins-kotlin.time.Duration.parse("1h"),trackingStartsAt=begins)
-            val tracker=db.dao().tracker()!!.id
-            val schedule=fixtureSchedule(zoneId="Pacific/Kiritimati")
-            db.dao().putVersion(PlanVersionEntity.fromSnapshot(tracker,1,start,begins,TrackerCategory.WORK,schedule,fixturePlace(),"Place"))
-            val clock=TestClock(at("09:00:00")); val repo=RoomAttendanceRepository(db,clock)
-            repo.reconcile(clock.now())
-            repo.correct(Correction(fixturePlan().key,AttendanceStatus.PRESENT,LocalTime(9,0),null))
-            val plans=PlanService(db,clock)
-            val change=PlanChange(schedule.copy(zoneId="Etc/GMT+12"),TrackerCategory.WORK,fixturePlace())
-            val preview=plans.previewChange(change)
-            assertEquals(PlanMutationResult.Applied,plans.applyChange(change,preview.expectedRevision))
-            clock.value=at("10:00:01"); repo.reconcile(clock.now())
-            val store=RoomReportStore(db,clock)
-            val binding=ReportBinding(tracker,store.beginConnection()!!,"a","r",annualTabIds=mapOf(2026 to 3)); store.bind(binding)
-            val history=repo.observeMonth(2026,10).first()
-            assertEquals(1,history.present)
-            val overview=store.localProjections(binding).single { it.key==ProjectionKey.Overview }.ranges.single().cells.associate { it[0].content to it[2].content }
-            assertEquals(1,overview.getValue("present").toInt())
-            val dashboard=dev.daymark.ui.TodayDashboardReader(db,clock).observe().first { it.ready }
-            assertEquals(1,dashboard.present)
-            assertFalse(dashboard.week.single { it.date==fixtureDate }.planned)
-        } finally { db.close(); folder.toFile().deleteRecursively() }
-    }
+        }
+
+    @Test
+    fun westward_zone_cutover_does_not_hide_previously_recorded_dates_from_totals_or_week(): Unit =
+        runBlocking {
+            val folder = Files.createTempDirectory("daymark-zone-report-");
+            val db = openJvmDatabase(folder.resolve("test.db").toString())
+            try {
+                val start = LocalDate(2026, 10, 20)
+                val begins = start.atTime(9, 0).toInstant(TimeZone.of("Pacific/Kiritimati"))
+                seedDatabase(
+                    db,
+                    createdAt = begins - kotlin.time.Duration.parse("1h"),
+                    trackingStartsAt = begins
+                )
+                val tracker = db.dao().tracker()!!.id
+                val schedule = fixtureSchedule(zoneId = "Pacific/Kiritimati")
+                db.dao().putVersion(
+                    PlanVersionEntity.fromSnapshot(
+                        tracker,
+                        1,
+                        start,
+                        begins,
+                        TrackerCategory.WORK,
+                        schedule,
+                        fixturePlace(),
+                        "Place"
+                    )
+                )
+                val clock = TestClock(at("09:00:00"));
+                val repo = RoomAttendanceRepository(db, clock)
+                repo.reconcile(clock.now())
+                repo.correct(
+                    Correction(
+                        fixturePlan().key,
+                        AttendanceStatus.PRESENT,
+                        LocalTime(9, 0),
+                        null
+                    )
+                )
+                val plans = PlanService(db, clock)
+                val change = PlanChange(
+                    schedule.copy(zoneId = "Etc/GMT+12"),
+                    TrackerCategory.WORK,
+                    fixturePlace()
+                )
+                val preview = plans.previewChange(change)
+                assertEquals(
+                    PlanMutationResult.Applied,
+                    plans.applyChange(change, preview.expectedRevision)
+                )
+                clock.value = at("10:00:01"); repo.reconcile(clock.now())
+                val store = RoomReportStore(db, clock)
+                val binding = ReportBinding(
+                    tracker,
+                    store.beginConnection()!!,
+                    "a",
+                    "r",
+                    annualTabIds = mapOf(2026 to 3)
+                ); store.bind(binding)
+                val history = repo.observeMonth(2026, 10).first()
+                assertEquals(1, history.present)
+                val overview = store.localProjections(binding)
+                    .single { it.key == ProjectionKey.Overview }.ranges.single().cells.associate { it[0].content to it[2].content }
+                assertEquals(1, overview.getValue("present").toInt())
+                val dashboard =
+                    dev.daymark.ui.TodayDashboardReader(db, clock).observe().first { it.ready }
+                assertEquals(1, dashboard.present)
+                assertFalse(dashboard.week.single { it.date == fixtureDate }.planned)
+            } finally {
+                db.close(); folder.toFile().deleteRecursively()
+            }
+        }
 
 }

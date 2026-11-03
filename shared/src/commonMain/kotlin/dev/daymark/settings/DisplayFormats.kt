@@ -8,4 +8,5 @@ expect object DisplayFormats {
     fun time(at: Instant, zoneId: String, language: AppLanguage): String
     fun number(value: Int, language: AppLanguage): String
 }
+
 fun isolated(value: String): String = "\u2068$value\u2069"

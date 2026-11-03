@@ -5,7 +5,13 @@ package dev.daymark.location
 import kotlinx.cinterop.useContents
 import kotlinx.coroutines.CompletableJob
 import kotlinx.coroutines.Job
-import platform.CoreLocation.*
+import platform.CoreLocation.CLAccuracyAuthorization
+import platform.CoreLocation.CLLocation
+import platform.CoreLocation.CLLocationManager
+import platform.CoreLocation.CLLocationManagerDelegateProtocol
+import platform.CoreLocation.kCLAuthorizationStatusAuthorizedAlways
+import platform.CoreLocation.kCLAuthorizationStatusAuthorizedWhenInUse
+import platform.CoreLocation.kCLLocationAccuracyBest
 import platform.Foundation.NSError
 import platform.Foundation.timeIntervalSince1970
 import platform.darwin.NSObject
@@ -19,6 +25,7 @@ import kotlin.time.Instant
 
 class IosLocationGateway internal constructor(source: OneShotLocationSource) : LocationGateway {
     constructor(clock: Clock = Clock.System) : this(CoreLocationSource(clock))
+
     private val bounded = BoundedLocationGateway(source)
     override suspend fun requestFix(budget: Duration): LocationResult = bounded.requestFix(budget)
 }
@@ -31,17 +38,29 @@ internal fun iosLocationFix(
     val seconds = floor(capturedAtEpochSeconds).toLong()
     val nanos = ((capturedAtEpochSeconds - seconds) * 1_000_000_000.0).roundToLong()
     val captured = Instant.fromEpochSeconds(seconds, nanos)
-    return LocationResult.Fix(latitude, longitude, accuracy, captured, receivedAt, receivedAt - captured)
+    return LocationResult.Fix(
+        latitude,
+        longitude,
+        accuracy,
+        captured,
+        receivedAt,
+        receivedAt - captured
+    )
 }
 
-internal fun onIosLocationMain(block: () -> Unit) { dispatch_async(dispatch_get_main_queue()) { block() } }
+internal fun onIosLocationMain(block: () -> Unit) {
+    dispatch_async(dispatch_get_main_queue()) { block() }
+}
 
 internal fun iosLocationCapabilities(manager: CLLocationManager): LocationCapabilities {
     val status = manager.authorizationStatus
-    val foreground = status == kCLAuthorizationStatusAuthorizedWhenInUse || status == kCLAuthorizationStatusAuthorizedAlways
-    return LocationCapabilities(foreground, false,
+    val foreground =
+        status == kCLAuthorizationStatusAuthorizedWhenInUse || status == kCLAuthorizationStatusAuthorizedAlways
+    return LocationCapabilities(
+        foreground, false,
         foreground && manager.accuracyAuthorization == CLAccuracyAuthorization.CLAccuracyAuthorizationFullAccuracy,
-        CLLocationManager.locationServicesEnabled())
+        CLLocationManager.locationServicesEnabled()
+    )
 }
 
 private class CoreLocationSource(private val clock: Clock) : OneShotLocationSource {
@@ -78,13 +97,19 @@ private class CoreFixDelegate(
     override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
         if (!lifetime.isActive) return
         val capabilityFailure = locationGateFailure(iosLocationCapabilities(manager))
-        if (capabilityFailure != null) { finish(LocationResult.Failure(capabilityFailure)); return }
+        if (capabilityFailure != null) {
+            finish(LocationResult.Failure(capabilityFailure)); return
+        }
         val location = didUpdateLocations.lastOrNull() as? CLLocation
-        if (location == null) { finish(LocationResult.Failure(LocationFailure.UNAVAILABLE)); return }
+        if (location == null) {
+            finish(LocationResult.Failure(LocationFailure.UNAVAILABLE)); return
+        }
         val result = try {
             location.coordinate.useContents {
-                iosLocationFix(latitude, longitude, location.horizontalAccuracy,
-                    location.timestamp.timeIntervalSince1970, clock.now())
+                iosLocationFix(
+                    latitude, longitude, location.horizontalAccuracy,
+                    location.timestamp.timeIntervalSince1970, clock.now()
+                )
             }
         } catch (_: IllegalArgumentException) {
             LocationResult.Failure(LocationFailure.UNAVAILABLE)
@@ -94,10 +119,18 @@ private class CoreFixDelegate(
 
     override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
         if (!lifetime.isActive) return
-        finish(LocationResult.Failure(
-            locationGateFailure(iosLocationCapabilities(manager)) ?: LocationFailure.UNAVAILABLE))
+        finish(
+            LocationResult.Failure(
+                locationGateFailure(iosLocationCapabilities(manager)) ?: LocationFailure.UNAVAILABLE
+            )
+        )
     }
 
-    private fun finish(result: LocationResult) { if (lifetime.complete()) callback(result) }
-    fun close() { manager.stopUpdatingLocation(); manager.delegate = null }
+    private fun finish(result: LocationResult) {
+        if (lifetime.complete()) callback(result)
+    }
+
+    fun close() {
+        manager.stopUpdatingLocation(); manager.delegate = null
+    }
 }

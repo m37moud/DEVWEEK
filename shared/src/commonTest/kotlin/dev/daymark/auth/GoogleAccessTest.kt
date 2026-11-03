@@ -1,10 +1,14 @@
 package dev.daymark.auth
 
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class GoogleAccessTest {
@@ -14,9 +18,14 @@ class GoogleAccessTest {
         override fun authorize(interactive: Boolean, completion: (NativeAuthReply) -> Unit) {
             this.interactive = interactive; this.completion = completion
         }
-        override fun forget(completion: (Boolean) -> Unit) { completion(true) }
+
+        override fun forget(completion: (Boolean) -> Unit) {
+            completion(true)
+        }
     }
-    @Test fun silent_access_cannot_launch_consent() = runTest {
+
+    @Test
+    fun silent_access_cannot_launch_consent() = runTest {
         val native = Native()
         val pending = async { GoogleAccess(native).accessToken(false) }
         runCurrent()
@@ -25,7 +34,9 @@ class GoogleAccessTest {
         assertIs<AccessResult.NeedsInteraction>(pending.await())
         assertEquals(setOf("https://www.googleapis.com/auth/drive.file"), GOOGLE_REPORT_SCOPES)
     }
-    @Test fun duplicate_callback_preserves_first_result_and_redacts_token() = runTest {
+
+    @Test
+    fun duplicate_callback_preserves_first_result_and_redacts_token() = runTest {
         val native = Native()
         val pending = async { GoogleAccess(native).accessToken(true) }
         runCurrent()
@@ -37,35 +48,47 @@ class GoogleAccessTest {
         assertFalse(result.toString().contains("secret-access-token"))
         assertFalse(reply.toString().contains("secret-access-token"))
     }
-    @Test fun cancellation_remains_cancellation_and_late_callback_is_safe() = runTest {
+
+    @Test
+    fun cancellation_remains_cancellation_and_late_callback_is_safe() = runTest {
         val native = Native()
         val pending = async { GoogleAccess(native).accessToken(true) }
         runCurrent(); pending.cancel()
         native.completion!!(NativeAuthReply(NativeAuthStatus.GRANTED, "late-secret", null))
         assertTrue(pending.isCancelled)
     }
-    @Test fun forget_fences_an_older_authorization_callback() = runTest {
-        val native = Native(); val access = GoogleAccess(native)
+
+    @Test
+    fun forget_fences_an_older_authorization_callback() = runTest {
+        val native = Native();
+        val access = GoogleAccess(native)
         val pending = async { access.accessToken(true) }
         runCurrent(); access.forget()
         native.completion!!(NativeAuthReply(NativeAuthStatus.GRANTED, "obsolete-token", null))
         assertIs<AccessResult.NeedsInteraction>(pending.await())
     }
-    @Test fun empty_token_is_failure_and_native_cancel_is_distinct() = runTest {
+
+    @Test
+    fun empty_token_is_failure_and_native_cancel_is_distinct() = runTest {
         for ((reply, cancelled) in listOf(
             NativeAuthReply(NativeAuthStatus.GRANTED, "", null) to false,
-            NativeAuthReply(NativeAuthStatus.CANCELLED, null, null) to true)) {
-            val native = Native(); val pending = async { GoogleAccess(native).accessToken(true) }
+            NativeAuthReply(NativeAuthStatus.CANCELLED, null, null) to true
+        )) {
+            val native = Native();
+            val pending = async { GoogleAccess(native).accessToken(true) }
             runCurrent(); native.completion!!(reply)
             if (cancelled) assertIs<AccessResult.Cancelled>(pending.await())
             else assertIs<AccessResult.Failed>(pending.await())
         }
     }
 
-    @Test fun failed_native_forget_does_not_claim_session_was_cleared() = runTest {
-        val native=object : NativeGoogleAuth {
-            override fun authorize(interactive: Boolean, completion: (NativeAuthReply) -> Unit) { }
-            override fun forget(completion: (Boolean) -> Unit) { completion(false) }
+    @Test
+    fun failed_native_forget_does_not_claim_session_was_cleared() = runTest {
+        val native = object : NativeGoogleAuth {
+            override fun authorize(interactive: Boolean, completion: (NativeAuthReply) -> Unit) {}
+            override fun forget(completion: (Boolean) -> Unit) {
+                completion(false)
+            }
         }
         assertFailsWith<IllegalStateException> { GoogleAccess(native).forget() }
     }

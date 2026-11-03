@@ -4,7 +4,11 @@ val GOOGLE_REPORT_SCOPES: Set<String> = setOf("https://www.googleapis.com/auth/d
 
 enum class NativeAuthStatus { GRANTED, NEEDS_INTERACTION, CANCELLED, FAILED }
 
-class NativeAuthReply(val status: NativeAuthStatus, val accessToken: String?, val errorKey: String?) {
+class NativeAuthReply(
+    val status: NativeAuthStatus,
+    val accessToken: String?,
+    val errorKey: String?
+) {
     override fun toString(): String = "NativeAuthReply(status=$status, accessToken=<redacted>)"
 }
 

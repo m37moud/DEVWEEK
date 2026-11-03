@@ -2,18 +2,27 @@ package dev.daymark.data
 
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
-import dev.daymark.*
+import dev.daymark.fixturePlan
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.nio.file.Files
 import java.nio.file.Path
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class DatabaseMigrationTest {
-    @Test fun schema_one_upgrades_without_losing_tracker_or_adjustment_history() = runTest {
-        val schemaPath = listOf(Path.of("schemas/dev.daymark.data.DaymarkDatabase/1.json"),
-            Path.of("shared/schemas/dev.daymark.data.DaymarkDatabase/1.json")).first { Files.exists(it) }
-        val schema = Json.parseToJsonElement(Files.readString(schemaPath)).jsonObject.getValue("database").jsonObject
+    @Test
+    fun schema_one_upgrades_without_losing_tracker_or_adjustment_history() = runTest {
+        val schemaPath = listOf(
+            Path.of("schemas/dev.daymark.data.DaymarkDatabase/1.json"),
+            Path.of("shared/schemas/dev.daymark.data.DaymarkDatabase/1.json")
+        ).first { Files.exists(it) }
+        val schema =
+            Json.parseToJsonElement(Files.readString(schemaPath)).jsonObject.getValue("database").jsonObject
         val folder = Files.createTempDirectory("daymark-migration-")
         val path = folder.resolve("attendance.db")
         try {
@@ -21,9 +30,19 @@ class DatabaseMigrationTest {
                 for (element in schema.getValue("entities").jsonArray) {
                     val entity = element.jsonObject
                     val table = entity.getValue("tableName").jsonPrimitive.content
-                    connection.execSQL(entity.getValue("createSql").jsonPrimitive.content.replace("\${TABLE_NAME}", table))
+                    connection.execSQL(
+                        entity.getValue("createSql").jsonPrimitive.content.replace(
+                            "\${TABLE_NAME}",
+                            table
+                        )
+                    )
                     for (index in entity["indices"]?.jsonArray ?: emptyList()) {
-                        connection.execSQL(index.jsonObject.getValue("createSql").jsonPrimitive.content.replace("\${TABLE_NAME}", table))
+                        connection.execSQL(
+                            index.jsonObject.getValue("createSql").jsonPrimitive.content.replace(
+                                "\${TABLE_NAME}",
+                                table
+                            )
+                        )
                     }
                 }
                 for (query in schema.getValue("setupQueries").jsonArray) connection.execSQL(query.jsonPrimitive.content)
@@ -41,7 +60,11 @@ class DatabaseMigrationTest {
                 val adjustment = db.dao().balanceAdjustments(tracker.id).single()
                 assertEquals(-2, adjustment.delta)
                 assertNull(adjustment.note)
-            } finally { db.close() }
-        } finally { folder.toFile().deleteRecursively() }
+            } finally {
+                db.close()
+            }
+        } finally {
+            folder.toFile().deleteRecursively()
+        }
     }
 }

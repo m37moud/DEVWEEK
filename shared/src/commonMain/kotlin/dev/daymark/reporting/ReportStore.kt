@@ -19,4 +19,5 @@ interface ReportStore {
     suspend fun saveRetry(binding: ReportBinding, attempts: Int, nextAt: Instant?, error: String?)
     suspend fun retryState(binding: ReportBinding): RetryState
 }
+
 data class RetryState(val attempts: Int = 0, val nextAt: Instant? = null, val error: String? = null)

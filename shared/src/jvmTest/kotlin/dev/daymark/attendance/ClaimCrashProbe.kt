@@ -1,8 +1,11 @@
 package dev.daymark.attendance
 
-import dev.daymark.data.*
-import dev.daymark.location.*
-import kotlinx.coroutines.*
+import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.seedDatabase
+import dev.daymark.location.LocationGateway
+import dev.daymark.location.LocationResult
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.time.Duration
@@ -18,6 +21,10 @@ fun main(args: Array<String>): Unit = runBlocking {
             awaitCancellation()
         }
     }
-    AttendanceService(RoomAttendanceRepository(db, clock), gateway, clock).runAutomatic(dev.daymark.fixturePlan().key)
+    AttendanceService(
+        RoomAttendanceRepository(db, clock),
+        gateway,
+        clock
+    ).runAutomatic(dev.daymark.fixturePlan().key)
     error("The crash probe must remain suspended during acquisition")
 }

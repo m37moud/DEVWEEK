@@ -22,10 +22,10 @@ internal class BoundedLocationGateway(private val source: OneShotLocationSource)
     private fun sanitized(result: LocationResult): LocationResult {
         if (result !is LocationResult.Fix) return result
         val valid = result.latitude.isFinite() && result.latitude in -90.0..90.0 &&
-            result.longitude.isFinite() && result.longitude in -180.0..180.0 &&
-            result.horizontalAccuracyMetres.isFinite() && result.horizontalAccuracyMetres >= 0.0 &&
-            result.capturedAt <= result.receivedAt &&
-            (result.ageAtReceipt == null || result.ageAtReceipt >= Duration.ZERO)
+                result.longitude.isFinite() && result.longitude in -180.0..180.0 &&
+                result.horizontalAccuracyMetres.isFinite() && result.horizontalAccuracyMetres >= 0.0 &&
+                result.capturedAt <= result.receivedAt &&
+                (result.ageAtReceipt == null || result.ageAtReceipt >= Duration.ZERO)
         return if (valid) result else LocationResult.Failure(LocationFailure.UNAVAILABLE)
     }
 }

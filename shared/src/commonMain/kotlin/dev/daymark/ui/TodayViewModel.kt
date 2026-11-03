@@ -2,13 +2,42 @@ package dev.daymark.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dev.daymark.attendance.*
+import dev.daymark.attendance.AttendanceRepository
+import dev.daymark.attendance.AttendanceService
+import dev.daymark.attendance.AttendanceSource
+import dev.daymark.attendance.AttendanceStatus
+import dev.daymark.attendance.CheckOutcome
+import dev.daymark.attendance.CheckRejection
+import dev.daymark.attendance.DayOutcome
+import dev.daymark.attendance.DayPlan
+import dev.daymark.attendance.evaluateDay
 import dev.daymark.location.LocationPermissionPort
 import dev.daymark.plan.PlanReader
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.*
-import kotlinx.datetime.*
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.plus
 import kotlin.time.Clock
 
 /** Screen observations own no sensor loop. The repository owns arrival/deadline transitions. */
@@ -52,27 +81,58 @@ class TodayViewModel(
                         val context = plans.context()
                         val day = repository.loadCurrentDay(now)
                         if (context == null || day == null) {
-                            state.value = TodayUiState(ready = true, error = CheckRejection.NO_TRACKER, active = active.value)
+                            state.value = TodayUiState(
+                                ready = true,
+                                error = CheckRejection.NO_TRACKER,
+                                active = active.value
+                            )
                         } else coroutineScope {
                             val zone = TimeZone.of(day.plan.zoneId)
-                            val tomorrow = day.plan.key.date.plus(1, DateTimeUnit.DAY).atStartOfDayIn(zone)
-                            launch { delay((tomorrow - clock.now()).coerceAtLeast(kotlin.time.Duration.ZERO)); refresh.send(Unit) }
+                            val tomorrow =
+                                day.plan.key.date.plus(1, DateTimeUnit.DAY).atStartOfDayIn(zone)
+                            launch {
+                                delay((tomorrow - clock.now()).coerceAtLeast(kotlin.time.Duration.ZERO)); refresh.send(
+                                Unit
+                            )
+                            }
                             repository.observeDay(day.plan.key).collect { observed ->
                                 val stored = repository.loadDay(day.plan.key)
-                                val hiddenBaseline = stored == null && day.plan.isScheduled && day.off==null && day.plan.arrival < context.trackingStartsAt
-                                val outcome = if (hiddenBaseline) null else observed ?: evaluateDay(day.plan, day.evidence, day.off, clock.now())
+                                val hiddenBaseline =
+                                    stored == null && day.plan.isScheduled && day.off == null && day.plan.arrival < context.trackingStartsAt
+                                val outcome = if (hiddenBaseline) null else observed ?: evaluateDay(
+                                    day.plan,
+                                    day.evidence,
+                                    day.off,
+                                    clock.now()
+                                )
                                 state.update { old ->
                                     val sameDay = old.plan?.key == day.plan.key
-                                    val next = old.copy(date = day.plan.key.date, plan = day.plan, outcome = outcome,
-                                        ready = true, error = if (sameDay) old.error else null)
-                                    next.copy(canCheck = canCheck(next, (stored ?: day).off != null))
+                                    val next = old.copy(
+                                        date = day.plan.key.date,
+                                        plan = day.plan,
+                                        outcome = outcome,
+                                        ready = true,
+                                        error = if (sameDay) old.error else null
+                                    )
+                                    next.copy(
+                                        canCheck = canCheck(
+                                            next,
+                                            (stored ?: day).off != null
+                                        )
+                                    )
                                 }
                             }
                         }
                         emit(Unit)
                     }.catch { error ->
                         if (error is CancellationException) throw error
-                        state.update { it.copy(ready = true, canCheck = false, error = CheckRejection.LOCAL_SAVE_FAILED) }
+                        state.update {
+                            it.copy(
+                                ready = true,
+                                canCheck = false,
+                                error = CheckRejection.LOCAL_SAVE_FAILED
+                            )
+                        }
                     }
                 }
             }.collect()
@@ -82,14 +142,26 @@ class TodayViewModel(
     private fun canCheck(value: TodayUiState, hasTimeOff: Boolean = false): Boolean {
         val plan = value.plan ?: return false
         return active.value && !value.busy && plan.isScheduled && !hasTimeOff && clock.now() >= plan.arrival &&
-            value.outcome?.status !in listOf(AttendanceStatus.PRESENT, AttendanceStatus.LATE, AttendanceStatus.DAY_OFF, AttendanceStatus.HOLIDAY, AttendanceStatus.VACATION) &&
-            value.outcome?.source != AttendanceSource.MANUAL_CORRECTION
+                value.outcome?.status !in listOf(
+            AttendanceStatus.PRESENT,
+            AttendanceStatus.LATE,
+            AttendanceStatus.DAY_OFF,
+            AttendanceStatus.HOLIDAY,
+            AttendanceStatus.VACATION
+        ) &&
+                value.outcome?.source != AttendanceSource.MANUAL_CORRECTION
     }
 
     fun setActive(value: Boolean) {
         if (active.value == value) return
         active.value = value
-        state.update { it.copy(active = value, ready = if (value) false else it.ready, canCheck = false) }
+        state.update {
+            it.copy(
+                active = value,
+                ready = if (value) false else it.ready,
+                canCheck = false
+            )
+        }
         if (!value) {
             check?.cancel()
             state.update { it.copy(canCheck = false) }
@@ -115,19 +187,34 @@ class TodayViewModel(
         check = viewModelScope.launch {
             try {
                 var capabilities = permissions.current()
-                if (!capabilities.foregroundGranted || !capabilities.preciseGranted) capabilities = permissions.requestForeground()
+                if (!capabilities.foregroundGranted || !capabilities.preciseGranted) capabilities =
+                    permissions.requestForeground()
                 val result = when {
-                    !capabilities.foregroundGranted || !capabilities.preciseGranted -> CheckOutcome.Rejected(null, CheckRejection.LOCATION_DENIED)
-                    !capabilities.servicesEnabled -> CheckOutcome.Rejected(null, CheckRejection.LOCATION_DISABLED)
+                    !capabilities.foregroundGranted || !capabilities.preciseGranted -> CheckOutcome.Rejected(
+                        null,
+                        CheckRejection.LOCATION_DENIED
+                    )
+
+                    !capabilities.servicesEnabled -> CheckOutcome.Rejected(
+                        null,
+                        CheckRejection.LOCATION_DISABLED
+                    )
+
                     else -> attendance.manualCheck()
                 }
                 state.update { old ->
-                    if (old.plan?.key != key) old else old.copy(outcome = result.currentDay ?: old.outcome, error = result.reason)
+                    if (old.plan?.key != key) old else old.copy(
+                        outcome = result.currentDay ?: old.outcome, error = result.reason
+                    )
                 }
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { state.update { it.copy(error = CheckRejection.LOCAL_SAVE_FAILED) } }
-            finally {
-                state.update { old -> old.copy(busy = false).let { it.copy(canCheck = canCheck(it)) } }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                state.update { it.copy(error = CheckRejection.LOCAL_SAVE_FAILED) }
+            } finally {
+                state.update { old ->
+                    old.copy(busy = false).let { it.copy(canCheck = canCheck(it)) }
+                }
             }
         }
     }
