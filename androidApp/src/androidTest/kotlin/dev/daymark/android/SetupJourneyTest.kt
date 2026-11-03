@@ -4,6 +4,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -120,6 +121,40 @@ class SetupJourneyTest {
         }
         Assert.assertEquals(0, googleCalls)
     }
+    @Test
+    fun radius_and_grace_have_localized_accessible_names_and_units() {
+        permitted = true
+        compose.onNodeWithTag("language-en").performClick()
+        compose.onNodeWithTag("setup-register-place").performScrollTo().performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("setup-place-ready").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("setup-radius").performScrollTo()
+            .assertContentDescriptionEquals("Allowed radius")
+        val radius = compose.onNodeWithTag("setup-radius")
+            .fetchSemanticsNode().config[SemanticsProperties.StateDescription]
+        Assert.assertTrue(radius.contains("100") && radius.contains("m"))
+        compose.onNodeWithTag("setup-grace").performScrollTo()
+            .assertContentDescriptionEquals("Grace period")
+        val grace = compose.onNodeWithTag("setup-grace")
+            .fetchSemanticsNode().config[SemanticsProperties.StateDescription]
+        Assert.assertTrue(grace.contains("5") && grace.contains("minutes"))
+        compose.onNodeWithTag("language-ar").performScrollTo().performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithContentDescription("نطاق التحقق").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("setup-radius").performScrollTo()
+            .assertContentDescriptionEquals("نطاق التحقق")
+        val arabicRadius = compose.onNodeWithTag("setup-radius")
+            .fetchSemanticsNode().config[SemanticsProperties.StateDescription]
+        Assert.assertTrue(arabicRadius.contains("١٠٠") && arabicRadius.contains("م"))
+        compose.onNodeWithTag("setup-grace").performScrollTo()
+            .assertContentDescriptionEquals("مهلة السماح")
+        val arabicGrace = compose.onNodeWithTag("setup-grace")
+            .fetchSemanticsNode().config[SemanticsProperties.StateDescription]
+        Assert.assertTrue(arabicGrace.contains("٥"))
+    }
+
     @Test fun closed_storage_shows_an_error_instead_of_setup_or_creating_another_profile() {
         compose.runOnIdle { shown = false }
         compose.waitForIdle()

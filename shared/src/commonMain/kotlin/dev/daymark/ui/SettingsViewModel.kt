@@ -7,6 +7,7 @@ import dev.daymark.data.DaymarkDatabase
 import dev.daymark.data.markDirty
 import dev.daymark.location.LocationCapabilities
 import dev.daymark.location.LocationPermissionPort
+import dev.daymark.reminders.ReminderPort
 import dev.daymark.settings.AppSettings
 import dev.daymark.settings.LanguagePreference
 import dev.daymark.settings.SettingsRepository
@@ -22,6 +23,8 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 data class SettingsUiState(
     val settings: AppSettings = AppSettings(),
@@ -31,6 +34,7 @@ data class SettingsUiState(
     val permissionDenied: Boolean = false,
     val capabilities: LocationCapabilities? = null,
     val invalidName: Boolean = false,
+    val reminderPermissionGranted: Boolean? = null,
     val storageError: Boolean = false
 )
 
@@ -72,6 +76,16 @@ class SettingsViewModel(
             state.update { it.copy(invalidName = true) }; return
         }
         save { settings.update(displayName = name); state.update { it.copy(invalidName = false) } }
+    }
+
+    fun requestReminders(reminders: ReminderPort) = save {
+        val allowed = suspendCancellableCoroutine { continuation ->
+            reminders.requestPermission { granted ->
+                if (continuation.isActive) continuation.resume(granted)
+            }
+        }
+        state.update { it.copy(reminderPermissionGranted = allowed) }
+        if (allowed) settings.update(remindersEnabled = true)
     }
 
     fun setRemindersEnabled(enabled: Boolean) = save { settings.update(remindersEnabled = enabled) }

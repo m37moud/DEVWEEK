@@ -158,7 +158,10 @@ fun AppNavigation(graph: AppGraph, tracker: TrackerEntity?, settings: AppSetting
                             graph.clock
                         )
                     }
-                    SetupScreen(model, graph, settings)
+                    val preferences = viewModel {
+                        SettingsViewModel(graph.db, graph.settings, graph.permissions)
+                    }
+                    SetupScreen(model, preferences, graph, settings)
                 }
                 entry<TodayRoute> {
                     val model = viewModel {

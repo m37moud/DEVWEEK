@@ -21,6 +21,7 @@
     <string name="local_save_failed">تعذّر الحفظ على الهاتف. بيانات النموذج ما زالت موجودة؛ حاول مجددًا.</string>
     <string name="invalid_setup">أدخل اسمك وسجّل المكان وتحقق من الجدول ورصيد الأيام الصحيحة.</string>
     <string name="radius">نطاق التحقق</string>
+    <string name="radius_metres">%1$s م</string>
     <string name="schedule">جدولك الأسبوعي</string>
     <string name="attendance_days">أيام الحضور</string>
     <string name="arrival">موعد الحضور الأساسي</string>

@@ -2,6 +2,7 @@ package dev.daymark.app
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -191,9 +192,10 @@ fun App(graph: AppGraph) {
 //                                }
                         )
                     }
-                ) {
+                ) { contentPadding ->
                     Surface(
-                        Modifier.fillMaxSize(),
+                        Modifier.fillMaxSize().padding(contentPadding)
+                            .consumeWindowInsets(contentPadding),
                         color = MaterialTheme.colorScheme.background
                     ) {
                         Box(

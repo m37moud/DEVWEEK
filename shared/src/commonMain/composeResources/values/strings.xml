@@ -21,6 +21,7 @@
     <string name="local_save_failed">Could not save on this phone. Your form is still here; try again.</string>
     <string name="invalid_setup">Enter your name, register a place, and check the schedule and whole-day balance.</string>
     <string name="radius">Allowed radius</string>
+    <string name="radius_metres">%1$s m</string>
     <string name="schedule">Your weekly schedule</string>
     <string name="attendance_days">Attendance days</string>
     <string name="arrival">Default arrival</string>
