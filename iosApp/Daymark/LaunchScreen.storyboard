@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="23000" targetRuntime="iOS.CocoaTouch" launchScreen="YES" useAutolayout="YES" initialViewController="launch">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies><deployment identifier="iOS"/><plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="23000"/></dependencies>
+    <scenes><scene sceneID="scene"><objects>
+        <viewController id="launch" sceneMemberID="viewController"><view key="view" contentMode="scaleToFill" id="root">
+            <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+            <subviews><imageView clipsSubviews="YES" contentMode="scaleAspectFit" image="LaunchMark" translatesAutoresizingMaskIntoConstraints="NO" id="mark"><rect key="frame" x="116.5" y="346" width="160" height="160"/><constraints><constraint firstAttribute="width" constant="160" id="width"/><constraint firstAttribute="height" constant="160" id="height"/></constraints></imageView></subviews>
+            <color key="backgroundColor" red="0.027451" green="0.109804" blue="0.086275" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <constraints><constraint firstItem="mark" firstAttribute="centerX" secondItem="root" secondAttribute="centerX" id="centerX"/><constraint firstItem="mark" firstAttribute="centerY" secondItem="root" secondAttribute="centerY" id="centerY"/></constraints>
+        </view></viewController><placeholder placeholderIdentifier="IBFirstResponder" id="first" sceneMemberID="firstResponder"/>
+    </objects></scene></scenes><resources><image name="LaunchMark" width="160" height="160"/></resources>
+</document>

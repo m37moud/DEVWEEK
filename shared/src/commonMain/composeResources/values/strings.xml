@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="startup_loading">Loading</string>
     <string name="app_name">Daymark</string>
     <string name="setup_title">Make attendance part of your routine</string>
     <string name="setup_description">One place. Your weekly schedule. Your records, saved on this phone.</string>

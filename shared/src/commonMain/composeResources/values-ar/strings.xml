@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="startup_loading">جارٍ التحميل</string>
     <string name="app_name">Daymark</string>
     <string name="setup_title">خطوتك الأولى نحو حضور منتظم</string>
     <string name="setup_description">مكان واحد وجدول أسبوعي وسجل محفوظ على هاتفك.</string>

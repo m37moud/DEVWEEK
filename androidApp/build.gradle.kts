@@ -19,6 +19,7 @@ android {
 }
 dependencies {
     implementation(project(":shared"))
+    implementation(libs.splashscreen)
     implementation(libs.activity.compose)
     implementation(libs.coroutines.core)
     implementation(libs.play.auth)
