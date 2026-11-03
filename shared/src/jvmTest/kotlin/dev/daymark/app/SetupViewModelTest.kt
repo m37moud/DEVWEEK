@@ -1,5 +1,7 @@
 package dev.daymark.app
 
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.execSQL
 import dev.daymark.at
 import dev.daymark.attendance.TestClock
 import dev.daymark.attendance.TrackerCategory
@@ -19,9 +21,50 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration
 
 class SetupViewModelTest {
+    @Test
+    fun failed_initial_load_does_not_expose_an_unusable_form() = runTest {
+        val folder = Files.createTempDirectory("daymark-setup-load-")
+        val db = openJvmDatabase(folder.resolve("app.db").toString())
+        val service = SetupService(db, TestClock())
+        service.saveDraft(SetupDraft(displayName = "Saved before failure"))
+        val connection = BundledSQLiteDriver().open(folder.resolve("app.db").toString())
+        connection.execSQL("ALTER TABLE settings RENAME TO temporarily_unavailable_settings")
+        val permissions = object : LocationPermissionPort {
+            override fun current() = LocationCapabilities(false, false, false, true)
+            override suspend fun requestForeground() = current()
+            override suspend fun requestBackground() = current()
+            override fun openSystemSettings() = Unit
+        }
+        val gateway = object : LocationGateway {
+            override suspend fun requestFix(budget: Duration): LocationResult =
+                error("No GPS during load")
+        }
+        try {
+            val model = SetupViewModel(service, gateway, permissions, TestClock(), backgroundScope)
+            val failed = model.uiState.first { it.issue == SetupIssue.LOCAL_SAVE_FAILED }
+            assertFalse(failed.ready)
+            model.updateDraft(SetupDraft(displayName = "Must not overwrite unread draft"))
+            assertTrue(model.uiState.value.draft.displayName.isEmpty())
+            connection.execSQL("ALTER TABLE temporarily_unavailable_settings RENAME TO settings")
+            model.retryLoad()
+            val loaded = model.uiState.first { it.ready }
+            assertEquals("Saved before failure", loaded.draft.displayName)
+            assertEquals(TrackerCategory.WORK, loaded.draft.category)
+            assertEquals(5, loaded.draft.schedule?.graceMinutes)
+            assertEquals(5, loaded.draft.schedule?.days?.size)
+            model.retryLoad()
+            assertEquals(loaded, model.uiState.value)
+        } finally {
+            connection.close()
+            db.close()
+            folder.toFile().deleteRecursively()
+        }
+    }
+
     @Test
     fun denied_location_retains_the_draft_and_never_invents_a_place_or_creates_a_tracker() =
         runTest {

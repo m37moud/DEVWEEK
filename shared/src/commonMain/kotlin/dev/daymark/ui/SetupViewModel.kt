@@ -53,6 +53,24 @@ class SetupViewModel(
     private val writes = Channel<SetupDraft>(Channel.CONFLATED)
 
     init {
+        retryLoad()
+        viewModelScope.launch {
+            for (draft in writes) {
+                try {
+                    service.saveDraft(draft)
+                    state.update { if (it.draft == draft) it.copy(draftSaved = true) else it }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    state.update { it.copy(issue = SetupIssue.LOCAL_SAVE_FAILED) }
+                }
+            }
+        }
+    }
+
+    fun retryLoad() {
+        if (state.value.ready || state.value.busy) return
+        state.update { it.copy(busy = true, issue = null) }
         viewModelScope.launch {
             try {
                 val saved = service.observeDraft().first()
@@ -74,19 +92,7 @@ class SetupViewModel(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                state.value = SetupUiState(ready = true, issue = SetupIssue.LOCAL_SAVE_FAILED)
-            }
-        }
-        viewModelScope.launch {
-            for (draft in writes) {
-                try {
-                    service.saveDraft(draft)
-                    state.update { if (it.draft == draft) it.copy(draftSaved = true) else it }
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
-                    state.update { it.copy(issue = SetupIssue.LOCAL_SAVE_FAILED) }
-                }
+                state.value = SetupUiState(issue = SetupIssue.LOCAL_SAVE_FAILED)
             }
         }
     }
