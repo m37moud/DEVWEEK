@@ -81,41 +81,41 @@ internal data class OnboardingActions(
 
 @Composable
 fun SetupScreen(
-    model: SetupViewModel,
+    viewModel: SetupViewModel,
     graph: AppGraph,
     onFinish: (SetupFinish) -> Unit
 ) {
-    val state by model.uiState.collectAsStateWithLifecycle()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val keyboard = LocalSoftwareKeyboardController.current
     val actions = SetupActions(
-        updateDraft = model::updateDraft,
+        updateDraft = viewModel::updateDraft,
         registerPlace = {
             keyboard?.hide()
-            model.useCurrentLocation()
+            viewModel.useCurrentLocation()
         }, openSettings = graph.permissions::openSystemSettings
     )
     val controls =
         OnboardingActions(
-            { keyboard?.hide(); model.advance() },
-            { keyboard?.hide(); model.back() },
-            model::retryLoad,
-            model::retrySave,
-            model::resetDraft
+            advance = { keyboard?.hide(); viewModel.advance() },
+            back = { keyboard?.hide(); viewModel.back() },
+            retryLoad = viewModel::retryLoad,
+            retrySave = viewModel::retrySave,
+            reset = viewModel::resetDraft
         ) { destination ->
-            if (!model.uiState.value.busy && !model.uiState.value.completed) {
+            if (!viewModel.uiState.value.busy && !viewModel.uiState.value.completed) {
                 keyboard?.hide()
                 onFinish(destination)
-                model.submit()
+                viewModel.submit()
             }
         }
     NavigationBackHandler(
         rememberNavigationEventState(NavigationEventInfo.None),
-        isBackEnabled = state.draft.step != SetupStep.WELCOME, onBackCompleted = model::back
+        isBackEnabled = state.draft.step != SetupStep.WELCOME, onBackCompleted = viewModel::back
     )
     OnboardingLayout(state, controls) {
         if (state.ready) OnboardingStep(state.draft.step) {
             OnboardingHeading(state.draft.step)
-            SetupStepContent(state, actions, graph.platform) { keyboard?.hide(); model.edit(it) }
+            SetupStepContent(state, actions, graph.platform) { keyboard?.hide(); viewModel.edit(it) }
         }
     }
 }
