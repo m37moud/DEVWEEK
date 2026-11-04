@@ -28,6 +28,8 @@ dependencies {
     implementation(libs.compose.runtime)
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
+    implementation(libs.ui.tooling.preview.android)
+    debugImplementation(libs.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
     implementation(libs.glance.appwidget)
     implementation(libs.work.runtime)

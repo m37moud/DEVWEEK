@@ -18,9 +18,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
@@ -36,21 +36,32 @@ import org.jetbrains.compose.resources.stringResource
 internal expect fun reducedMotionEnabled(): Boolean
 
 @Composable
-internal fun StartupSplash(active: Boolean) {
+fun StartupSplash(active: Boolean) {
     val name = stringResource(Res.string.app_name)
     val loading = stringResource(Res.string.startup_loading)
     Box(
-        modifier = Modifier.fillMaxSize().background(Color(0xFF071C16)).semantics {
-            contentDescription = loading
-            liveRegion = LiveRegionMode.Polite
-        },
+        modifier = Modifier.fillMaxSize()
+            .background(Color(0xFF071C16))
+            .semantics {
+                contentDescription = loading
+                liveRegion = LiveRegionMode.Polite
+            },
         contentAlignment = Alignment.Center
     ) {
-        val textBrush = if (active && !reducedMotionEnabled()) shimmerBrush() else Brush.linearGradient(
-            listOf(Color(0xFFC2DF9D), Color(0xFFC2DF9D))
-        )
+        val textBrush =
+            if (active && !reducedMotionEnabled())
+                shimmerBrush()
+            else
+                Brush.linearGradient(
+                    listOf(Color(0xFFC2DF9D), Color(0xFFC2DF9D))
+                )
         Box(Modifier.size(160.dp)) {
-            Image(painterResource(Res.drawable.daymark_splash_transparent), null, Modifier.fillMaxSize())
+            Image(
+                painterResource(Res.drawable.daymark_splash_transparent),
+                contentDescription = "Daymark Logo",
+                Modifier.fillMaxSize(),
+//                colorFilter = ColorFilter.tint(Color.Transparent)
+            )
             Text(
                 text = name,
                 modifier = Modifier.align(Alignment.TopCenter).offset(y = 184.dp),
