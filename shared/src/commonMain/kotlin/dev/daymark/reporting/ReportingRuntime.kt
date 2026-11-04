@@ -7,6 +7,7 @@ import dev.daymark.auth.AccessResult
 import dev.daymark.auth.GoogleAccess
 import dev.daymark.data.DaymarkDatabase
 import dev.daymark.data.SettingEntity
+import dev.daymark.logging.AppLogger
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
 import kotlinx.coroutines.CancellationException
@@ -102,13 +103,15 @@ class ReportingRuntime(
                     if (store.activeBinding() != null) lifecycle.onLocalChange()
                     refreshHealth()
                 }.catch { error ->
-                if (error is CancellationException) throw error
-                state.update { it.copy(result = SyncPassResult.Pending) }
-            }.collect()
+                    if (error is CancellationException) throw error
+                    AppLogger.e("ReportingRuntime", "Report observation failed", error)
+                    state.update { it.copy(result = SyncPassResult.Pending) }
+                }.collect()
         }
     }
 
     suspend fun runPass(trigger: SyncTrigger): SyncPassResult {
+        AppLogger.d("ReportingRuntime", "Starting report sync pass")
         state.update { it.copy(busy = true) }
         try {
             repository.reconcile(clock.now())
@@ -129,10 +132,14 @@ class ReportingRuntime(
                 }
             }
             refreshHealth(result)
+            if (result == SyncPassResult.Synced) {
+                AppLogger.i("ReportingRuntime", "Report sync acknowledged")
+            }
             return result
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (_: Exception) {
+        } catch (failure: Exception) {
+            AppLogger.e("ReportingRuntime", "Report sync pass failed", failure)
             state.update { it.copy(result = SyncPassResult.Pending) }; return SyncPassResult.Pending
         } finally {
             state.update { it.copy(busy = false) }
@@ -183,7 +190,8 @@ class ReportingRuntime(
         }
     } catch (cancelled: CancellationException) {
         throw cancelled
-    } catch (_: Exception) {
+    } catch (failure: Exception) {
+        AppLogger.e("ReportingRuntime", "Report retry scheduling failed", failure)
         null
     }
 }

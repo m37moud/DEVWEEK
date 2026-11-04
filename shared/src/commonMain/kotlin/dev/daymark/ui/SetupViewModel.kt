@@ -16,6 +16,7 @@ import dev.daymark.location.LocationFailure
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationPermissionPort
 import dev.daymark.location.LocationResult
+import dev.daymark.logging.AppLogger
 import dev.daymark.plan.WeeklySchedule
 import dev.daymark.plan.parseWholeDays
 import kotlinx.coroutines.CancellationException
@@ -218,37 +219,51 @@ class SetupViewModel(
     }
 
     fun useCurrentLocation() {
-        if (!canEdit()) return
+        if (!canEdit()) {
+            AppLogger.d("SetupViewModel", "Current location request ignored: setup is not editable")
+            return
+        }
+        AppLogger.d("SetupViewModel", "Starting current location registration")
         state.update { it.copy(busy = true, issue = null) }
         viewModelScope.launch {
             try {
                 var capability = permissions.current()
-                if (!capability.foregroundGranted || !capability.preciseGranted) capability =
-                    permissions.requestForeground()
                 if (!capability.foregroundGranted || !capability.preciseGranted) {
+                    AppLogger.d("SetupViewModel", "Requesting foreground precise location permission")
+                    capability = permissions.requestForeground()
+                }
+                if (!capability.foregroundGranted || !capability.preciseGranted) {
+                    AppLogger.i("SetupViewModel", "Current location registration denied by permission state")
                     state.update { it.copy(issue = SetupIssue.LOCATION_DENIED) }; return@launch
                 }
                 if (!capability.servicesEnabled) {
+                    AppLogger.i("SetupViewModel", "Current location registration blocked: location services disabled")
                     state.update { it.copy(issue = SetupIssue.LOCATION_DISABLED) }; return@launch
                 }
+                AppLogger.d("SetupViewModel", "Requesting current location fix")
                 val result = withTimeoutOrNull(30.seconds) { location.requestFix(30.seconds) }
                     ?: LocationResult.Failure(LocationFailure.TIMEOUT)
                 when (result) {
-                    is LocationResult.Failure -> state.update {
-                        it.copy(
-                            issue = when (result.reason) {
-                                LocationFailure.PERMISSION_DENIED -> SetupIssue.LOCATION_DENIED
-                                LocationFailure.SERVICES_DISABLED -> SetupIssue.LOCATION_DISABLED
-                                LocationFailure.TIMEOUT -> SetupIssue.LOCATION_TIMEOUT
-                                else -> SetupIssue.LOCATION_UNAVAILABLE
-                            }
-                        )
+                    is LocationResult.Failure -> {
+                        AppLogger.i("SetupViewModel", "Current location acquisition failed: ${result.reason}")
+                        state.update {
+                            it.copy(
+                                issue = when (result.reason) {
+                                    LocationFailure.PERMISSION_DENIED -> SetupIssue.LOCATION_DENIED
+                                    LocationFailure.SERVICES_DISABLED -> SetupIssue.LOCATION_DISABLED
+                                    LocationFailure.TIMEOUT -> SetupIssue.LOCATION_TIMEOUT
+                                    else -> SetupIssue.LOCATION_UNAVAILABLE
+                                }
+                            )
+                        }
                     }
 
                     is LocationResult.Fix -> {
                         val issue = registrationIssue(result, clock.now())
-                        if (issue != null) state.update { it.copy(issue = issue) }
-                        else {
+                        if (issue != null) {
+                            AppLogger.i("SetupViewModel", "Current location fix rejected: $issue")
+                            state.update { it.copy(issue = issue) }
+                        } else {
                             val draft = state.value.draft.copy(
                                 place = RegisteredPlace(
                                     result.latitude,
@@ -259,12 +274,15 @@ class SetupViewModel(
                             )
                             state.update { it.copy(draft = draft, draftSaved = false) }
                             enqueueDraft(draft)
+                            AppLogger.i("SetupViewModel", "Current location fix accepted; draft save queued")
                         }
                     }
                 }
             } catch (cancelled: CancellationException) {
+                AppLogger.d("SetupViewModel", "Current location registration cancelled")
                 throw cancelled
-            } catch (_: IllegalStateException) {
+            } catch (failure: IllegalStateException) {
+                AppLogger.e("SetupViewModel", "Current location registration failed", failure)
                 state.update { it.copy(issue = SetupIssue.LOCATION_UNAVAILABLE) }
             } finally {
                 state.update { it.copy(busy = false) }
