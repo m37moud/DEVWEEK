@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+    <key>CFBundleIdentifier</key><string>dev.daymark.desktop.location</string>
+    <key>CFBundleName</key><string>Daymark Location</string>
+    <key>CFBundleDisplayName</key><string>Daymark Location</string>
+    <key>CFBundleExecutable</key><string>DaymarkLocation</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleVersion</key><string>1</string>
+    <key>CFBundleDevelopmentRegion</key><string>en</string>
+    <key>LSUIElement</key><true/>
+    <key>NSLocationUsageDescription</key><string>Daymark uses your current location to register your place and verify attendance when you request a check.</string>
+    <key>NSLocationWhenInUseUsageDescription</key><string>Daymark uses your current location to register your place and verify attendance when you request a check.</string>
+</dict></plist>

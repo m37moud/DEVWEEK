@@ -1,0 +1,3 @@
+"CFBundleDisplayName" = "Daymark Location";
+"NSLocationUsageDescription" = "Daymark uses your current location to register your place and verify attendance when you request a check.";
+"NSLocationWhenInUseUsageDescription" = "Daymark uses your current location to register your place and verify attendance when you request a check.";

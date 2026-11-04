@@ -25,16 +25,18 @@ import kotlin.time.Duration
 internal fun desktopAppGraph(database: DaymarkDatabase): AppGraph {
     val clock = Clock.System
     val repository = RoomAttendanceRepository(database, clock)
+    val macLocation =
+        if (System.getProperty("os.name").startsWith("Mac")) MacLocation(macLocationExecutable()) else null
     return AppGraph(
         db = database,
         repository = repository,
-        attendance = AttendanceService(repository, DesktopLocation, clock),
+        attendance = AttendanceService(repository, macLocation ?: DesktopLocation, clock),
         timeOff = TimeOffService(database, clock),
         plans = PlanService(database, clock),
         planReader = RoomPlanReader(database, clock),
         settings = SettingsRepository(database),
-        location = DesktopLocation,
-        permissions = DesktopPermissions,
+        location = macLocation ?: DesktopLocation,
+        permissions = macLocation ?: DesktopPermissions,
         auth = GoogleAccess(DesktopGoogleAuth),
         reminders = DesktopReminders,
         widgetSink = DesktopWidgets,
