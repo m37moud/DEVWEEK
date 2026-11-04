@@ -194,6 +194,7 @@ fun SettingsScreen(model: SettingsViewModel, graph: AppGraph) {
             str(Res.string.effects_failed),
             color = MaterialTheme.colorScheme.error
         )
+        WidgetSetupGuidance()
         GoogleConnectionSection(graph)
     }
 }

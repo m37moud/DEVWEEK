@@ -59,14 +59,20 @@ import kotlinx.serialization.modules.polymorphic
 
 @Serializable
 data object SetupRoute : NavKey
+
 @Serializable
 data object TodayRoute : NavKey
+
 @Serializable
 data class HistoryRoute(val year: Int, val month: Int) : NavKey
+
 @Serializable
 data class PlanRoute(val timeOffDate: String? = null) : NavKey
+
 @Serializable
 data object SettingsRoute : NavKey
+
+enum class SetupFinish { TODAY, CUSTOMIZE }
 
 private val navigationConfig = SavedStateConfiguration {
     serializersModule = SerializersModule {
@@ -89,6 +95,7 @@ fun AppNavigation(graph: AppGraph, tracker: TrackerEntity?, settings: AppSetting
     val stack =
         rememberNavBackStack(navigationConfig, if (tracker == null) SetupRoute else TodayRoute)
     val scope = rememberCoroutineScope()
+    var setupFinish by remember { mutableStateOf<SetupFinish?>(null) }
     var pendingCheck by remember { mutableStateOf<QuickCheckRequest?>(null) }
     fun go(route: NavKey) {
         if (route != TodayRoute) pendingCheck = null
@@ -105,7 +112,13 @@ fun AppNavigation(graph: AppGraph, tracker: TrackerEntity?, settings: AppSetting
         }
     }
     LaunchedEffect(tracker?.id) {
-        if (tracker == null) go(SetupRoute) else if (stack.lastOrNull() == SetupRoute) go(TodayRoute)
+        if (tracker == null) {
+            setupFinish = null
+            go(SetupRoute)
+        } else if (stack.lastOrNull() == SetupRoute) {
+            go(if (setupFinish == SetupFinish.CUSTOMIZE) SettingsRoute else TodayRoute)
+            setupFinish = null
+        }
     }
     LaunchedEffect(graph, tracker?.id) {
         QuickCheckIntents.events.collect { request ->
@@ -161,7 +174,7 @@ fun AppNavigation(graph: AppGraph, tracker: TrackerEntity?, settings: AppSetting
                     val preferences = viewModel {
                         SettingsViewModel(graph.db, graph.settings, graph.permissions)
                     }
-                    SetupScreen(model, preferences, graph, settings)
+                    SetupScreen(model, preferences, graph) { setupFinish = it }
                 }
                 entry<TodayRoute> {
                     val model = viewModel {

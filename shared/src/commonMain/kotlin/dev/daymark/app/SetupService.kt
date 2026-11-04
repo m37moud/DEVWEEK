@@ -1,7 +1,6 @@
 package dev.daymark.app
 
 import androidx.room3.withWriteTransaction
-import dev.daymark.attendance.DayKey
 import dev.daymark.attendance.RegisteredPlace
 import dev.daymark.attendance.TrackerCategory
 import dev.daymark.data.DaymarkDatabase
@@ -12,14 +11,11 @@ import dev.daymark.data.decodeSchedule
 import dev.daymark.data.encodeSchedule
 import dev.daymark.data.markDirty
 import dev.daymark.plan.WeeklySchedule
-import dev.daymark.plan.resolveDay
 import dev.daymark.settings.SettingsRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
@@ -39,7 +35,8 @@ data class SetupDraft(
     val placeName: String = "",
     val place: RegisteredPlace? = null,
     val schedule: WeeklySchedule? = null,
-    val openingBalanceText: String = "0"
+    val openingBalanceText: String = "0",
+    val step: SetupStep = SetupStep.WELCOME
 ) {
     override fun toString() = "SetupDraft(metadata=<redacted>)"
 }
@@ -59,27 +56,38 @@ sealed interface SetupResult {
 
 class SetupService(private val db: DaymarkDatabase, private val clock: Clock) {
     private val dao get() = db.dao()
-    fun observeDraft(): Flow<SetupDraft> = dao.observeSetting("setup-draft").map { row ->
-        row?.let { runCatching { decodeDraft(it.value) }.getOrNull() } ?: SetupDraft()
+    fun observeDraft(): Flow<SetupDraftLoad> = dao.observeSetting("setup-draft").map { row ->
+        if (row == null) SetupDraftLoad.Absent else readDraft(row.value)
     }
 
-    suspend fun saveDraft(draft: SetupDraft) = db.withWriteTransaction {
-        // A delayed draft write cannot recreate setup data after the profile has completed.
-        if (dao.tracker() == null) dao.putSetting(SettingEntity("setup-draft", encodeDraft(draft)))
+    suspend fun startDraftSession(): String = db.withWriteTransaction {
+        val session = Uuid.random().toString()
+        if (dao.tracker() == null) dao.putSetting(SettingEntity("setup-session", session))
+        session
+    }
+
+    suspend fun resetDraft(session: String) = db.withWriteTransaction {
+        if (dao.tracker() == null && dao.setting("setup-session")?.value == session) {
+            dao.deleteSetting("setup-draft")
+        }
+    }
+
+    suspend fun saveDraft(draft: SetupDraft, session: String): Boolean = db.withWriteTransaction {
+        // Deletion and a newer setup session invalidate queued writes from an older screen.
+        if (dao.tracker() != null || dao.setting("setup-session")?.value != session) false
+        else {
+            dao.putSetting(SettingEntity("setup-draft", encodeDraft(draft)))
+            true
+        }
     }
 
     suspend fun complete(command: SetupCommand): SetupResult {
         if (command.displayName.isBlank() || dev.daymark.reporting.exceedsReportTextLimit(command.displayName) || command.placeName.isBlank() || command.openingBalance < 0) return SetupResult.Invalid
         val now = clock.now()
-        val date = now.toLocalDateTime(TimeZone.of(command.schedule.zoneId)).date
         val id = Uuid.random().toString()
-        val first = try {
-            (0..7).map { date.plus(it, DateTimeUnit.DAY) }.map {
-                resolveDay(DayKey(id, it), command.schedule, command.category, command.place, 1)
-            }.first { it.isScheduled && it.arrival >= now }
-        } catch (_: IllegalArgumentException) {
-            return SetupResult.Invalid
-        }
+        val first = command.schedule.firstSetupArrival(now, command.category, command.place)
+            ?: return SetupResult.Invalid
+        val date = now.toLocalDateTime(TimeZone.of(command.schedule.zoneId)).date
         return try {
             db.withWriteTransaction {
                 if (dao.tracker() != null) return@withWriteTransaction SetupResult.Invalid
@@ -88,7 +96,7 @@ class SetupService(private val db: DaymarkDatabase, private val clock: Clock) {
                         id,
                         command.displayName,
                         now.toString(),
-                        first.arrival.toString(),
+                        first.toString(),
                         if (command.category == TrackerCategory.WORK) command.openingBalance else 0,
                         automaticEnabled = false
                     )
@@ -101,19 +109,33 @@ class SetupService(private val db: DaymarkDatabase, private val clock: Clock) {
                 )
                 SettingsRepository(db).update(displayName = command.displayName)
                 dao.deleteSetting("setup-draft")
+                dao.deleteSetting("setup-session")
                 dao.markDirty(id, "OVERVIEW")
                 dao.markDirty(id, "TIME_OFF")
                 SetupResult.Completed
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (_: Exception) {
+        } catch (_: androidx.sqlite.SQLiteException) {
+            SetupResult.LocalSaveFailed
+        } catch (_: IllegalStateException) {
             SetupResult.LocalSaveFailed
         }
     }
 }
 
+private fun readDraft(text: String): SetupDraftLoad = try {
+    SetupDraftLoad.Loaded(decodeDraft(text))
+} catch (_: NoSuchElementException) {
+    SetupDraftLoad.Unreadable
+} catch (_: IllegalArgumentException) {
+    SetupDraftLoad.Unreadable
+} catch (_: IllegalStateException) {
+    SetupDraftLoad.Unreadable
+}
+
 private fun encodeDraft(draft: SetupDraft): String = buildJsonObject {
+    put("step", draft.step.name)
     put("displayName", draft.displayName); put(
     "placeName",
     draft.placeName
@@ -146,6 +168,8 @@ private fun decodeDraft(text: String): SetupDraft {
         json["placeName"]?.jsonPrimitive?.content.orEmpty(),
         place,
         json["schedule"]?.jsonPrimitive?.content?.let(::decodeSchedule),
-        json["openingBalanceText"]?.jsonPrimitive?.content.orEmpty()
+        json["openingBalanceText"]?.jsonPrimitive?.content ?: "0",
+        SetupStep.entries.firstOrNull { it.name == json["step"]?.jsonPrimitive?.content }
+            ?: SetupStep.PROFILE
     )
 }

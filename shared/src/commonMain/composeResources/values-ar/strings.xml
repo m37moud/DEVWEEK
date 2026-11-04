@@ -211,4 +211,23 @@
     <string name="today_report_attention">محفوظ محلياً · تقرير Google يحتاج إلى المراجعة في الإعدادات</string>
     <string name="show_all_records">عرض جميع السجلات</string>
     <string name="future_date_plan">تاريخ مخطط. لم يُسجل الحضور بعد.</string>
+    <string name="onboarding_welcome">مرحبًا بك في دايمارك</string>
+    <string name="onboarding_welcome_body">تابع حضورك الشخصي في العمل أو المدرسة أو الدورة. تُحفظ سجلاتك على هذا الهاتف وتعمل دون اتصال. تقارير Google اختيارية. يُطلب الموقع فقط عند اختيار تسجيل مكانك أو التحقق من حضورك.</string>
+    <string name="onboarding_profile">ملفك الشخصي</string>
+    <string name="onboarding_place">مكانك</string>
+    <string name="onboarding_review">مراجعة الإعداد</string>
+    <string name="onboarding_language">اللغة</string>
+    <string name="onboarding_appearance">المظهر</string>
+    <string name="onboarding_get_started">ابدأ الإعداد</string>
+    <string name="onboarding_next">التالي</string>
+    <string name="onboarding_back">السابق</string>
+    <string name="onboarding_finish_customize">إنهاء وتخصيص</string>
+    <string name="onboarding_step">الخطوة %1$s من %2$s</string>
+    <string name="onboarding_edit_section">تعديل %1$s</string>
+    <string name="onboarding_unsaved">لم تُحفظ التغييرات بعد</string>
+    <string name="onboarding_reset">إعادة ضبط مسودة الإعداد</string>
+    <string name="onboarding_reset_confirmation">هل تريد حذف مسودة الإعداد غير القابلة للقراءة والبدء مجددًا؟ سيُحتفظ بتفضيلات اللغة والمظهر.</string>
+    <string name="onboarding_extras_help">ابدأ التتبع الآن، أو اختر إنهاء وتخصيص لإعداد الأذونات الاختيارية وتقارير Google والويدجت في الإعدادات. يمكنك العودة إلى هذه الخيارات في أي وقت.</string>
+    <string name="onboarding_widget_title">ويدجت الشاشة الرئيسية</string>
+    <string name="onboarding_widget_help">أضف دايمارك من قائمة الويدجت في الشاشة الرئيسية. على Android، اضغط مطولًا على مساحة فارغة واختر الويدجت. على iPhone، حرّر الشاشة الرئيسية واختر إضافة ويدجت. اضغط على الويدجت لفتح دايمارك والتحقق من الحضور بقراءة موقع حديثة؛ لا يؤكد الويدجت الحضور بنفسه.</string>
 </resources>

@@ -1,21 +1,12 @@
 package dev.daymark.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -28,27 +19,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.daymark.app.AppGraph
-import dev.daymark.app.HostPlatform
 import dev.daymark.app.SetupDraft
 import dev.daymark.attendance.RegisteredPlace
 import dev.daymark.attendance.TrackerCategory
 import dev.daymark.resources.Res
-import dev.daymark.resources.app_name
 import dev.daymark.resources.balance_help
 import dev.daymark.resources.checking_location
 import dev.daymark.resources.course
-import dev.daymark.resources.draft_saved
 import dev.daymark.resources.friday
-import dev.daymark.resources.google_optional
 import dev.daymark.resources.invalid_setup
 import dev.daymark.resources.language_arabic
 import dev.daymark.resources.language_english
@@ -69,19 +55,11 @@ import dev.daymark.resources.profile_too_long
 import dev.daymark.resources.radius
 import dev.daymark.resources.radius_metres
 import dev.daymark.resources.register_place
-import dev.daymark.resources.reminders_allowed
-import dev.daymark.resources.reminders_denied
-import dev.daymark.resources.reminders_optional
-import dev.daymark.resources.retry
 import dev.daymark.resources.saturday
 import dev.daymark.resources.school
-import dev.daymark.resources.setup_description
 import dev.daymark.resources.setup_name
 import dev.daymark.resources.setup_place_name
-import dev.daymark.resources.setup_title
 import dev.daymark.resources.setup_type
-import dev.daymark.resources.start_tracking
-import dev.daymark.resources.storage_unavailable
 import dev.daymark.resources.sunday
 import dev.daymark.resources.theme_dark
 import dev.daymark.resources.theme_light
@@ -103,104 +81,14 @@ import kotlinx.datetime.LocalTime
 import org.jetbrains.compose.resources.StringResource
 import kotlin.math.roundToInt
 
-private data class SetupActions(
+internal data class SetupActions(
     val updateDraft: (SetupDraft) -> Unit,
     val registerPlace: () -> Unit,
-    val submit: () -> Unit,
-    val retryLoad: () -> Unit,
     val openSettings: () -> Unit
 )
 
 @Composable
-fun SetupScreen(
-    model: SetupViewModel,
-    preferences: SettingsViewModel,
-    graph: AppGraph,
-    settings: AppSettings
-) {
-    val state by model.uiState.collectAsStateWithLifecycle()
-    val preferenceState by preferences.uiState.collectAsStateWithLifecycle()
-    val keyboard = LocalSoftwareKeyboardController.current
-    val actions = SetupActions(
-        updateDraft = model::updateDraft,
-        registerPlace = { keyboard?.hide(); model.useCurrentLocation() },
-        submit = { keyboard?.hide(); model.submit() },
-        retryLoad = model::retryLoad,
-        openSettings = graph.permissions::openSystemSettings
-    )
-    SetupForm(
-        state.copy(busy = state.busy || preferenceState.busy), actions,
-        preferences = {
-            PreferenceControls(settings, preferences::setLanguage, preferences::setTheme)
-        },
-        reminders = {
-            if (graph.platform == HostPlatform.IOS) {
-                ReminderControls(preferenceState.copy(busy = state.busy || preferenceState.busy)) {
-                    preferences.requestReminders(graph.reminders)
-                }
-            } else if (preferenceState.storageError) {
-                Text(str(Res.string.local_save_failed), color = MaterialTheme.colorScheme.error)
-            }
-        })
-}
-
-@Composable
-private fun SetupForm(
-    state: SetupUiState,
-    actions: SetupActions,
-    preferences: @Composable () -> Unit,
-    reminders: @Composable () -> Unit
-) {
-    Column(
-        Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState())
-            .padding(24.dp).testTag("setup-form"),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            str(Res.string.app_name), style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
-        preferences()
-        Text(str(Res.string.setup_title), style = MaterialTheme.typography.headlineLarge)
-        Text(str(Res.string.setup_description), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (!state.ready) {
-            SetupLoading(state, actions.retryLoad)
-            return@Column
-        }
-        SetupProfile(state, actions.updateDraft)
-        SetupPlace(state, actions)
-        state.draft.schedule?.let { schedule ->
-            SetupSchedule(schedule, state.busy) { updated ->
-                actions.updateDraft(state.draft.copy(schedule = updated))
-            }
-        }
-        if (state.draft.category == TrackerCategory.WORK) {
-            OpeningBalance(state, actions.updateDraft)
-        }
-        Text(str(Res.string.google_optional), style = MaterialTheme.typography.bodyMedium)
-        reminders()
-        SetupSubmission(state, actions)
-        Spacer(Modifier.height(16.dp))
-    }
-}
-
-@Composable
-private fun SetupLoading(state: SetupUiState, onRetry: () -> Unit) {
-    if (state.issue != null) {
-        Text(
-            str(Res.string.storage_unavailable), color = MaterialTheme.colorScheme.error,
-            modifier = Modifier.testTag("setup-load-error")
-        )
-        Button(onClick = onRetry, modifier = Modifier.testTag("setup-retry")) {
-            Text(str(Res.string.retry))
-        }
-    } else {
-        CircularProgressIndicator()
-    }
-}
-
-@Composable
-private fun SetupProfile(state: SetupUiState, onDraftChange: (SetupDraft) -> Unit) {
+internal fun SetupProfile(state: SetupUiState, onDraftChange: (SetupDraft) -> Unit) {
     val draft = state.draft
     OutlinedTextField(
         draft.displayName, { onDraftChange(draft.copy(displayName = it)) },
@@ -231,7 +119,7 @@ private fun SetupProfile(state: SetupUiState, onDraftChange: (SetupDraft) -> Uni
 }
 
 @Composable
-private fun SetupPlace(state: SetupUiState, actions: SetupActions) {
+internal fun SetupPlace(state: SetupUiState, actions: SetupActions) {
     val draft = state.draft
     OutlinedTextField(
         draft.placeName, { actions.updateDraft(draft.copy(placeName = it)) },
@@ -287,7 +175,7 @@ private fun PlaceRadius(
 }
 
 @Composable
-private fun OpeningBalance(state: SetupUiState, onDraftChange: (SetupDraft) -> Unit) {
+internal fun OpeningBalance(state: SetupUiState, onDraftChange: (SetupDraft) -> Unit) {
     OutlinedTextField(
         state.draft.openingBalanceText,
         { onDraftChange(state.draft.copy(openingBalanceText = it)) },
@@ -304,45 +192,7 @@ private fun OpeningBalance(state: SetupUiState, onDraftChange: (SetupDraft) -> U
 }
 
 @Composable
-private fun ReminderControls(state: SettingsUiState, onRequest: () -> Unit) {
-    TextButton(onClick = onRequest, enabled = !state.busy) {
-        Text(str(Res.string.reminders_optional))
-    }
-    if (state.storageError) {
-        Text(
-            str(Res.string.local_save_failed), color = MaterialTheme.colorScheme.error,
-            modifier = Modifier.testTag("setup-preference-error")
-        )
-    } else if (!state.busy) {
-        state.reminderPermissionGranted?.let { allowed ->
-            Text(
-                str(if (allowed) Res.string.reminders_allowed else Res.string.reminders_denied),
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-    }
-}
-
-@Composable
-private fun SetupSubmission(state: SetupUiState, actions: SetupActions) {
-    if (state.draftSaved) {
-        Text(
-            str(Res.string.draft_saved), style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.testTag("setup-draft-saved")
-        )
-    }
-    state.issue?.takeUnless { it.isLocationIssue() }?.let { SetupError(it) }
-    Button(
-        onClick = actions.submit, enabled = !state.busy,
-        modifier = Modifier.fillMaxWidth().testTag("setup-start")
-    ) {
-        Text(str(Res.string.start_tracking))
-    }
-}
-
-@Composable
-private fun SetupError(issue: SetupIssue) {
+internal fun SetupError(issue: SetupIssue) {
     val errorPosition = remember { BringIntoViewRequester() }
     LaunchedEffect(issue) {
         withFrameNanos { }
@@ -350,12 +200,13 @@ private fun SetupError(issue: SetupIssue) {
     }
     Text(
         str(issue.label()), color = MaterialTheme.colorScheme.error,
-        modifier = Modifier.testTag("setup-error").bringIntoViewRequester(errorPosition)
+        modifier = Modifier.testTag("setup-error").semantics { liveRegion = LiveRegionMode.Assertive }
+            .bringIntoViewRequester(errorPosition)
     )
 }
 
 @Composable
-private fun PreferenceControls(
+internal fun PreferenceControls(
     settings: AppSettings,
     onLanguageChange: (LanguagePreference) -> Unit,
     onThemeChange: (ThemePreference) -> Unit
@@ -440,5 +291,5 @@ internal fun localTimeLabel(time: LocalTime, language: AppLanguage): String {
     )
 }
 
-private fun SetupIssue.isLocationIssue() =
+internal fun SetupIssue.isLocationIssue() =
     this != SetupIssue.INVALID_INPUT && this != SetupIssue.LOCAL_SAVE_FAILED

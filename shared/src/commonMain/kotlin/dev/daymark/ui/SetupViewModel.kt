@@ -3,6 +3,10 @@ package dev.daymark.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.daymark.app.SetupCommand
+import dev.daymark.app.SetupDraftLoad
+import dev.daymark.app.SetupStep
+import dev.daymark.app.invalidStep
+import dev.daymark.app.restoredStep
 import dev.daymark.app.SetupDraft
 import dev.daymark.app.SetupResult
 import dev.daymark.app.SetupService
@@ -38,7 +42,9 @@ enum class SetupIssue {
 
 data class SetupUiState(
     val draft: SetupDraft = SetupDraft(), val ready: Boolean = false, val busy: Boolean = false,
-    val completed: Boolean = false, val issue: SetupIssue? = null, val draftSaved: Boolean = false
+    val completed: Boolean = false, val issue: SetupIssue? = null, val draftSaved: Boolean = false,
+    val unreadable: Boolean = false, val reviewEditing: Boolean = false,
+    val pendingStep: SetupStep? = null
 )
 
 class SetupViewModel(
@@ -50,21 +56,49 @@ class SetupViewModel(
 ) : ViewModel(scope) {
     private val state = MutableStateFlow(SetupUiState())
     val uiState = state.asStateFlow()
-    private val writes = Channel<SetupDraft>(Channel.CONFLATED)
+
+    private data class DraftWrite(val draft: SetupDraft, val revision: Long)
+
+    private val writes = Channel<DraftWrite>(Channel.UNLIMITED)
+    private var revision = 0L
+    private var draftSession: String? = null
 
     init {
         retryLoad()
         viewModelScope.launch {
-            for (draft in writes) {
-                try {
-                    service.saveDraft(draft)
-                    state.update { if (it.draft == draft) it.copy(draftSaved = true) else it }
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
-                    state.update { it.copy(issue = SetupIssue.LOCAL_SAVE_FAILED) }
-                }
+            for (write in writes) {
+                if (write.revision == revision) persist(write)
             }
+        }
+    }
+
+    private suspend fun persist(write: DraftWrite) {
+        try {
+            val saved = service.saveDraft(write.draft, requireNotNull(draftSession))
+            if (!saved) {
+                saveFailed(write.revision)
+                return
+            }
+            if (write.revision == revision) state.update {
+                it.copy(
+                    draft = write.draft,
+                    draftSaved = true,
+                    busy = it.busy && it.pendingStep == null,
+                    pendingStep = null
+                )
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: androidx.sqlite.SQLiteException) {
+            saveFailed(write.revision)
+        } catch (_: IllegalStateException) {
+            saveFailed(write.revision)
+        }
+    }
+
+    private fun saveFailed(failedRevision: Long) {
+        if (revision == failedRevision) state.update {
+            it.copy(busy = it.busy && it.pendingStep == null, draftSaved = false, issue = SetupIssue.LOCAL_SAVE_FAILED)
         }
     }
 
@@ -73,8 +107,15 @@ class SetupViewModel(
         state.update { it.copy(busy = true, issue = null) }
         viewModelScope.launch {
             try {
-                val saved = service.observeDraft().first()
+                draftSession = service.startDraftSession()
+                val loaded = service.observeDraft().first()
+                if (loaded is SetupDraftLoad.Unreadable) {
+                    state.value = SetupUiState(issue = SetupIssue.LOCAL_SAVE_FAILED, unreadable = true)
+                    return@launch
+                }
+                val saved = (loaded as? SetupDraftLoad.Loaded)?.draft ?: SetupDraft()
                 val draft = saved.copy(
+                    step = saved.restoredStep(clock.now()),
                     category = saved.category ?: TrackerCategory.WORK,
                     schedule = saved.schedule ?: WeeklySchedule(
                         setOf(
@@ -88,23 +129,96 @@ class SetupViewModel(
                     )
                 )
                 state.value = SetupUiState(draft = draft, ready = true, draftSaved = saved == draft)
-                if (saved != draft) writes.trySend(draft)
+                if (saved != draft || loaded is SetupDraftLoad.Absent) enqueueDraft(draft)
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (_: androidx.sqlite.SQLiteException) {
+                state.value = SetupUiState(issue = SetupIssue.LOCAL_SAVE_FAILED)
+            } catch (_: IllegalStateException) {
                 state.value = SetupUiState(issue = SetupIssue.LOCAL_SAVE_FAILED)
             }
         }
     }
 
+    private fun canEdit() = state.value.ready && !state.value.busy && !state.value.completed
+
     fun updateDraft(draft: SetupDraft) {
-        if (!state.value.ready || state.value.busy || state.value.completed) return
-        state.update { it.copy(draft = draft, issue = null, draftSaved = false) }
-        writes.trySend(draft)
+        if (!canEdit()) return
+        val previous = state.value
+        state.update {
+            it.copy(
+                draft = draft.copy(step = previous.draft.step), pendingStep = null, draftSaved = false,
+                issue = previous.issue.takeIf { issue -> issue == SetupIssue.LOCAL_SAVE_FAILED })
+        }
+        revision++
+        if (state.value.issue != SetupIssue.LOCAL_SAVE_FAILED) enqueueDraft(state.value.draft)
+    }
+
+    private fun enqueueDraft(draft: SetupDraft) {
+        writes.trySend(DraftWrite(draft, ++revision))
+    }
+
+    fun retrySave() {
+        if (!canEdit()) return
+        val pending = state.value.pendingStep
+        state.update { it.copy(issue = null, busy = pending != null) }
+        enqueueDraft(state.value.draft.copy(step = pending ?: state.value.draft.step))
+    }
+
+    fun advance() {
+        if (!canEdit()) return
+        val current = state.value.draft
+        val invalid = current.invalidStep(clock.now())
+        if (invalid != null && invalid.ordinal <= current.step.ordinal) {
+            showInvalid(invalid)
+            return
+        }
+        val destination = if (state.value.reviewEditing) invalid ?: SetupStep.REVIEW
+        else SetupStep.entries.getOrNull(current.step.ordinal + 1) ?: return
+        navigate(destination)
+    }
+
+    fun back() {
+        if (!canEdit() || state.value.draft.step == SetupStep.WELCOME) return
+        state.update { it.copy(reviewEditing = false) }
+        navigate(SetupStep.entries[state.value.draft.step.ordinal - 1])
+    }
+
+    fun edit(step: SetupStep) {
+        if (!canEdit() || state.value.draft.step != SetupStep.REVIEW) return
+        if (step !in listOf(SetupStep.PROFILE, SetupStep.PLACE, SetupStep.SCHEDULE)) return
+        state.update { it.copy(reviewEditing = true) }
+        navigate(step)
+    }
+
+    private fun navigate(step: SetupStep) {
+        state.update { it.copy(busy = true, issue = null, pendingStep = step, draftSaved = false) }
+        enqueueDraft(state.value.draft.copy(step = step))
+    }
+
+    private fun showInvalid(step: SetupStep) {
+        if (state.value.draft.step != step) navigate(step)
+        state.update { it.copy(issue = SetupIssue.INVALID_INPUT) }
+    }
+
+    fun resetDraft() {
+        if (state.value.ready || state.value.busy || !state.value.unreadable) return
+        state.update { it.copy(busy = true) }
+        viewModelScope.launch {
+            try {
+                service.resetDraft(requireNotNull(draftSession))
+                state.value = SetupUiState()
+                retryLoad()
+            } catch (_: androidx.sqlite.SQLiteException) {
+                state.update { it.copy(busy = false, issue = SetupIssue.LOCAL_SAVE_FAILED) }
+            } catch (_: IllegalStateException) {
+                state.update { it.copy(busy = false, issue = SetupIssue.LOCAL_SAVE_FAILED) }
+            }
+        }
     }
 
     fun useCurrentLocation() {
-        if (!state.value.ready || state.value.busy || state.value.completed) return
+        if (!canEdit()) return
         state.update { it.copy(busy = true, issue = null) }
         viewModelScope.launch {
             try {
@@ -144,13 +258,13 @@ class SetupViewModel(
                                 )
                             )
                             state.update { it.copy(draft = draft, draftSaved = false) }
-                            writes.trySend(draft)
+                            enqueueDraft(draft)
                         }
                     }
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (_: IllegalStateException) {
                 state.update { it.copy(issue = SetupIssue.LOCATION_UNAVAILABLE) }
             } finally {
                 state.update { it.copy(busy = false) }
@@ -159,32 +273,39 @@ class SetupViewModel(
     }
 
     fun submit() {
-        if (!state.value.ready || state.value.busy || state.value.completed) return
+        if (!canEdit()) return
         val draft = state.value.draft
         val balance =
             if (draft.category == TrackerCategory.WORK) parseWholeDays(draft.openingBalanceText) else 0
-        if (draft.category == null || draft.place == null || draft.schedule == null || balance == null) {
-            state.update { it.copy(issue = SetupIssue.INVALID_INPUT) }; return
+        val invalid = draft.invalidStep(clock.now())
+        if (invalid != null) {
+            showInvalid(invalid)
+            return
         }
+        val category = requireNotNull(draft.category)
+        val place = requireNotNull(draft.place)
+        val schedule = requireNotNull(draft.schedule)
+        val openingBalance = requireNotNull(balance)
+        revision++
         state.update { it.copy(busy = true, issue = null) }
         viewModelScope.launch {
             try {
                 when (service.complete(
                     SetupCommand(
                         draft.displayName,
-                        draft.category,
+                        category,
                         draft.placeName,
-                        draft.place,
-                        draft.schedule,
-                        balance
+                        place,
+                        schedule,
+                        openingBalance
                     )
                 )) {
                     SetupResult.Completed -> state.update { it.copy(completed = true) }
-                    SetupResult.Invalid -> state.update { it.copy(issue = SetupIssue.INVALID_INPUT) }
+                    SetupResult.Invalid -> showInvalid(SetupStep.SCHEDULE)
                     SetupResult.LocalSaveFailed -> state.update { it.copy(issue = SetupIssue.LOCAL_SAVE_FAILED) }
                 }
             } finally {
-                state.update { it.copy(busy = false) }
+                state.update { it.copy(busy = it.pendingStep != null) }
             }
         }
     }

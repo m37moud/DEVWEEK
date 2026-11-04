@@ -207,4 +207,23 @@
     <string name="today_report_attention">Saved locally · Google report needs attention in Settings</string>
     <string name="show_all_records">Show all records</string>
     <string name="future_date_plan">Planned date. Attendance has not been recorded yet.</string>
+    <string name="onboarding_welcome">Welcome to Daymark</string>
+    <string name="onboarding_welcome_body">Track your own attendance at work, school, or a course. Your records stay on this phone and work offline. Google reporting is optional. Location is requested only when you choose to register your place or check attendance.</string>
+    <string name="onboarding_profile">Your profile</string>
+    <string name="onboarding_place">Your place</string>
+    <string name="onboarding_review">Review your setup</string>
+    <string name="onboarding_language">Language</string>
+    <string name="onboarding_appearance">Appearance</string>
+    <string name="onboarding_get_started">Get started</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_back">Back</string>
+    <string name="onboarding_finish_customize">Finish and customize</string>
+    <string name="onboarding_step">Step %1$s of %2$s</string>
+    <string name="onboarding_edit_section">Edit %1$s</string>
+    <string name="onboarding_unsaved">Changes have not been saved yet</string>
+    <string name="onboarding_reset">Reset setup draft</string>
+    <string name="onboarding_reset_confirmation">Discard the unreadable setup draft and start again? Your language and appearance preferences will be kept.</string>
+    <string name="onboarding_extras_help">Start tracking now, or finish and customize optional permissions, Google reporting, and widgets in Settings. You can return to these options at any time.</string>
+    <string name="onboarding_widget_title">Home screen widget</string>
+    <string name="onboarding_widget_help">Add Daymark from your phone’s home screen widget picker. On Android, touch and hold an empty area and choose Widgets. On iPhone, edit the home screen and choose Add Widget. Tap the widget to open Daymark and check attendance with a fresh location reading; the widget itself never confirms attendance.</string>
 </resources>

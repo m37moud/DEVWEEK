@@ -11,20 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Button
-import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -33,7 +27,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -69,7 +62,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.launch
 
 private data class BootState(
     val settings: AppSettings,
@@ -147,11 +139,9 @@ fun App(graph: AppGraph) {
                 }
             }
             DaymarkTheme(ready.settings.theme) {
-                val drawerState = rememberDrawerState(DrawerValue.Closed)
-                val scope = rememberCoroutineScope()
                 Scaffold(
                     topBar = {
-                        TopAppBar(
+                        if (ready.tracker != null) TopAppBar(
                             title = { Text(str(Res.string.app_name)) },
                             actions = {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -174,17 +164,6 @@ fun App(graph: AppGraph) {
                                         })
                                 }
                             }
-//                                navigationIcon = {
-//                                    IconButton(
-//                                        onClick = { scope.launch { drawerState.open() } },
-//                                        content = {
-//                                            Icon(
-//                                                imageVector = Icons.Default.Menu,
-//                                                contentDescription = str(Res.string.app_name)
-//                                            )
-//                                        }
-//                                    )
-//                                }
                         )
                     }
                 ) { contentPadding ->

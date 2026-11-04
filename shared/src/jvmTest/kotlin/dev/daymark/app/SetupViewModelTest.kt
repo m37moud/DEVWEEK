@@ -6,6 +6,7 @@ import dev.daymark.at
 import dev.daymark.attendance.TestClock
 import dev.daymark.attendance.TrackerCategory
 import dev.daymark.data.openJvmDatabase
+import dev.daymark.fixturePlace
 import dev.daymark.fixtureFix
 import dev.daymark.fixtureSchedule
 import dev.daymark.location.LocationCapabilities
@@ -16,6 +17,7 @@ import dev.daymark.ui.SetupIssue
 import dev.daymark.ui.SetupViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -26,11 +28,173 @@ import kotlin.time.Duration
 
 class SetupViewModelTest {
     @Test
+    fun invalid_midnight_window_cannot_advance_to_review() = runTest {
+        val folder = Files.createTempDirectory("daymark-midnight-step-")
+        val db = openJvmDatabase(folder.resolve("app.db").toString())
+        val clock = TestClock(at("08:00:00"))
+        val service = SetupService(db, clock)
+        val draft = SetupDraft(
+            "Person", TrackerCategory.WORK, "Office", fixturePlace(),
+            fixtureSchedule(arrival = kotlinx.datetime.LocalTime(23, 59)), "0", SetupStep.SCHEDULE
+        )
+        service.saveDraft(draft, service.startDraftSession())
+        val permissions = object : LocationPermissionPort {
+            override fun current() = LocationCapabilities(true, false, true, true)
+            override suspend fun requestForeground() = error("No permission request")
+            override suspend fun requestBackground() = error("No background request")
+            override fun openSystemSettings() = Unit
+        }
+        val gateway = object : LocationGateway {
+            override suspend fun requestFix(budget: Duration): LocationResult = error("No GPS")
+        }
+        try {
+            val model = SetupViewModel(service, gateway, permissions, clock, backgroundScope)
+            model.uiState.first { it.ready && it.draftSaved }
+            model.advance()
+            assertEquals(SetupStep.SCHEDULE, model.uiState.value.draft.step)
+            assertEquals(SetupIssue.INVALID_INPUT, model.uiState.value.issue)
+            assertNull(db.dao().tracker())
+        } finally {
+            db.close()
+            folder.toFile().deleteRecursively()
+        }
+    }
+
+    @Test
+    fun failed_step_save_stays_on_current_step_and_retries_latest_inputs() = runTest {
+        val folder = Files.createTempDirectory("daymark-step-failure-")
+        val path = folder.resolve("app.db").toString()
+        val db = openJvmDatabase(path)
+        val service = SetupService(db, TestClock())
+        val permissions = object : LocationPermissionPort {
+            override fun current() = LocationCapabilities(false, false, false, true)
+            override suspend fun requestForeground() = current()
+            override suspend fun requestBackground() = error("No background request")
+            override fun openSystemSettings() = Unit
+        }
+        val gateway = object : LocationGateway {
+            override suspend fun requestFix(budget: Duration): LocationResult = error("No GPS")
+        }
+        val connection = BundledSQLiteDriver().open(path)
+        connection.execSQL("PRAGMA busy_timeout=5000")
+        try {
+            val model = SetupViewModel(service, gateway, permissions, TestClock(), backgroundScope)
+            model.uiState.first { it.ready && it.draftSaved }
+            connection.execSQL("ALTER TABLE settings RENAME TO temporarily_unavailable_settings")
+            model.advance()
+            val failed = model.uiState.first { it.issue == SetupIssue.LOCAL_SAVE_FAILED && !it.busy }
+            assertEquals(SetupStep.WELCOME, failed.draft.step)
+            assertFalse(failed.draftSaved)
+            connection.execSQL("ALTER TABLE temporarily_unavailable_settings RENAME TO settings")
+            model.retrySave()
+            model.uiState.first { it.draft.step == SetupStep.PROFILE && it.draftSaved && !it.busy }
+            repeat(12) { model.updateDraft(model.uiState.value.draft.copy(displayName = "Person $it")) }
+            model.uiState.first { it.draftSaved }
+            assertEquals("Person 11", (service.observeDraft().first() as SetupDraftLoad.Loaded).draft.displayName)
+        } finally {
+            connection.close()
+            db.close()
+            folder.toFile().deleteRecursively()
+        }
+    }
+
+    @Test
+    fun invalid_restored_review_returns_to_first_incomplete_step_without_gps() = runTest {
+        val folder = Files.createTempDirectory("daymark-invalid-resume-")
+        val db = openJvmDatabase(folder.resolve("app.db").toString())
+        val service = SetupService(db, TestClock())
+        service.saveDraft(
+            SetupDraft(
+                displayName = "Saved", category = TrackerCategory.WORK,
+                schedule = fixtureSchedule(), step = SetupStep.REVIEW
+            ), service.startDraftSession()
+        )
+        val permissions = object : LocationPermissionPort {
+            override fun current() = LocationCapabilities(false, false, false, true)
+            override suspend fun requestForeground() = error("No automatic permission request")
+            override suspend fun requestBackground() = error("No background request")
+            override fun openSystemSettings() = Unit
+        }
+        val gateway = object : LocationGateway {
+            override suspend fun requestFix(budget: Duration): LocationResult = error("No GPS on resume")
+        }
+        try {
+            val model = SetupViewModel(service, gateway, permissions, TestClock(), backgroundScope)
+            val restored = model.uiState.first { it.ready && it.draftSaved }
+            assertEquals(SetupStep.PLACE, restored.draft.step)
+            assertEquals("Saved", restored.draft.displayName)
+            assertNull(db.dao().tracker())
+        } finally {
+            db.close()
+            folder.toFile().deleteRecursively()
+        }
+    }
+
+    @Test
+    fun guided_steps_acknowledge_storage_and_review_edits_keep_the_balance() = runTest {
+        val folder = Files.createTempDirectory("daymark-guided-")
+        val db = openJvmDatabase(folder.resolve("app.db").toString())
+        val service = SetupService(db, TestClock())
+        val permissions = object : LocationPermissionPort {
+            override fun current() = LocationCapabilities(true, false, true, true)
+            override suspend fun requestForeground() = current()
+            override suspend fun requestBackground() = error("No implicit background consent")
+            override fun openSystemSettings() = Unit
+        }
+        val gateway = object : LocationGateway {
+            override suspend fun requestFix(budget: Duration): LocationResult = error("No GPS while navigating")
+        }
+        try {
+            val model = SetupViewModel(service, gateway, permissions, TestClock(), backgroundScope)
+            model.uiState.first { it.ready && it.draftSaved }
+            assertEquals(SetupStep.WELCOME, model.uiState.value.draft.step)
+            model.advance()
+            assertEquals(SetupStep.WELCOME, model.uiState.value.draft.step)
+            val profile = model.uiState.first { it.draft.step == SetupStep.PROFILE && !it.busy }
+            assertTrue(profile.draftSaved)
+            assertEquals(SetupStep.PROFILE, (service.observeDraft().first() as SetupDraftLoad.Loaded).draft.step)
+            model.advance()
+            assertEquals(SetupIssue.INVALID_INPUT, model.uiState.value.issue)
+            model.updateDraft(
+                profile.draft.copy(
+                    displayName = "Person",
+                    placeName = "Office",
+                    place = fixturePlace(),
+                    openingBalanceText = "١٢"
+                )
+            )
+            model.advance()
+            model.uiState.first { it.draft.step == SetupStep.PLACE && !it.busy }
+            model.advance()
+            model.uiState.first { it.draft.step == SetupStep.SCHEDULE && !it.busy }
+            model.advance()
+            model.uiState.first { it.draft.step == SetupStep.REVIEW && !it.busy }
+            model.edit(SetupStep.PROFILE)
+            model.uiState.first { it.draft.step == SetupStep.PROFILE && !it.busy }
+            model.updateDraft(model.uiState.value.draft.copy(category = TrackerCategory.SCHOOL))
+            model.advance()
+            val reviewed = model.uiState.first { it.draft.step == SetupStep.REVIEW && !it.busy }
+            assertEquals("١٢", reviewed.draft.openingBalanceText)
+            model.back()
+            model.uiState.first { it.draft.step == SetupStep.SCHEDULE && !it.busy }
+            model.advance()
+            model.uiState.first { it.draft.step == SetupStep.REVIEW && !it.busy }
+            model.submit()
+            model.submit()
+            model.uiState.first { it.completed }
+            assertEquals(0, db.dao().tracker()?.openingBalance)
+        } finally {
+            db.close()
+            folder.toFile().deleteRecursively()
+        }
+    }
+
+    @Test
     fun failed_initial_load_does_not_expose_an_unusable_form() = runTest {
         val folder = Files.createTempDirectory("daymark-setup-load-")
         val db = openJvmDatabase(folder.resolve("app.db").toString())
         val service = SetupService(db, TestClock())
-        service.saveDraft(SetupDraft(displayName = "Saved before failure"))
+        service.saveDraft(SetupDraft(displayName = "Saved before failure"), service.startDraftSession())
         val connection = BundledSQLiteDriver().open(folder.resolve("app.db").toString())
         connection.execSQL("ALTER TABLE settings RENAME TO temporarily_unavailable_settings")
         val permissions = object : LocationPermissionPort {
@@ -98,7 +262,7 @@ class SetupViewModelTest {
                         "١٢"
                     )
                 )
-                service.observeDraft().first { it.displayName == "أحمد / Ahmed" }
+                service.observeDraft().first { it is SetupDraftLoad.Loaded && it.draft.displayName == "أحمد / Ahmed" }
                 vm.uiState.first { it.draftSaved }
                 vm.useCurrentLocation()
                 val denied = vm.uiState.first { it.issue == SetupIssue.LOCATION_DENIED && !it.busy }
@@ -108,7 +272,10 @@ class SetupViewModelTest {
                 vm.uiState.first { it.issue == SetupIssue.INVALID_INPUT && !it.busy }
                 assertNull(db.dao().tracker())
                 assertEquals(0, requests)
-                assertEquals("أحمد / Ahmed", service.observeDraft().first().displayName)
+                assertEquals(
+                    "أحمد / Ahmed",
+                    (service.observeDraft().first() as SetupDraftLoad.Loaded).draft.displayName
+                )
             } finally {
                 db.close(); folder.toFile().deleteRecursively()
             }
