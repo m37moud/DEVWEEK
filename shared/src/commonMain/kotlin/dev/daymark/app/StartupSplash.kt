@@ -28,7 +28,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.daymark.resources.Res
 import dev.daymark.resources.app_name
-import dev.daymark.resources.daymark_splash
+import dev.daymark.resources.daymark_splash_transparent
 import dev.daymark.resources.startup_loading
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -50,7 +50,7 @@ internal fun StartupSplash(active: Boolean) {
             listOf(Color(0xFFC2DF9D), Color(0xFFC2DF9D))
         )
         Box(Modifier.size(160.dp)) {
-            Image(painterResource(Res.drawable.daymark_splash), null, Modifier.fillMaxSize())
+            Image(painterResource(Res.drawable.daymark_splash_transparent), null, Modifier.fillMaxSize())
             Text(
                 text = name,
                 modifier = Modifier.align(Alignment.TopCenter).offset(y = 184.dp),
