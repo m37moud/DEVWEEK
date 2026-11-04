@@ -47,12 +47,12 @@ import dev.daymark.app.SetupStep
 import dev.daymark.attendance.TrackerCategory
 import dev.daymark.resources.Res
 import dev.daymark.resources.cancel
-import dev.daymark.resources.daymark_splash
 import dev.daymark.resources.draft_saved
 import dev.daymark.resources.onboarding_appearance
 import dev.daymark.resources.onboarding_back
 import dev.daymark.resources.onboarding_finish_customize
 import dev.daymark.resources.onboarding_get_started
+import dev.daymark.resources.onboarding_illustration
 import dev.daymark.resources.onboarding_language
 import dev.daymark.resources.onboarding_next
 import dev.daymark.resources.onboarding_place
@@ -215,7 +215,7 @@ private fun SetupStepContent(
 @Composable
 private fun SetupWelcome() {
     Image(
-        painterResource(Res.drawable.daymark_splash), contentDescription = null,
+        painterResource(Res.drawable.onboarding_illustration), contentDescription = null,
         modifier = Modifier.fillMaxWidth().height(160.dp)
     )
     Text(str(Res.string.setup_description), style = MaterialTheme.typography.titleMedium)
