@@ -25,7 +25,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -45,16 +44,16 @@ import dev.daymark.resources.today
 import dev.daymark.settings.str
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.number
-import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
+import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @Serializable
 data object SetupRoute : NavKey
@@ -162,27 +161,11 @@ fun AppNavigation(graph: AppGraph, tracker: TrackerEntity?) {
             ),
             entryProvider = entryProvider {
                 entry<SetupRoute> {
-                    val model = viewModel {
-                        SetupViewModel(
-                            graph.setup,
-                            graph.location,
-                            graph.permissions,
-                            graph.clock
-                        )
-                    }
+                    val model = koinViewModel<SetupViewModel>()
                     SetupScreen(model, graph) { setupFinish = it }
                 }
                 entry<TodayRoute> {
-                    val model = viewModel {
-                        TodayViewModel(
-                            graph.repository,
-                            graph.attendance,
-                            graph.planReader,
-                            graph.permissions,
-                            graph.clock,
-                            initiallyActive = false
-                        )
-                    }
+                    val model = koinViewModel<TodayViewModel>()
                     val request = pendingCheck
                     LaunchedEffect(model, request?.token) {
                         if (request != null) {
@@ -191,12 +174,9 @@ fun AppNavigation(graph: AppGraph, tracker: TrackerEntity?) {
                             if (pendingCheck?.token == request.token) pendingCheck = null
                         }
                     }
-                    val dashboard by remember(graph) {
-                        TodayDashboardReader(
-                            graph.db,
-                            graph.clock
-                        ).observe()
-                    }.collectAsStateWithLifecycle(TodayDashboard())
+                    val dashboardReader = koinInject<TodayDashboardReader>()
+                    val dashboard by remember(dashboardReader) { dashboardReader.observe() }
+                        .collectAsStateWithLifecycle(TodayDashboard())
                     val report by graph.reporting.health.collectAsStateWithLifecycle()
                     TodayScreen(
                         model,
@@ -207,21 +187,8 @@ fun AppNavigation(graph: AppGraph, tracker: TrackerEntity?) {
                     )
                 }
                 entry<HistoryRoute> { route ->
-                    val model = viewModel {
-                        HistoryViewModel(
-                            graph.repository,
-                            LocalDate(route.year, route.month, 1),
-                            clock = graph.clock,
-                            today = {
-                                graph.repository.loadCurrentDay(graph.clock.now())?.plan?.key?.date
-                                    ?: LocalDate(route.year, route.month, 1)
-                            },
-                            refreshBoundary = {
-                                graph.repository.loadCurrentDay(graph.clock.now())?.plan?.let { day ->
-                                    day.key.date.plus(1, DateTimeUnit.DAY)
-                                        .atStartOfDayIn(TimeZone.of(day.zoneId))
-                                }
-                            })
+                    val model = koinViewModel<HistoryViewModel> {
+                        parametersOf(LocalDate(route.year, route.month, 1))
                     }
                     HistoryScreen(
                         model,
@@ -229,20 +196,11 @@ fun AppNavigation(graph: AppGraph, tracker: TrackerEntity?) {
                         onEditTimeOff = { date -> go(PlanRoute(date.toString())) })
                 }
                 entry<PlanRoute> { route ->
-                    val model = viewModel {
-                        PlanViewModel(
-                            graph.plans,
-                            graph.timeOff,
-                            graph.location,
-                            graph.permissions,
-                            graph.clock
-                        )
-                    }
+                    val model = koinViewModel<PlanViewModel>()
                     PlanScreen(model, graph.clock, route.timeOffDate?.let(LocalDate::parse))
                 }
                 entry<SettingsRoute> {
-                    val model =
-                        viewModel { SettingsViewModel(graph.db, graph.settings, graph.permissions) }
+                    val model = koinViewModel<SettingsViewModel>()
                     SettingsScreen(model, graph)
                 }
             })

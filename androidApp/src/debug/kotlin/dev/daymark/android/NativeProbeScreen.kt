@@ -5,7 +5,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import android.app.Activity
 import dev.daymark.app.App
-import dev.daymark.location.AndroidLocationGateway
 import dev.daymark.ui.LocationProbeContent
 import dev.daymark.reporting.GoogleConnectivityProbe
 import kotlinx.coroutines.launch
@@ -21,7 +20,7 @@ internal fun DaymarkHost(permissions: AndroidLocationPermissions, googleAuth: An
 @Composable
 private fun NativeDeveloperProbe(permissions: AndroidLocationPermissions, googleAuth: AndroidGoogleAuth) {
     val context = LocalContext.current.applicationContext
-    val gateway = remember(context) { AndroidLocationGateway(context) }
+    val gateway = (context as DaymarkApplication).graph.location
     var backgroundResult by remember { mutableStateOf("Background probe not scheduled") }
     var googleResult by remember { mutableStateOf("Developer report is retained in Google Drive; local OAuth registration is required.") }
     var googleBusy by remember { mutableStateOf(false) }

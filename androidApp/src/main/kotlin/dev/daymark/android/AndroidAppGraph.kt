@@ -5,8 +5,7 @@ import androidx.room3.withWriteTransaction
 import androidx.work.WorkManager
 import dev.daymark.attendance.*
 import dev.daymark.app.AppGraph
-import dev.daymark.auth.GoogleAccess
-import dev.daymark.settings.SettingsRepository
+import dev.daymark.auth.NativeGoogleAuth
 import dev.daymark.reminders.ReminderPort
 import dev.daymark.widgets.WidgetSink
 import dev.daymark.widgets.WidgetPublisher
@@ -21,30 +20,69 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.koin.dsl.module
+import org.koin.dsl.onClose
 import kotlin.time.Clock
 
 class AndroidAppGraph(context: Context) {
     private val app = context.applicationContext
-    init { initializeWidgetResources(app); initializeReportConnectivity(app) }
-    val clock: Clock = Clock.System
-    val database: DaymarkDatabase by lazy { openAndroidDatabase(app) }
-    val attendanceRepository by lazy { RoomAttendanceRepository(database, clock) }
-    val location by lazy { AndroidLocationGateway(app) }
-    val attendance by lazy { AttendanceService(attendanceRepository, location, clock) }
-    val settings by lazy { SettingsRepository(database) }
-    val timeOff by lazy { TimeOffService(database, clock) }
-    val plans by lazy { PlanService(database, clock) }
-    val widgetSink by lazy { AndroidWidgetPublisher(app) }
-    val widgets by lazy { WidgetPublisher(database,attendanceRepository,widgetSink,clock) }
-    fun requestWidgetUpdate() { scope.launch { try { DaymarkWidget().updateAll(app) } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { /* A future cache/app update can retry rendering. */ } } }
-    val auth by lazy { GoogleAccess((app as DaymarkApplication).googleAuth) }
-    val reporting by lazy { ReportingRuntime(database,auth,clock,attendanceRepository,enqueueNetwork={ enqueueReportSync(app) }) }
+
+    init {
+        initializeWidgetResources(app); initializeReportConnectivity(app)
+    }
+
+    private val dependencies = AppGraph(
+        module {
+            single<DaymarkDatabase> { openAndroidDatabase(app) }
+            single<LocationGateway> { AndroidLocationGateway(app) }
+            single { AndroidGoogleAuth(app) }
+            single<NativeGoogleAuth> { get<AndroidGoogleAuth>() }
+            single { AndroidAttendanceScheduler(WorkManager.getInstance(app), get(), scope) }
+            factory { AndroidAttendanceJob(get(), ::permitted, ::disableAutomation, ::recover) }
+            single<ReminderPort> { AndroidReminderPort }
+            single<WidgetSink> { AndroidWidgetPublisher(app) }
+            single {
+                ReportingRuntime(
+                    get(),
+                    get(),
+                    get(),
+                    get(),
+                    enqueueNetwork = { enqueueReportSync(app) },
+                    httpClient = get(), store = get(), reportTransport = get()
+                )
+            } onClose { it?.close() }
+        },
+        refreshSchedule = { recoverSafely(publishWidget = false) },
+        stopExternalWork = { stopExternal() }
+    )
+    val clock: Clock by dependencies.koin.inject()
+    val database: DaymarkDatabase by dependencies.koin.inject()
+    val attendanceRepository: AttendanceRepository by dependencies.koin.inject()
+    val attendance: AttendanceService by dependencies.koin.inject()
+    val widgets: WidgetPublisher by dependencies.koin.inject()
+    val googleAuth: AndroidGoogleAuth by dependencies.koin.inject()
+    val location: LocationGateway by dependencies.koin.inject()
+    private val planReader: PlanReader by dependencies.koin.inject()
+    fun requestWidgetUpdate() {
+        scope.launch {
+            try {
+                DaymarkWidget().updateAll(app)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) { /* A future cache/app update can retry rendering. */
+            }
+        }
+    }
+
+    val reporting: ReportingRuntime by dependencies.koin.inject()
     private var shared: AppGraph? = null
-    fun sharedGraph(permissions: LocationPermissionPort): AppGraph = shared ?: AppGraph(database, attendanceRepository, attendance,
-        timeOff, plans, RoomPlanReader(database, clock), settings, location, permissions,
-        auth, AndroidReminderPort, widgetSink, clock, refreshSchedule = { recoverSafely(publishWidget = false) },widgetPublisher = widgets,reportingRuntime=reporting,stopExternalWork={ stopExternal() }).also { shared = it }
+    fun sharedGraph(permissions: LocationPermissionPort): AppGraph = shared ?: dependencies.also {
+        it.koin.declare(permissions)
+        shared = it
+    }
+
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    val scheduler by lazy { AndroidAttendanceScheduler(WorkManager.getInstance(app), clock, scope) }
+    val scheduler: AndroidAttendanceScheduler by dependencies.koin.inject()
     private val failed = MutableStateFlow(false)
     val recoveryFailed = failed.asStateFlow()
     fun requestRecovery() { scope.launch { recoverSafely() } }
@@ -61,13 +99,14 @@ class AndroidAppGraph(context: Context) {
     private suspend fun disableAutomation(trackerId: String) = database.withWriteTransaction {
         database.dao().tracker()?.takeIf { it.automaticEnabled && it.id == trackerId }?.let { database.dao().putTracker(it.copy(automaticEnabled = false, changeRevision = it.changeRevision + 1)) }
     }
-    fun attendanceJob() = AndroidAttendanceJob(attendance, ::permitted, ::disableAutomation, ::recover)
+
+    fun attendanceJob(): AndroidAttendanceJob = dependencies.koin.get()
     suspend fun recover() = recoverInternal(publishWidget = true)
     private suspend fun recoverInternal(publishWidget: Boolean) = recoveryMutex.withLock {
         if (shared?.dataLifecycle?.deleting?.value == true) return@withLock
         attendanceRepository.reconcile(clock.now())
         if (!permitted()) database.dao().tracker()?.let { disableAutomation(it.id) }
-        scheduler.replaceNextAwait(nextAttendance(clock.now(), RoomPlanReader(database, clock)))
+        scheduler.replaceNextAwait(nextAttendance(clock.now(), planReader))
         if (publishWidget) widgets.refresh()
     }
 }

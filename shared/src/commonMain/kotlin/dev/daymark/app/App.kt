@@ -55,6 +55,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
+import org.koin.compose.KoinIsolatedContext
 
 private data class BootState(
     val settings: AppSettings,
@@ -158,7 +159,9 @@ fun App(graph: AppGraph) {
                                     )
                                     Button(onClick = { retry++ }) { Text(str(Res.string.retry)) }
                                 }
-                            } else AppNavigation(graph, ready.tracker)
+                            } else KoinIsolatedContext(context = graph.container) {
+                                AppNavigation(graph, ready.tracker)
+                            }
                         }
                     }
                 }

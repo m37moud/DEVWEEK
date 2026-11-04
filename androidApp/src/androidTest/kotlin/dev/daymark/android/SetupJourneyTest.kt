@@ -19,14 +19,13 @@ import dev.daymark.attendance.*
 import dev.daymark.auth.*
 import dev.daymark.data.*
 import dev.daymark.location.*
-import dev.daymark.plan.*
 import dev.daymark.reminders.ReminderPort
-import dev.daymark.settings.SettingsRepository
 import dev.daymark.widgets.WidgetSink
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
 import org.junit.*
 import org.junit.runner.RunWith
+import org.koin.dsl.module
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -62,54 +61,53 @@ class SetupJourneyTest {
     }
 
     private fun graph(): AppGraph {
-        val repo = RoomAttendanceRepository(db, clock)
-        return AppGraph(
-            db,
-            repo,
-            AttendanceService(repo, location, clock),
-            TimeOffService(db, clock),
-            PlanService(db, clock),
-            RoomPlanReader(db, clock),
-            SettingsRepository(db),
-            location,
-            permissions,
-            GoogleAccess(object : NativeGoogleAuth {
-                override fun authorize(
-                    interactive: Boolean,
-                    completion: (NativeAuthReply) -> Unit
-                ) {
-                    googleCalls++; completion(
-                        NativeAuthReply(
-                            NativeAuthStatus.NEEDS_INTERACTION,
-                            null,
-                            null
+        return AppGraph(module {
+            single<DaymarkDatabase> { db }
+            single<Clock> { clock }
+            single<LocationGateway> { location }
+            single<LocationPermissionPort> { permissions }
+            single<NativeGoogleAuth> {
+                object : NativeGoogleAuth {
+                    override fun authorize(
+                        interactive: Boolean,
+                        completion: (NativeAuthReply) -> Unit
+                    ) {
+                        googleCalls++; completion(
+                            NativeAuthReply(
+                                NativeAuthStatus.NEEDS_INTERACTION,
+                                null,
+                                null
+                            )
                         )
-                    )
-                }
+                    }
 
-                override fun forget(completion: (Boolean) -> Unit) {
-                    completion(true)
+                    override fun forget(completion: (Boolean) -> Unit) {
+                        completion(true)
+                    }
                 }
-            }),
-            object : ReminderPort {
-                override fun requestPermission(completion: (Boolean) -> Unit) {
-                    completion(false)
-                }
+            }
+            single<ReminderPort> {
+                object : ReminderPort {
+                    override fun requestPermission(completion: (Boolean) -> Unit) {
+                        completion(false)
+                    }
 
-                override fun replace(remindersJson: String, completion: (Boolean) -> Unit) {
-                    completion(false)
-                }
+                    override fun replace(remindersJson: String, completion: (Boolean) -> Unit) {
+                        completion(false)
+                    }
 
-                override fun cancelTracker(trackerId: String, completion: (Boolean) -> Unit) {
-                    completion(true)
+                    override fun cancelTracker(trackerId: String, completion: (Boolean) -> Unit) {
+                        completion(true)
+                    }
                 }
-            },
-            object : WidgetSink {
-                override fun publish(json: String) = false
-                override fun clear() = true
-            },
-            clock
-        )
+            }
+            single<WidgetSink> {
+                object : WidgetSink {
+                    override fun publish(json: String) = false
+                    override fun clear() = true
+                }
+            }
+        })
     }
 
     @Before
@@ -136,6 +134,7 @@ class SetupJourneyTest {
     fun close() {
         compose.runOnIdle { shown = false }
         compose.waitForIdle()
+        graph?.close()
         db.close(); context.deleteDatabase(name)
     }
 

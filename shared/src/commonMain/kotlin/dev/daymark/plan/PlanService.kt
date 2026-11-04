@@ -5,6 +5,7 @@ package dev.daymark.plan
 import androidx.room3.withReadTransaction
 import androidx.room3.withWriteTransaction
 import dev.daymark.attendance.DayKey
+import dev.daymark.attendance.AttendanceRepository
 import dev.daymark.attendance.RoomAttendanceRepository
 import dev.daymark.data.DaymarkDatabase
 import dev.daymark.data.PlanVersionEntity
@@ -18,9 +19,11 @@ import kotlinx.datetime.plus
 import kotlin.time.Clock
 import kotlin.time.Instant
 
-class PlanService(private val db: DaymarkDatabase, private val clock: Clock) {
+class PlanService(
+    private val db: DaymarkDatabase, private val clock: Clock,
+    private val attendance: AttendanceRepository = RoomAttendanceRepository(db, clock)
+) {
     private val dao get() = db.dao()
-    private val attendance = RoomAttendanceRepository(db, clock)
     fun observePlan(): Flow<PlanState?> = dao.observeTracker().map {
         db.withReadTransaction {
             val store = dao.planning(clock.now()) ?: return@withReadTransaction null

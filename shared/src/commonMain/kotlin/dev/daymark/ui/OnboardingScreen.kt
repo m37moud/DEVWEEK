@@ -115,7 +115,11 @@ fun SetupScreen(
     OnboardingLayout(state, controls) {
         if (state.ready) OnboardingStep(state.draft.step) {
             OnboardingHeading(state.draft.step)
-            SetupStepContent(state, actions, graph.platform) { keyboard?.hide(); viewModel.edit(it) }
+            SetupStepContent(
+                state,
+                actions,
+                graph.platform
+            ) { keyboard?.hide(); viewModel.edit(it) }
         }
     }
 }

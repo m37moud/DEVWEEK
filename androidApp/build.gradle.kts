@@ -22,6 +22,7 @@ dependencies {
     implementation(libs.splashscreen)
     implementation(libs.activity.compose)
     implementation(libs.coroutines.core)
+    implementation(libs.ktor.core)
     implementation(libs.play.auth)
     implementation(libs.credentials)
     implementation(libs.credentials.google)

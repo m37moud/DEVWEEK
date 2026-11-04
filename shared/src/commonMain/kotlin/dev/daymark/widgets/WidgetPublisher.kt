@@ -24,7 +24,8 @@ class WidgetPublisher(
     private val db: DaymarkDatabase, private val repository: AttendanceRepository,
     private val sink: WidgetSink, private val clock: Clock,
     private val systemTags: () -> List<String> = ::widgetSystemLanguageTags,
-    private val statusLabel: (AttendanceStatus?, AppLanguage) -> String = ::widgetStatusLabel
+    private val statusLabel: (AttendanceStatus?, AppLanguage) -> String = ::widgetStatusLabel,
+    private val settings: SettingsRepository = SettingsRepository(db)
 ) {
     private val mutex = Mutex()
 
@@ -57,7 +58,7 @@ class WidgetPublisher(
 
     private suspend fun project(now: Instant): Projection? = db.withReadTransaction {
         val tracker = db.dao().tracker() ?: return@withReadTransaction null
-        val preferences = SettingsRepository(db).snapshot()
+        val preferences = settings.snapshot()
         val settingsValue = db.dao().setting("ui-settings")?.value
         val day = repository.loadCurrentDay(now) ?: return@withReadTransaction null
         val language = effectiveLanguage(preferences.language, systemTags())

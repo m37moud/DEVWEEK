@@ -44,12 +44,13 @@ class ReportingRuntime(
     private val auth: GoogleAccess,
     private val clock: Clock,
     private val repository: AttendanceRepository,
-    httpClient: HttpClient? = null,
+    private val httpClient: HttpClient? = null,
     enqueueNetwork: () -> Unit = {},
     observeConnectivity: ((() -> Unit) -> (() -> Unit)) = ::observeReportConnectivity,
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    val store: RoomReportStore = RoomReportStore(db, clock),
+    reportTransport: GoogleReportTransport? = null
 ) {
-    val store = RoomReportStore(db, clock)
     private val clientDelegate = lazy {
         httpClient ?: HttpClient {
             install(HttpTimeout) {
@@ -59,7 +60,7 @@ class ReportingRuntime(
         }
     }
     private val client by clientDelegate
-    private val transport by lazy { GoogleReportTransport(client) }
+    private val transport by lazy { reportTransport ?: GoogleReportTransport(client) }
     val sync = SyncCoordinator(
         store,
         transport,
@@ -171,7 +172,7 @@ class ReportingRuntime(
     fun close() {
         lifecycle.onActive(false)
         scope.cancel()
-        if (clientDelegate.isInitialized()) client.close()
+        if (clientDelegate.isInitialized()) client.close() else httpClient?.close()
     }
 
     suspend fun nextDelay(): Long? = try {

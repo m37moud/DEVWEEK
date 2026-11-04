@@ -54,7 +54,10 @@ sealed interface SetupResult {
     data object LocalSaveFailed : SetupResult
 }
 
-class SetupService(private val db: DaymarkDatabase, private val clock: Clock) {
+class SetupService(
+    private val db: DaymarkDatabase, private val clock: Clock,
+    private val settings: SettingsRepository = SettingsRepository(db)
+) {
     private val dao get() = db.dao()
     fun observeDraft(): Flow<SetupDraftLoad> = dao.observeSetting("setup-draft").map { row ->
         if (row == null) SetupDraftLoad.Absent else readDraft(row.value)
@@ -107,7 +110,7 @@ class SetupService(private val db: DaymarkDatabase, private val clock: Clock) {
                         command.place.copy(version = 1), command.placeName
                     )
                 )
-                SettingsRepository(db).update(displayName = command.displayName)
+                settings.update(displayName = command.displayName)
                 dao.deleteSetting("setup-draft")
                 dao.deleteSetting("setup-session")
                 dao.markDirty(id, "OVERVIEW")

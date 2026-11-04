@@ -1,9 +1,6 @@
 package dev.daymark.shared
 
 import dev.daymark.app.AppGraph
-import dev.daymark.attendance.AttendanceService
-import dev.daymark.attendance.RoomAttendanceRepository
-import dev.daymark.auth.GoogleAccess
 import dev.daymark.auth.NativeAuthReply
 import dev.daymark.auth.NativeAuthStatus
 import dev.daymark.auth.NativeGoogleAuth
@@ -13,35 +10,25 @@ import dev.daymark.location.LocationFailure
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationPermissionPort
 import dev.daymark.location.LocationResult
-import dev.daymark.plan.PlanService
-import dev.daymark.plan.RoomPlanReader
-import dev.daymark.plan.TimeOffService
 import dev.daymark.reminders.ReminderPort
-import dev.daymark.settings.SettingsRepository
 import dev.daymark.widgets.WidgetSink
-import kotlin.time.Clock
+import org.koin.dsl.module
 import kotlin.time.Duration
 
 internal fun desktopAppGraph(database: DaymarkDatabase): AppGraph {
-    val clock = Clock.System
-    val repository = RoomAttendanceRepository(database, clock)
-    val macLocation =
-        if (System.getProperty("os.name").startsWith("Mac")) MacLocation(macLocationExecutable()) else null
-    return AppGraph(
-        db = database,
-        repository = repository,
-        attendance = AttendanceService(repository, macLocation ?: DesktopLocation, clock),
-        timeOff = TimeOffService(database, clock),
-        plans = PlanService(database, clock),
-        planReader = RoomPlanReader(database, clock),
-        settings = SettingsRepository(database),
-        location = macLocation ?: DesktopLocation,
-        permissions = macLocation ?: DesktopPermissions,
-        auth = GoogleAccess(DesktopGoogleAuth),
-        reminders = DesktopReminders,
-        widgetSink = DesktopWidgets,
-        clock = clock
-    )
+    return AppGraph(module {
+        single { MacLocation(macLocationExecutable()) }
+        single<DaymarkDatabase> { database }
+        single<LocationGateway> {
+            if (System.getProperty("os.name").startsWith("Mac")) get<MacLocation>() else DesktopLocation
+        }
+        single<LocationPermissionPort> {
+            if (System.getProperty("os.name").startsWith("Mac")) get<MacLocation>() else DesktopPermissions
+        }
+        single<NativeGoogleAuth> { DesktopGoogleAuth }
+        single<ReminderPort> { DesktopReminders }
+        single<WidgetSink> { DesktopWidgets }
+    })
 }
 
 // shortcut: desktop is a development host; implement native adapters before offering desktop delivery.

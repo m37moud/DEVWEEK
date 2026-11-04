@@ -10,7 +10,7 @@ Daymark is the working name for a free personal attendance tracker for Android a
 
 V2 is approved for implementation planning; the plan records implementation/execution-method approval as pending. A scaffold now exists, but planned features and unchecked tasks are not implemented merely because they appear in these documents. Preserve the frozen reference. Changes to attendance semantics, permissions, support floors, or product scope require the design review described there.
 
-## Project Structure and Architecture
+## Project Structure
 
 - `shared/src/commonMain/`: shared Compose UI, lifecycle ViewModels with immutable `StateFlow`, pure attendance/calendar rules, Room persistence, and reporting. Shared resources live in `composeResources/`.
 - `shared/src/androidMain/` and `shared/src/iosMain/`: platform adapters and database factories. Tests use `commonTest`, `androidHostTest`, `androidDeviceTest`, and `iosTest` as applicable.
@@ -23,7 +23,22 @@ V2 is approved for implementation planning; the plan records implementation/exec
 
 Current Kotlin packages are `com.example.myworktracker`. The plan specifies `dev.daymark` for new production Kotlin, provisional application/bundle ID `dev.daymark.app`, and App Group `group.dev.daymark.app`; follow its migration/file map when implementing. Final public identifiers remain release inputs.
 
-Keep feature-oriented packages and constructor injection from a small composition root. Room is authoritative; Sheets is an outgoing report. Keep native APIs out of shared UI/domain code. Use the planned Material 3, Navigation 3 multiplatform artifact, Room/KSP, Ktor, and native adapters after compatibility verification; avoid a module-per-layer or DI framework.
+## Architecture & Data Flow
+
+The target architecture is feature-oriented MVVM with a central repository and data-source interfaces. It does not have a separate domain module or a general use-case layer. The current code uses feature repositories and constructor injection through `app/AppGraph.kt`; the package layout and Koin wiring below have not yet been implemented.
+
+- `presentation/features/`: feature screens, ViewModels, and feature-specific UI state/effects.
+- `presentation/component/`: reusable Compose components.
+- `navigation/`: routes and navigation graphs; `ui/theme/`: shared theme.
+- `repository/`: central `Repository`, which exposes data sources and builds paging flows, plus the token use case.
+- `data/remote/data_source/domain/`: remote data-source interfaces; `data/remote/data_source/data/ktor/`: Ktor implementations; `data/remote/pagesource/`: paging sources.
+- `data/local/`: Room database, DAOs, and local gateway interfaces/implementations; `data/data_store/`: preferences.
+- `models/`: shared models, local models, and mappers; `helpers/` and `util/`: response handling and shared/platform utilities.
+- `di/ktor/`: Koin modules for ViewModels, repositories, gateways, networking, storage, and platform dependencies.
+
+Target flow: Compose screen → ViewModel → Repository → data-source interface → Ktor API or local storage. ViewModels expose observable state back to the UI. Koin wires dependencies in the target architecture; `expect`/`actual` declarations bridge platform-specific functionality. Preserve these conventions when implementing the target layout and keep portable logic in `commonMain`.
+
+Room is authoritative; Sheets is an outgoing report. Keep native APIs out of shared UI/domain code. Use the planned Material 3, Navigation 3 multiplatform artifact, Room/KSP, Ktor, and native adapters after compatibility verification; avoid a module-per-layer.
 
 ## Attendance and Persistence Rules
 

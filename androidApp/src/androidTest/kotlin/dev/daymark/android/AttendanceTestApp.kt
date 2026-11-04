@@ -6,12 +6,12 @@ import dev.daymark.attendance.*
 import dev.daymark.auth.*
 import dev.daymark.data.*
 import dev.daymark.location.*
-import dev.daymark.plan.*
+import dev.daymark.plan.WeeklySchedule
 import dev.daymark.reminders.ReminderPort
-import dev.daymark.settings.SettingsRepository
 import dev.daymark.widgets.WidgetSink
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.*
+import org.koin.dsl.module
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Instant
@@ -39,15 +39,37 @@ internal class AttendanceTestApp(context: Context, name: String, private val wid
                 WeeklySchedule(DayOfWeek.entries.toSet(),LocalTime(9,0),emptyMap(),5,"UTC"),10))
     } }
     val graph: AppGraph by lazy {
-        val repo = RoomAttendanceRepository(db,clock)
-        AppGraph(db,repo,AttendanceService(repo,location,clock),TimeOffService(db,clock),PlanService(db,clock),RoomPlanReader(db,clock),
-            SettingsRepository(db),location,permissions,GoogleAccess(nativeAuth ?: object : NativeGoogleAuth {
-                override fun authorize(interactive: Boolean,completion: (NativeAuthReply) -> Unit) = error("Optional Google must not be needed")
-                override fun forget(completion: (Boolean) -> Unit) { completion(true) }
-            }),object : ReminderPort {
-                override fun requestPermission(completion: (Boolean) -> Unit) { completion(false) }
-                override fun replace(remindersJson: String,completion: (Boolean) -> Unit) { completion(false) }
-                override fun cancelTracker(trackerId: String,completion: (Boolean) -> Unit) { completion(true) }
-            },widget,clock)
+        AppGraph(module {
+            single<DaymarkDatabase> { db }
+            single<Clock> { clock }
+            single<LocationGateway> { location }
+            single<LocationPermissionPort> { permissions }
+            single<NativeGoogleAuth> {
+                nativeAuth ?: object : NativeGoogleAuth {
+                    override fun authorize(interactive: Boolean, completion: (NativeAuthReply) -> Unit) =
+                        error("Optional Google must not be needed")
+
+                    override fun forget(completion: (Boolean) -> Unit) {
+                        completion(true)
+                    }
+                }
+            }
+            single<ReminderPort> {
+                object : ReminderPort {
+                    override fun requestPermission(completion: (Boolean) -> Unit) {
+                        completion(false)
+                    }
+
+                    override fun replace(remindersJson: String, completion: (Boolean) -> Unit) {
+                        completion(false)
+                    }
+
+                    override fun cancelTracker(trackerId: String, completion: (Boolean) -> Unit) {
+                        completion(true)
+                    }
+                }
+            }
+            single<WidgetSink> { widget }
+        })
     }
 }

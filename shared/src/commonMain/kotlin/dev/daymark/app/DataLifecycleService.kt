@@ -19,7 +19,8 @@ sealed interface DeletionResult {
 class DataLifecycleService(
     private val db: DaymarkDatabase, private val reports: ReportStore,
     private val stopExternal: suspend () -> Unit, private val forgetCredentials: suspend () -> Unit,
-    private val clearWidget: suspend () -> Boolean
+    private val clearWidget: suspend () -> Boolean,
+    private val settings: SettingsRepository = SettingsRepository(db)
 ) {
     private val mutex = Mutex()
     private val deletingState = MutableStateFlow(false)
@@ -40,7 +41,7 @@ class DataLifecycleService(
                     )
                 }
             }
-            SettingsRepository(db).update(remindersEnabled = false)
+            settings.update(remindersEnabled = false)
             stopExternal()
             forgetCredentials()
             check(clearWidget()) { "widget_clear_failed" }

@@ -2,55 +2,60 @@ package dev.daymark.app
 
 import dev.daymark.attendance.AttendanceRepository
 import dev.daymark.attendance.AttendanceService
-import dev.daymark.auth.GoogleAccess
 import dev.daymark.data.DaymarkDatabase
-import dev.daymark.location.LocationGateway
+import dev.daymark.di.attendanceModule
+import dev.daymark.di.lifecycleModule
+import dev.daymark.di.viewModelModule
 import dev.daymark.location.LocationPermissionPort
+import dev.daymark.logging.AppLogger
 import dev.daymark.plan.PlanReader
-import dev.daymark.plan.PlanService
-import dev.daymark.plan.TimeOffService
 import dev.daymark.reminders.ReminderPort
 import dev.daymark.reporting.ReportingRuntime
 import dev.daymark.settings.SettingsRepository
 import dev.daymark.widgets.WidgetPublisher
-import dev.daymark.widgets.WidgetSink
+import org.koin.core.module.Module
+import org.koin.dsl.koinApplication
 import kotlin.time.Clock
 
 class AppGraph(
-    val db: DaymarkDatabase,
-    val repository: AttendanceRepository,
-    val attendance: AttendanceService,
-    val timeOff: TimeOffService,
-    val plans: PlanService,
-    val planReader: PlanReader,
-    val settings: SettingsRepository,
-    val location: LocationGateway,
-    val permissions: LocationPermissionPort,
-    val auth: GoogleAccess,
-    val reminders: ReminderPort,
-    val widgetSink: WidgetSink,
-    val clock: Clock,
+    platformModule: Module,
     refreshSchedule: suspend () -> Boolean = { false },
-    widgetPublisher: WidgetPublisher? = null,
-    reportingRuntime: ReportingRuntime? = null,
     stopExternalWork: suspend () -> Unit = {}
 ) {
-    val setup = SetupService(db, clock)
+    val container = koinApplication {
+        modules(
+            attendanceModule(),
+            lifecycleModule(refreshSchedule, stopExternalWork),
+            viewModelModule(),
+            platformModule
+        )
+    }
+    val koin get() = container.koin
+    val db: DaymarkDatabase by koin.inject()
+    val repository: AttendanceRepository by koin.inject()
+    val attendance: AttendanceService by koin.inject()
+    val planReader: PlanReader by koin.inject()
+    val settings: SettingsRepository by koin.inject()
+    val setup: SetupService by koin.inject()
+    val permissions: LocationPermissionPort by koin.inject()
+    val reminders: ReminderPort by koin.inject()
+    val clock: Clock by koin.inject()
+    val widgets: WidgetPublisher by koin.inject()
+    val configuration: ConfigurationCoordinator by koin.inject()
+    val reporting: ReportingRuntime by koin.inject()
+    val dataLifecycle: DataLifecycleService by koin.inject()
     val platform = hostPlatform()
-    val widgets = widgetPublisher ?: WidgetPublisher(db, repository, widgetSink, clock)
-    val configuration = ConfigurationCoordinator(
-        db, clock, reminders, onScheduleRefresh = refreshSchedule,
-        onWidgetRefresh = { widgets.refresh(); true })
-    val reporting by lazy { reportingRuntime ?: ReportingRuntime(db, auth, clock, repository) }
     val connection get() = reporting.connection
     val sync get() = reporting.sync
     val lifecycle get() = reporting.lifecycle
-    val dataLifecycle by lazy {
-        DataLifecycleService(db, reporting.store, stopExternal = {
-            lifecycle.stop()
-            db.dao().tracker()?.let { configuration.cancelTracker(it.id) }
-            stopExternalWork()
-        }, forgetCredentials = auth::forget, clearWidget = { widgets.clear(); true })
+
+    init {
+        AppLogger.i("AppGraph", "Dependency container initialized")
+    }
+
+    fun close() {
+        container.close()
+        AppLogger.d("AppGraph", "Dependency container closed")
     }
 }
 

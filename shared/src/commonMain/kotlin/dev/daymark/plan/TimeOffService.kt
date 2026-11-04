@@ -5,6 +5,7 @@ package dev.daymark.plan
 import androidx.room3.withReadTransaction
 import androidx.room3.withWriteTransaction
 import dev.daymark.attendance.DayKey
+import dev.daymark.attendance.AttendanceRepository
 import dev.daymark.attendance.RoomAttendanceRepository
 import dev.daymark.data.AttendanceEntity
 import dev.daymark.data.BalanceAdjustmentEntity
@@ -17,9 +18,11 @@ import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
-class TimeOffService(private val db: DaymarkDatabase, private val clock: Clock) {
+class TimeOffService(
+    private val db: DaymarkDatabase, private val clock: Clock,
+    private val attendance: AttendanceRepository = RoomAttendanceRepository(db, clock)
+) {
     private val dao get() = db.dao()
-    private val attendance = RoomAttendanceRepository(db, clock)
     fun observeEntries(): Flow<List<TimeOffEntry>> = dao.observeTracker().flatMapLatest { tracker ->
         if (tracker == null) flowOf(emptyList()) else dao.observeTimeOff(tracker.id)
             .map { entries -> entries.map { it.entry() } }

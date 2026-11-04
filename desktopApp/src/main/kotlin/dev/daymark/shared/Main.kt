@@ -18,7 +18,7 @@ fun main() {
             }
         }
     } finally {
-        graph.reporting.close()
+        graph.close()
         database.close()
     }
 }

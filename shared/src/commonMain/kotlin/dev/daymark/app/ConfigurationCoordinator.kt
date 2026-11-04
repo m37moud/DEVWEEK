@@ -2,6 +2,7 @@ package dev.daymark.app
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import dev.daymark.data.DaymarkDatabase
+import dev.daymark.plan.PlanReader
 import dev.daymark.plan.RoomPlanReader
 import dev.daymark.reminders.ReminderCopy
 import dev.daymark.reminders.ReminderPort
@@ -35,7 +36,8 @@ val LocalConfigurationHealth = staticCompositionLocalOf { ConfigurationHealth() 
 class ConfigurationCoordinator(
     private val db: DaymarkDatabase, private val clock: Clock, private val reminders: ReminderPort,
     private val onScheduleRefresh: suspend () -> Boolean = { false },
-    private val onWidgetRefresh: suspend (AppLanguage) -> Boolean? = { null }
+    private val onWidgetRefresh: suspend (AppLanguage) -> Boolean? = { null },
+    private val reader: PlanReader = RoomPlanReader(db, clock)
 ) {
     private val mutex = Mutex()
     suspend fun refresh(
@@ -51,7 +53,6 @@ class ConfigurationCoordinator(
             if (platform != HostPlatform.IOS) null else if (!settings.remindersEnabled) {
                 awaitNative { reminders.cancelTracker(tracker.id, it) }
             } else {
-                val reader = RoomPlanReader(db, clock)
                 val context =
                     reader.context() ?: return@withLock ConfigurationHealth(remindersOk = false)
                 val payload = planReminders(clock.now(), reader, copy)

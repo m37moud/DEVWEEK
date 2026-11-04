@@ -51,7 +51,9 @@ class ReportingHealthTest {
                     auth,
                     clock,
                     RoomAttendanceRepository(db, clock),
-                    httpClient = client
+                    httpClient = client,
+                    store = store,
+                    reportTransport = GoogleReportTransport(client)
                 )
                 db.dao().putSetting(
                     SettingEntity(
