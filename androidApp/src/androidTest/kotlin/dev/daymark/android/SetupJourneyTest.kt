@@ -45,6 +45,7 @@ class SetupJourneyTest {
     private var fontScale by mutableStateOf<Float?>(null)
     private var permitted = false
     private var googleCalls = 0
+    private var locationCalls = 0
     private var shown by mutableStateOf(true)
     private var graph by mutableStateOf<AppGraph?>(null)
     private val permissions = object : LocationPermissionPort {
@@ -54,8 +55,10 @@ class SetupJourneyTest {
         override fun openSystemSettings() = Unit
     }
     private val location = object : LocationGateway {
-        override suspend fun requestFix(budget: Duration) =
-            LocationResult.Fix(0.0, 0.0, 10.0, clock.now(), clock.now(), Duration.ZERO)
+        override suspend fun requestFix(budget: Duration): LocationResult {
+            locationCalls++
+            return LocationResult.Fix(0.0, 0.0, 10.0, clock.now(), clock.now(), Duration.ZERO)
+        }
     }
 
     private fun graph(): AppGraph {
@@ -71,8 +74,17 @@ class SetupJourneyTest {
             location,
             permissions,
             GoogleAccess(object : NativeGoogleAuth {
-                override fun authorize(interactive: Boolean, completion: (NativeAuthReply) -> Unit) {
-                    googleCalls++; completion(NativeAuthReply(NativeAuthStatus.NEEDS_INTERACTION, null, null))
+                override fun authorize(
+                    interactive: Boolean,
+                    completion: (NativeAuthReply) -> Unit
+                ) {
+                    googleCalls++; completion(
+                        NativeAuthReply(
+                            NativeAuthStatus.NEEDS_INTERACTION,
+                            null,
+                            null
+                        )
+                    )
                 }
 
                 override fun forget(completion: (Boolean) -> Unit) {
@@ -106,11 +118,18 @@ class SetupJourneyTest {
         graph = graph()
         compose.setContent {
             val density = LocalDensity.current
-            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale ?: density.fontScale)) {
+            CompositionLocalProvider(
+                LocalDensity provides Density(
+                    density.density,
+                    fontScale ?: density.fontScale
+                )
+            ) {
                 if (shown) graph?.let { App(it) }
             }
         }
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("setup-next").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("setup-next").fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @After
@@ -122,7 +141,9 @@ class SetupJourneyTest {
 
     private fun nextTo(tag: String) {
         compose.onNodeWithTag("setup-next").performClick()
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     private fun enterProfile() {
@@ -133,32 +154,45 @@ class SetupJourneyTest {
     private fun enterPlace() {
         enterProfile()
         nextTo("setup-place-name")
-        compose.onNodeWithTag("setup-place-name").performScrollTo().performTextReplacement("Test place")
+        compose.onNodeWithTag("setup-place-name").performScrollTo()
+            .performTextReplacement("Test place")
+    }
+
+    private fun seedLanguage(language: LanguagePreference) {
+        runBlocking { graph!!.settings.update(language = language) }
+        compose.waitForIdle()
     }
 
     private fun reviewSetup() {
         permitted = true
-        compose.onNodeWithTag("language-en").performScrollTo().performClick()
+        seedLanguage(LanguagePreference.EN)
         enterPlace()
         compose.onNodeWithTag("setup-register-place").performScrollTo().performClick()
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("setup-place-ready").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("setup-place-ready").fetchSemanticsNodes().isNotEmpty()
+        }
         nextTo("setup-grace")
         nextTo("setup-start")
     }
 
     @Test
     fun denied_location_keeps_arabic_rtl_draft_after_reopen_without_creating_a_tracker() {
-        compose.onNodeWithTag("language-ar").performScrollTo().performClick()
+        seedLanguage(LanguagePreference.AR)
         enterProfile()
         compose.onNodeWithTag("setup-name").performTextReplacement("أحمد / Ahmed")
         val field = compose.onNodeWithTag("setup-name").fetchSemanticsNode().boundsInRoot
-        val label = compose.onNodeWithText("اسمك", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        Assert.assertTrue("Arabic field label must align to the right", label.center.x > field.center.x)
+        val label =
+            compose.onNodeWithText("اسمك", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        Assert.assertTrue(
+            "Arabic field label must align to the right",
+            label.center.x > field.center.x
+        )
         nextTo("setup-place-name")
         compose.onNodeWithTag("setup-place-name").performScrollTo().performTextReplacement("المكتب")
         compose.onNodeWithTag("setup-register-place").performScrollTo().performClick()
         compose.waitUntil(10_000) {
-            compose.onAllNodesWithText("اسمح بالموقع الدقيق لتسجيل المكان.").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("اسمح بالموقع الدقيق لتسجيل المكان.").fetchSemanticsNodes()
+                .isNotEmpty()
         }
         compose.onNodeWithText("اسمح بالموقع الدقيق لتسجيل المكان.").assertIsDisplayed()
         runBlocking {
@@ -169,10 +203,14 @@ class SetupJourneyTest {
         compose.waitForIdle()
         db.close(); db = openAndroidDatabase(context, name)
         compose.runOnIdle { graph = graph(); shown = true }
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("setup-place-name").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("setup-place-name").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("setup-place-name").assertTextContains("المكتب")
         compose.onNodeWithTag("setup-back").performClick()
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("setup-name").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("setup-name").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("setup-name").performScrollTo().assertTextContains("أحمد / Ahmed")
         runBlocking { Assert.assertNull(db.dao().tracker()) }
         Assert.assertEquals(0, googleCalls)
@@ -182,7 +220,9 @@ class SetupJourneyTest {
     fun valid_setup_can_skip_google_and_notifications_and_uses_real_local_storage() {
         reviewSetup()
         compose.onNodeWithTag("setup-start").performClick()
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("today-root").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("today-root").fetchSemanticsNodes().isNotEmpty()
+        }
         runBlocking {
             val tracker = requireNotNull(db.dao().tracker())
             Assert.assertEquals("Local test", tracker.displayName)
@@ -196,42 +236,120 @@ class SetupJourneyTest {
     fun customize_opens_settings_once_and_cold_launch_returns_to_today() {
         reviewSetup()
         compose.onNodeWithTag("setup-customize").performClick()
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("settings-name").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("settings-name").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("settings-widget-guidance").performScrollTo().assertIsDisplayed()
         Assert.assertEquals(0, googleCalls)
         compose.runOnIdle { shown = false }
         compose.waitForIdle()
         db.close(); db = openAndroidDatabase(context, name)
         compose.runOnIdle { graph = graph(); shown = true }
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("today-root").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("today-root").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("setup-next").assertDoesNotExist()
+    }
+
+    @Test
+    fun captured_preview_and_radius_survive_a_failed_recapture() {
+        seedLanguage(LanguagePreference.EN)
+        permitted = true
+        enterPlace()
+        compose.onNodeWithTag("setup-register-place").performScrollTo().performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("setup-place-coordinates").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("setup-place-coordinates")
+            .assertTextContains("0.00000", substring = true)
+        compose.onNodeWithTag("setup-radius").performScrollTo()
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(200f) }
+        compose.runOnIdle { permitted = false }
+        compose.onNodeWithTag("setup-register-place").performScrollTo().performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("setup-error").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("setup-place-coordinates").assertExists()
+        val draft = runBlocking {
+            graph!!.setup.observeDraft().first {
+                it is SetupDraftLoad.Loaded && it.draft.place?.radiusMetres == 200
+            }
+        } as SetupDraftLoad.Loaded
+        Assert.assertEquals(RegisteredPlace(0.0, 0.0, 200, 1), draft.draft.place)
+        Assert.assertEquals(1, locationCalls)
+    }
+
+    @Test
+    fun preferences_are_only_in_settings_and_persist_after_relaunch() {
+        compose.onNodeWithTag("language-en").assertDoesNotExist()
+        compose.onNodeWithTag("theme-dark").assertDoesNotExist()
+        reviewSetup()
+        compose.onNodeWithTag("setup-customize").performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("settings-language-ar").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("settings-language-ar").performScrollTo().performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodes(hasTestTag("settings-language-ar") and isSelected())
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("settings-theme-dark").performScrollTo().performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodes(hasTestTag("settings-theme-dark") and isSelected())
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.runOnIdle { shown = false }
+        compose.waitForIdle()
+        db.close(); db = openAndroidDatabase(context, name)
+        compose.runOnIdle { graph = graph(); shown = true }
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("today-root").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("nav-settings").performClick()
+        compose.onNodeWithTag("settings-language-ar").performScrollTo().assertIsSelected()
+        compose.onNodeWithTag("settings-theme-dark").performScrollTo().assertIsSelected()
+        runBlocking {
+            val saved = graph!!.settings.observe().first()
+            Assert.assertEquals(LanguagePreference.AR, saved.language)
+            Assert.assertEquals(ThemePreference.DARK, saved.theme)
+        }
     }
 
     @Test
     fun radius_and_grace_have_localized_accessible_names_and_units() {
         permitted = true
-        compose.onNodeWithTag("language-en").performScrollTo().performClick()
+        seedLanguage(LanguagePreference.EN)
         enterPlace()
         compose.onNodeWithTag("setup-register-place").performScrollTo().performClick()
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("setup-place-ready").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("setup-radius").performScrollTo().assertContentDescriptionEquals("Allowed radius")
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("setup-place-ready").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("setup-radius").performScrollTo()
+            .assertContentDescriptionEquals("Allowed radius")
         val radius =
-            compose.onNodeWithTag("setup-radius").fetchSemanticsNode().config[SemanticsProperties.StateDescription]
+            compose.onNodeWithTag("setup-radius")
+                .fetchSemanticsNode().config[SemanticsProperties.StateDescription]
         Assert.assertTrue(radius.contains("100") && radius.contains("m"))
-        compose.onNodeWithTag("language-ar").performScrollTo().performClick()
-        compose.onNodeWithTag("setup-radius").performScrollTo().assertContentDescriptionEquals("نطاق التحقق")
+        seedLanguage(LanguagePreference.AR)
+        compose.onNodeWithTag("setup-radius").performScrollTo()
+            .assertContentDescriptionEquals("نطاق التحقق")
         val arabicRadius =
-            compose.onNodeWithTag("setup-radius").fetchSemanticsNode().config[SemanticsProperties.StateDescription]
+            compose.onNodeWithTag("setup-radius")
+                .fetchSemanticsNode().config[SemanticsProperties.StateDescription]
         Assert.assertTrue(arabicRadius.contains("١٠٠") && arabicRadius.contains("م"))
         nextTo("setup-grace")
-        compose.onNodeWithTag("setup-grace").performScrollTo().assertContentDescriptionEquals("مهلة السماح")
+        compose.onNodeWithTag("setup-grace").performScrollTo()
+            .assertContentDescriptionEquals("مهلة السماح")
         val arabicGrace =
-            compose.onNodeWithTag("setup-grace").fetchSemanticsNode().config[SemanticsProperties.StateDescription]
+            compose.onNodeWithTag("setup-grace")
+                .fetchSemanticsNode().config[SemanticsProperties.StateDescription]
         Assert.assertTrue(arabicGrace.contains("٥"))
-        compose.onNodeWithTag("language-en").performScrollTo().performClick()
-        compose.onNodeWithTag("setup-grace").performScrollTo().assertContentDescriptionEquals("Grace period")
+        seedLanguage(LanguagePreference.EN)
+        compose.onNodeWithTag("setup-grace").performScrollTo()
+            .assertContentDescriptionEquals("Grace period")
         val grace =
-            compose.onNodeWithTag("setup-grace").fetchSemanticsNode().config[SemanticsProperties.StateDescription]
+            compose.onNodeWithTag("setup-grace")
+                .fetchSemanticsNode().config[SemanticsProperties.StateDescription]
         Assert.assertTrue(grace.contains("5") && grace.contains("minutes"))
     }
 
@@ -241,18 +359,21 @@ class SetupJourneyTest {
         compose.waitForIdle()
         db.close()
         compose.runOnIdle { shown = true }
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("app-storage-error").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("app-storage-error").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("setup-name").assertDoesNotExist()
     }
 
     @Test
     fun arabic_large_text_keeps_registration_and_its_error_readable() {
-        compose.onNodeWithTag("language-ar").performScrollTo().performClick()
+        seedLanguage(LanguagePreference.AR)
         enterPlace()
         compose.runOnIdle { fontScale = 2f }
         compose.onNodeWithTag("setup-register-place").performScrollTo().performClick()
         compose.waitUntil(10_000) {
-            compose.onAllNodesWithText("اسمح بالموقع الدقيق لتسجيل المكان.").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("اسمح بالموقع الدقيق لتسجيل المكان.").fetchSemanticsNodes()
+                .isNotEmpty()
         }
         val error = compose.onNodeWithTag("setup-error", useUnmergedTree = true)
         error.assertIsDisplayed()
@@ -274,10 +395,15 @@ class SetupJourneyTest {
                 compose.waitForIdle()
                 compose.onNodeWithTag("setup-next").assertIsDisplayed().assertIsEnabled()
                 compose.onNodeWithTag("setup-heading").performScrollTo().assertIsDisplayed()
-                val capture = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+                val capture =
+                    InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
                 val output =
-                    java.io.File(context.getExternalFilesDir(null), "onboarding-${language.name}-${theme.name}.png")
-                output.outputStream().use { capture.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                    java.io.File(
+                        context.getExternalFilesDir(null),
+                        "onboarding-${language.name}-${theme.name}.png"
+                    )
+                output.outputStream()
+                    .use { capture.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
             }
         }
     }

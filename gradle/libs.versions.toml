@@ -1,4 +1,5 @@
 [versions]
+maplibre = "0.20.0"
 splashscreen = "1.2.0"
 fontAwesome = "1.1.1"
 kotlin = "2.4.21"
@@ -34,6 +35,8 @@ kotlinx-coroutines = "1.11.0"
 
 
 [libraries]
+maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version.ref = "maplibre" }
+maplibre-runtime-android = { module = "org.maplibre.compose:maplibre-compose-runtime-opengl-android", version.ref = "maplibre" }
 splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose" }

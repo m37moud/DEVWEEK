@@ -212,8 +212,6 @@
     <string name="onboarding_profile">Your profile</string>
     <string name="onboarding_place">Your place</string>
     <string name="onboarding_review">Review your setup</string>
-    <string name="onboarding_language">Language</string>
-    <string name="onboarding_appearance">Appearance</string>
     <string name="onboarding_get_started">Get started</string>
     <string name="onboarding_next">Next</string>
     <string name="onboarding_back">Back</string>
@@ -226,4 +224,12 @@
     <string name="onboarding_extras_help">Start tracking now, or finish and customize optional permissions, Google reporting, and widgets in Settings. You can return to these options at any time.</string>
     <string name="onboarding_widget_title">Home screen widget</string>
     <string name="onboarding_widget_help">Add Daymark from your phone’s home screen widget picker. On Android, touch and hold an empty area and choose Widgets. On iPhone, edit the home screen and choose Add Widget. Tap the widget to open Daymark and check attendance with a fresh location reading; the widget itself never confirms attendance.</string>
+    <string name="registered_coordinates">Latitude: %1$s · Longitude: %2$s</string>
+    <string name="registered_map_unavailable">Map preview unavailable. Your registered location is saved; you can continue.</string>
+    <string name="registered_map_loading">Loading map…</string>
+    <string name="registered_map_retry">Retry map</string>
+    <string name="registered_map_description">Registered location map. The pin marks your place; the circle shows the allowed radius.</string>
+    <string name="registered_map_provider">Maps by OpenFreeMap. Loading the map shares the viewed area with the map provider.</string>
+    <string name="registered_map_contributors">© OpenStreetMap contributors</string>
+    <string name="registered_map_privacy">Map privacy</string>
 </resources>

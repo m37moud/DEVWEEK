@@ -216,8 +216,6 @@
     <string name="onboarding_profile">ملفك الشخصي</string>
     <string name="onboarding_place">مكانك</string>
     <string name="onboarding_review">مراجعة الإعداد</string>
-    <string name="onboarding_language">اللغة</string>
-    <string name="onboarding_appearance">المظهر</string>
     <string name="onboarding_get_started">ابدأ الإعداد</string>
     <string name="onboarding_next">التالي</string>
     <string name="onboarding_back">السابق</string>
@@ -230,4 +228,12 @@
     <string name="onboarding_extras_help">ابدأ التتبع الآن، أو اختر إنهاء وتخصيص لإعداد الأذونات الاختيارية وتقارير Google والويدجت في الإعدادات. يمكنك العودة إلى هذه الخيارات في أي وقت.</string>
     <string name="onboarding_widget_title">ويدجت الشاشة الرئيسية</string>
     <string name="onboarding_widget_help">أضف دايمارك من قائمة الويدجت في الشاشة الرئيسية. على Android، اضغط مطولًا على مساحة فارغة واختر الويدجت. على iPhone، حرّر الشاشة الرئيسية واختر إضافة ويدجت. اضغط على الويدجت لفتح دايمارك والتحقق من الحضور بقراءة موقع حديثة؛ لا يؤكد الويدجت الحضور بنفسه.</string>
+    <string name="registered_coordinates">خط العرض: %1$s · خط الطول: %2$s</string>
+    <string name="registered_map_unavailable">معاينة الخريطة غير متاحة. تم حفظ موقع مكانك ويمكنك المتابعة.</string>
+    <string name="registered_map_loading">جارٍ تحميل الخريطة…</string>
+    <string name="registered_map_retry">إعادة تحميل الخريطة</string>
+    <string name="registered_map_description">خريطة الموقع المسجّل. تشير العلامة إلى مكانك وتُظهر الدائرة نطاق التحقق.</string>
+    <string name="registered_map_provider">الخرائط من OpenFreeMap. تحميل الخريطة يشارك المنطقة المعروضة مع مزوّد الخرائط.</string>
+    <string name="registered_map_contributors">© المساهمون في OpenStreetMap</string>
+    <string name="registered_map_privacy">خصوصية الخرائط</string>
 </resources>

@@ -28,7 +28,14 @@ kotlin {
     listOf(iosArm64(), iosSimulatorArm64()).forEach {
         it.binaries.framework { baseName = "DaymarkShared"; isStatic = true }
     }
+    applyDefaultHierarchyTemplate()
     sourceSets {
+        val mobileMain = create("mobileMain") {
+            dependsOn(commonMain.get())
+            dependencies { implementation(libs.maplibre.compose) }
+        }
+        androidMain.get().dependsOn(mobileMain)
+        iosMain.get().dependsOn(mobileMain)
         commonMain.dependencies {
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
@@ -54,6 +61,7 @@ kotlin {
             implementation(libs.ktor.mock)
         }
         androidMain.dependencies {
+            runtimeOnly(libs.maplibre.runtime.android)
             implementation(libs.play.location); implementation(libs.ktor.android); implementation(
             libs.activity.compose
         )

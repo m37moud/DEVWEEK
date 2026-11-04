@@ -48,12 +48,10 @@ import dev.daymark.attendance.TrackerCategory
 import dev.daymark.resources.Res
 import dev.daymark.resources.cancel
 import dev.daymark.resources.draft_saved
-import dev.daymark.resources.onboarding_appearance
 import dev.daymark.resources.onboarding_back
 import dev.daymark.resources.onboarding_finish_customize
 import dev.daymark.resources.onboarding_get_started
 import dev.daymark.resources.onboarding_illustration
-import dev.daymark.resources.onboarding_language
 import dev.daymark.resources.onboarding_next
 import dev.daymark.resources.onboarding_place
 import dev.daymark.resources.onboarding_profile
@@ -69,9 +67,6 @@ import dev.daymark.resources.schedule
 import dev.daymark.resources.setup_description
 import dev.daymark.resources.start_tracking
 import dev.daymark.resources.storage_unavailable
-import dev.daymark.settings.AppSettings
-import dev.daymark.settings.LanguagePreference
-import dev.daymark.settings.ThemePreference
 import dev.daymark.settings.str
 import org.jetbrains.compose.resources.painterResource
 
@@ -87,17 +82,18 @@ internal data class OnboardingActions(
 @Composable
 fun SetupScreen(
     model: SetupViewModel,
-    preferences: SettingsViewModel,
     graph: AppGraph,
     onFinish: (SetupFinish) -> Unit
 ) {
     val state by model.uiState.collectAsStateWithLifecycle()
-    val preferenceState by preferences.uiState.collectAsStateWithLifecycle()
     val keyboard = LocalSoftwareKeyboardController.current
-    val actions = SetupActions(model::updateDraft, {
-        keyboard?.hide()
-        model.useCurrentLocation()
-    }, graph.permissions::openSystemSettings)
+    val actions = SetupActions(
+        updateDraft = model::updateDraft,
+        registerPlace = {
+            keyboard?.hide()
+            model.useCurrentLocation()
+        }, openSettings = graph.permissions::openSystemSettings
+    )
     val controls =
         OnboardingActions(
             { keyboard?.hide(); model.advance() },
@@ -112,22 +108,14 @@ fun SetupScreen(
                 model.submit()
             }
         }
-    val shown = state.copy(busy = state.busy || preferenceState.busy)
     NavigationBackHandler(
         rememberNavigationEventState(NavigationEventInfo.None),
         isBackEnabled = state.draft.step != SetupStep.WELCOME, onBackCompleted = model::back
     )
-    OnboardingLayout(shown, controls, preferences = {
-        OnboardingPreferences(
-            preferenceState.settings,
-            preferences::setLanguage,
-            preferences::setTheme
-        )
-        if (preferenceState.storageError) SetupError(SetupIssue.LOCAL_SAVE_FAILED)
-    }) {
-        if (shown.ready) OnboardingStep(shown.draft.step) {
-            OnboardingHeading(shown.draft.step)
-            SetupStepContent(shown, actions, graph.platform) { keyboard?.hide(); model.edit(it) }
+    OnboardingLayout(state, controls) {
+        if (state.ready) OnboardingStep(state.draft.step) {
+            OnboardingHeading(state.draft.step)
+            SetupStepContent(state, actions, graph.platform) { keyboard?.hide(); model.edit(it) }
         }
     }
 }
@@ -136,7 +124,6 @@ fun SetupScreen(
 private fun OnboardingLayout(
     state: SetupUiState,
     actions: OnboardingActions,
-    preferences: @Composable () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(Modifier.fillMaxSize().imePadding().testTag("setup-form")) {
@@ -144,27 +131,12 @@ private fun OnboardingLayout(
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            preferences()
             if (!state.ready) SetupRecovery(state, actions) else {
                 OnboardingProgress(state.draft.step)
                 content()
             }
         }
         if (state.ready) SetupStepActions(state, actions)
-    }
-}
-
-@Composable
-private fun OnboardingPreferences(
-    settings: AppSettings,
-    onLanguage: (LanguagePreference) -> Unit,
-    onTheme: (ThemePreference) -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(str(Res.string.onboarding_language), style = MaterialTheme.typography.labelLarge)
-        Language(onLanguage, settings)
-        Text(str(Res.string.onboarding_appearance), style = MaterialTheme.typography.labelLarge)
-        Theme(onTheme, settings)
     }
 }
 

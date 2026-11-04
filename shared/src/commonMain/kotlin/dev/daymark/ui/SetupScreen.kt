@@ -2,12 +2,19 @@ package dev.daymark.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -15,16 +22,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.daymark.app.SetupDraft
@@ -36,9 +43,6 @@ import dev.daymark.resources.checking_location
 import dev.daymark.resources.course
 import dev.daymark.resources.friday
 import dev.daymark.resources.invalid_setup
-import dev.daymark.resources.language_arabic
-import dev.daymark.resources.language_english
-import dev.daymark.resources.language_system
 import dev.daymark.resources.local_save_failed
 import dev.daymark.resources.location_denied
 import dev.daymark.resources.location_disabled
@@ -61,19 +65,13 @@ import dev.daymark.resources.setup_name
 import dev.daymark.resources.setup_place_name
 import dev.daymark.resources.setup_type
 import dev.daymark.resources.sunday
-import dev.daymark.resources.theme_dark
-import dev.daymark.resources.theme_light
-import dev.daymark.resources.theme_system
 import dev.daymark.resources.thursday
 import dev.daymark.resources.tuesday
 import dev.daymark.resources.wednesday
 import dev.daymark.resources.work
 import dev.daymark.settings.AppLanguage
-import dev.daymark.settings.AppSettings
 import dev.daymark.settings.DisplayFormats
-import dev.daymark.settings.LanguagePreference
 import dev.daymark.settings.LocalAppLanguage
-import dev.daymark.settings.ThemePreference
 import dev.daymark.settings.isolated
 import dev.daymark.settings.str
 import kotlinx.datetime.DayOfWeek
@@ -127,19 +125,47 @@ internal fun SetupPlace(state: SetupUiState, actions: SetupActions) {
         enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("setup-place-name")
     )
     Text(
-        str(Res.string.location_rationale), style = MaterialTheme.typography.bodyMedium,
+        str(Res.string.location_rationale),
+        style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
     Button(
         onClick = actions.registerPlace, enabled = !state.busy,
         modifier = Modifier.fillMaxWidth().testTag("setup-register-place")
     ) {
-        Text(str(if (state.busy) Res.string.checking_location else Res.string.register_place))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = str(
+                    if (state.busy)
+                        Res.string.checking_location
+                    else
+                        Res.string.register_place
+                )
+            )
+            if (state.busy) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = LocalContentColor.current,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
     }
     state.issue?.takeIf { it.isLocationIssue() }?.let { issue ->
         SetupError(issue)
-        if (issue == SetupIssue.LOCATION_DENIED) {
-            TextButton(onClick = actions.openSettings) { Text(str(Res.string.open_settings)) }
+        if (issue == SetupIssue.LOCATION_DENIED || issue == SetupIssue.LOCATION_DISABLED) {
+            TextButton(onClick = actions.openSettings, enabled = !state.busy) {
+                Text(str(Res.string.open_settings))
+            }
         }
     }
     draft.place?.let { place ->
@@ -147,6 +173,7 @@ internal fun SetupPlace(state: SetupUiState, actions: SetupActions) {
             place,
             state.busy
         ) { updated -> actions.updateDraft(draft.copy(place = updated)) }
+        RegisteredPlacePreview(place, Modifier.fillMaxWidth())
     }
 }
 
@@ -200,70 +227,11 @@ internal fun SetupError(issue: SetupIssue) {
     }
     Text(
         str(issue.label()), color = MaterialTheme.colorScheme.error,
-        modifier = Modifier.testTag("setup-error").semantics { liveRegion = LiveRegionMode.Assertive }
+        modifier = Modifier.testTag("setup-error")
+            .semantics { liveRegion = LiveRegionMode.Assertive }
             .bringIntoViewRequester(errorPosition)
     )
 }
-
-@Composable
-internal fun PreferenceControls(
-    settings: AppSettings,
-    onLanguageChange: (LanguagePreference) -> Unit,
-    onThemeChange: (ThemePreference) -> Unit
-) {
-    Language(onLanguageChange, settings)
-    Theme(onThemeChange, settings)
-}
-
-@Composable
-fun Language(
-    onClick: (language: LanguagePreference) -> Unit,
-    settings: AppSettings,
-    modifier: Modifier = Modifier
-) {
-    FlowRow(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        listOf(
-            LanguagePreference.SYSTEM to Res.string.language_system,
-            LanguagePreference.EN to Res.string.language_english,
-            LanguagePreference.AR to Res.string.language_arabic
-        ).forEach { (choice, label) ->
-            FilterChip(
-                selected = settings.language == choice,
-                onClick = { onClick(choice) },
-                label = { Text(str(label)) },
-                modifier = Modifier.testTag("language-${choice.name.lowercase()}")
-            )
-        }
-    }
-
-}
-
-@Composable
-fun Theme(
-    onClick: (theme: ThemePreference) -> Unit,
-    settings: AppSettings,
-    modifier: Modifier = Modifier
-) {
-    FlowRow(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        listOf(
-            ThemePreference.SYSTEM to Res.string.theme_system,
-            ThemePreference.LIGHT to Res.string.theme_light,
-            ThemePreference.DARK to Res.string.theme_dark
-        ).forEach { (choice, label) ->
-            FilterChip(
-                selected = settings.theme == choice,
-                onClick = { onClick(choice) },
-                label = { Text(str(label)) },
-                modifier = Modifier.testTag("theme-${choice.name.lowercase()}")
-            )
-        }
-    }
-
-}
-
 
 internal fun TrackerCategory.label(): StringResource = when (this) {
     TrackerCategory.WORK -> Res.string.work; TrackerCategory.SCHOOL -> Res.string.school; TrackerCategory.COURSE -> Res.string.course

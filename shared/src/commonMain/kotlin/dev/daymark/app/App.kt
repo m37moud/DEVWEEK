@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -12,8 +11,6 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -35,10 +32,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import compose.icons.FontAwesomeIcons
-import compose.icons.fontawesomeicons.Solid
-import compose.icons.fontawesomeicons.solid.Language
-import compose.icons.fontawesomeicons.solid.Sun
 import dev.daymark.data.TrackerEntity
 import dev.daymark.reminders.ReminderCopy
 import dev.daymark.resources.Res
@@ -142,28 +135,7 @@ fun App(graph: AppGraph) {
                 Scaffold(
                     topBar = {
                         if (ready.tracker != null) TopAppBar(
-                            title = { Text(str(Res.string.app_name)) },
-                            actions = {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    IconButton(
-                                        onClick = {},
-                                        content = {
-                                            Icon(
-                                                imageVector = FontAwesomeIcons.Solid.Sun,
-                                                contentDescription = str(Res.string.app_name)
-                                            )
-                                        })
-
-                                    IconButton(
-                                        onClick = {},
-                                        content = {
-                                            Icon(
-                                                imageVector = FontAwesomeIcons.Solid.Language,
-                                                contentDescription = str(Res.string.app_name)
-                                            )
-                                        })
-                                }
-                            }
+                            title = { Text(str(Res.string.app_name)) }
                         )
                     }
                 ) { contentPadding ->
@@ -186,7 +158,7 @@ fun App(graph: AppGraph) {
                                     )
                                     Button(onClick = { retry++ }) { Text(str(Res.string.retry)) }
                                 }
-                            } else AppNavigation(graph, ready.tracker, ready.settings)
+                            } else AppNavigation(graph, ready.tracker)
                         }
                     }
                 }

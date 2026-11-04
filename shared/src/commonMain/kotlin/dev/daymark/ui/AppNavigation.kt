@@ -42,7 +42,6 @@ import dev.daymark.resources.history
 import dev.daymark.resources.plan
 import dev.daymark.resources.settings
 import dev.daymark.resources.today
-import dev.daymark.settings.AppSettings
 import dev.daymark.settings.str
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -91,7 +90,7 @@ private val navigationConfig = SavedStateConfiguration {
 }
 
 @Composable
-fun AppNavigation(graph: AppGraph, tracker: TrackerEntity?, settings: AppSettings) {
+fun AppNavigation(graph: AppGraph, tracker: TrackerEntity?) {
     val stack =
         rememberNavBackStack(navigationConfig, if (tracker == null) SetupRoute else TodayRoute)
     val scope = rememberCoroutineScope()
@@ -171,10 +170,7 @@ fun AppNavigation(graph: AppGraph, tracker: TrackerEntity?, settings: AppSetting
                             graph.clock
                         )
                     }
-                    val preferences = viewModel {
-                        SettingsViewModel(graph.db, graph.settings, graph.permissions)
-                    }
-                    SetupScreen(model, preferences, graph) { setupFinish = it }
+                    SetupScreen(model, graph) { setupFinish = it }
                 }
                 entry<TodayRoute> {
                     val model = viewModel {

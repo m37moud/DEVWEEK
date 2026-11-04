@@ -2,11 +2,26 @@ import XCTest
 
 final class SetupJourneyTests: XCTestCase {
     private var app: XCUIApplication!
+    private var completedOnboarding = false
 
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
         app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+    }
+
+    override func tearDownWithError() throws {
+        if completedOnboarding {
+            app.launch()
+            if node("nav-settings").waitForExistence(timeout: 10) {
+                node("nav-settings").tap()
+                scrollTo("delete-local-data").tap()
+                XCTAssertTrue(node("report-confirm-action").waitForExistence(timeout: 10))
+                node("report-confirm-action").tap()
+                XCTAssertTrue(node("setup-next").waitForExistence(timeout: 20))
+            }
+        }
+        app.terminate()
     }
 
     private func node(_ id: String) -> XCUIElement {
@@ -22,13 +37,6 @@ final class SetupJourneyTests: XCTestCase {
         return element
     }
 
-    private func preferencesAtTop() {
-        for _ in 0..<12 {
-            if node("language-en").isHittable { break }
-            app.swipeDown()
-        }
-    }
-
     private func openProfile() {
         app.launch()
         XCTAssertTrue(node("setup-next").waitForExistence(timeout: 20))
@@ -37,8 +45,6 @@ final class SetupJourneyTests: XCTestCase {
             node("setup-back").tap()
             XCTAssertTrue(node("setup-next").waitForExistence(timeout: 10))
         }
-        preferencesAtTop()
-        node("language-en").tap()
         node("setup-next").tap()
         XCTAssertTrue(node("setup-name").waitForExistence(timeout: 10))
     }
@@ -52,10 +58,10 @@ final class SetupJourneyTests: XCTestCase {
     }
 
     func testArabicDraftSurvivesRelaunchWithoutInventingAPlace() throws {
+        app.launchArguments = ["-AppleLanguages", "(ar)", "-AppleLocale", "ar_EG"]
         openProfile()
-        preferencesAtTop()
-        node("language-ar").tap()
-        XCTAssertGreaterThan(node("language-system").frame.midX, node("language-ar").frame.midX)
+        XCTAssertFalse(node("language-ar").exists)
+        XCTAssertFalse(node("theme-dark").exists)
         replaceText(scrollTo("setup-name"), with: "أحمد / Ahmed")
         node("setup-next").tap()
         XCTAssertTrue(node("setup-place-name").waitForExistence(timeout: 10))
@@ -72,28 +78,56 @@ final class SetupJourneyTests: XCTestCase {
         XCTAssertEqual(node("setup-name").value as? String, "أحمد / Ahmed")
     }
 
-    func testExplicitThemeAndLanguageCanReturnToSystem() throws {
+    func testExplicitThemeAndLanguageCanReturnToSystemInSettings() throws {
         openProfile()
-        preferencesAtTop()
-        node("theme-dark").tap()
-        XCTAssertEqual(node("setup-heading").label, "Your profile")
-        node("theme-light").tap()
-        node("language-system").tap()
-        node("theme-system").tap()
-        XCTAssertTrue(node("setup-name").exists)
-        XCTAssertFalse(node("today-root").exists)
+        replaceText(scrollTo("setup-name"), with: "Local test")
+        node("setup-next").tap()
+        XCTAssertTrue(node("setup-place-name").waitForExistence(timeout: 10))
+        replaceText(scrollTo("setup-place-name"), with: "Test place")
+        addUIInterruptionMonitor(withDescription: "Location permission") { alert in
+            let allow = alert.buttons["Allow While Using App"]
+            if allow.exists { allow.tap(); return true }
+            return false
+        }
+        scrollTo("setup-register-place").tap()
+        app.tap()
+        XCTAssertTrue(node("setup-place-ready").waitForExistence(timeout: 40),
+                      "Configure a simulator location before running this native journey")
+        node("setup-next").tap()
+        XCTAssertTrue(node("setup-grace").waitForExistence(timeout: 10))
+        node("setup-next").tap()
+        XCTAssertTrue(node("setup-customize").waitForExistence(timeout: 10))
+        completedOnboarding = true
+        node("setup-customize").tap()
+        XCTAssertTrue(node("settings-root").waitForExistence(timeout: 20))
+        scrollTo("settings-theme-dark").tap()
+        scrollTo("settings-theme-light").tap()
+        scrollTo("settings-language-ar").tap()
+        XCTAssertTrue(node("settings-language-ar").isSelected)
+        scrollTo("settings-language-system").tap()
+        scrollTo("settings-theme-system").tap()
+        XCTAssertTrue(node("settings-language-system").isSelected)
+        XCTAssertTrue(node("settings-theme-system").isSelected)
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(node("today-root").waitForExistence(timeout: 20))
+        node("nav-settings").tap()
+        XCTAssertTrue(node("settings-theme-system").waitForExistence(timeout: 10))
+        XCTAssertTrue(node("settings-language-system").isSelected)
+        XCTAssertTrue(node("settings-theme-system").isSelected)
     }
+
     func testWelcomeLanguageThemeMatrixAtLargeText() throws {
-        app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
-        openProfile()
-        node("setup-back").tap()
-        XCTAssertTrue(node("setup-heading").waitForExistence(timeout: 10))
         for language in ["en", "ar"] {
-            preferencesAtTop()
-            node("language-" + language).tap()
-            for theme in ["light", "dark"] {
-                preferencesAtTop()
-                node("theme-" + theme).tap()
+            for theme in ["Light", "Dark"] {
+                app.terminate()
+                app.launchArguments = [
+                    "-AppleLanguages", "(\(language))", "-AppleLocale", language == "ar" ? "ar_EG" : "en_US",
+                    "-AppleInterfaceStyle", theme,
+                    "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+                ]
+                openProfile()
+                node("setup-back").tap()
                 let heading = scrollTo("setup-heading")
                 XCTAssertEqual(heading.label, language == "en" ? "Welcome to Daymark" : "مرحبًا بك في دايمارك")
                 XCTAssertTrue(node("setup-next").isHittable)
@@ -104,5 +138,4 @@ final class SetupJourneyTests: XCTestCase {
             }
         }
     }
-
 }
