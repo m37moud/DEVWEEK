@@ -2,24 +2,24 @@ package dev.daymark.widgets
 
 import androidx.room3.executeSQL
 import androidx.room3.useWriterConnection
-import dev.daymark.attendance.RoomAttendanceRepository
 import dev.daymark.attendance.TestClock
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.openJvmDatabase
+import dev.daymark.data.local.settings.SettingsRepository
 import dev.daymark.data.seedDatabase
 import dev.daymark.data.testCommit
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.LanguagePreference
-import dev.daymark.settings.SettingsRepository
 import dev.daymark.settings.ThemePreference
-import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 
 class WidgetPublisherTest {
     private class Sink : WidgetSink {

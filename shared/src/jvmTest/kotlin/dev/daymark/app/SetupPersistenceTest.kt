@@ -1,26 +1,30 @@
 package dev.daymark.app
 
 import dev.daymark.at
-import dev.daymark.attendance.RoomAttendanceRepository
 import dev.daymark.attendance.TestClock
-import dev.daymark.attendance.TrackerCategory
-import dev.daymark.data.deleteAllLocalRows
-import dev.daymark.data.SettingEntity
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.SettingEntity
+import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.deleteAllLocalRows
+import dev.daymark.data.local.openJvmDatabase
+import dev.daymark.data.local.settings.SettingsRepository
+import dev.daymark.data.local.setup.SetupService
 import dev.daymark.fixturePlace
 import dev.daymark.fixtureSchedule
+import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.setup.SetupCommand
+import dev.daymark.models.setup.SetupDraft
+import dev.daymark.models.setup.SetupResult
 import dev.daymark.settings.LanguagePreference
-import dev.daymark.settings.SettingsRepository
 import dev.daymark.settings.ThemePreference
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.LocalTime
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalTime
 
 class SetupPersistenceTest {
     @Test

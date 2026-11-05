@@ -4,11 +4,11 @@ import androidx.room3.executeSQL
 import androidx.room3.useWriterConnection
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import dev.daymark.data.openAndroidDatabase
+import dev.daymark.data.local.openAndroidDatabase
+import java.util.UUID
 import kotlinx.coroutines.runBlocking
 import org.junit.*
 import org.junit.runner.RunWith
-import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class UpgradeJourneyTest {

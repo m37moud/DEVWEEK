@@ -1,7 +1,7 @@
 package dev.daymark.app
 
-import dev.daymark.reporting.SyncPassResult
-import dev.daymark.reporting.SyncTrigger
+import dev.daymark.models.reporting.SyncPassResult
+import dev.daymark.models.reporting.SyncTrigger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel

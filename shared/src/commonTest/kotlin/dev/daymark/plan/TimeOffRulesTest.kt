@@ -1,16 +1,18 @@
 package dev.daymark.plan
 
-import dev.daymark.attendance.TrackerCategory
+import dev.daymark.data.local.plan.entry
 import dev.daymark.fixturePlan
 import dev.daymark.fixtureSchedule
-import kotlinx.datetime.DayOfWeek
-import kotlinx.datetime.LocalDate
+import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.plan.TimeOffEntry
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
 
 class TimeOffRulesTest {
     private val weekdays = setOf(

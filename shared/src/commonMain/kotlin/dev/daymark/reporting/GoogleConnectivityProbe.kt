@@ -3,6 +3,12 @@ package dev.daymark.reporting
 import dev.daymark.auth.AccessResult
 import dev.daymark.auth.GoogleAccess
 import dev.daymark.auth.NativeGoogleAuth
+import dev.daymark.data.remote.data_source.data.ktor.GoogleReportTransport
+import dev.daymark.models.reporting.RawPatch
+import dev.daymark.models.reporting.RawRange
+import dev.daymark.models.reporting.RemoteWriteOutcome
+import dev.daymark.models.reporting.ReportCreation
+import dev.daymark.models.reporting.ReportDiscovery
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.JsonPrimitive

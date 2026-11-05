@@ -1,22 +1,29 @@
 package dev.daymark.ui
 
 import dev.daymark.at
-import dev.daymark.attendance.AttendanceStatus
-import dev.daymark.attendance.RoomAttendanceRepository
 import dev.daymark.attendance.TestClock
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.openJvmDatabase
+import dev.daymark.data.local.plan.PlanService
+import dev.daymark.data.local.plan.RoomPlanReader
+import dev.daymark.data.local.plan.TimeOffService
 import dev.daymark.data.seedDatabase
 import dev.daymark.fixtureDate
 import dev.daymark.fixtureFix
 import dev.daymark.location.LocationCapabilities
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationPermissionPort
-import dev.daymark.plan.PlanMutationResult
-import dev.daymark.plan.PlanService
-import dev.daymark.plan.RoomPlanReader
-import dev.daymark.plan.TimeOffCommand
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.plan.PlanMutationResult
+import dev.daymark.models.plan.TimeOffCommand
 import dev.daymark.plan.TimeOffKind
-import dev.daymark.plan.TimeOffService
+import dev.daymark.presentation.features.plan.PlanViewModel
+import java.nio.file.Files
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.Instant
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DayOfWeek
@@ -24,12 +31,6 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import java.nio.file.Files
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
-import kotlin.time.Duration
-import kotlin.time.Instant
 
 class PlanViewModelTest {
     private val permissions = object : LocationPermissionPort {
@@ -53,12 +54,16 @@ class PlanViewModelTest {
             repo.reconcile(clock.now())
             val off = TimeOffService(db, clock)
             val model = PlanViewModel(
-                PlanService(db, clock),
-                off,
-                location,
-                permissions,
-                clock,
-                backgroundScope
+                repository = dev.daymark.testRepository(
+                    plansSource = PlanService(
+                        db,
+                        clock
+                    ), timeOffSource = off
+                ),
+                location = location,
+                permissions = permissions,
+                clock = clock,
+                scope = backgroundScope
             )
             val draft = model.uiState.first { it.ready }.draft!!
             for (grace in listOf(0, 5, 120)) {
@@ -118,12 +123,16 @@ class PlanViewModelTest {
             seedDatabase(db)
             val clock = TestClock(Instant.parse("2026-10-29T09:18:00Z"))
             val model = PlanViewModel(
-                PlanService(db, clock),
-                TimeOffService(db, clock),
-                location,
-                permissions,
-                clock,
-                backgroundScope
+                repository = dev.daymark.testRepository(
+                    plansSource = PlanService(
+                        db,
+                        clock
+                    ), timeOffSource = TimeOffService(db, clock)
+                ),
+                location = location,
+                permissions = permissions,
+                clock = clock,
+                scope = backgroundScope
             )
             model.uiState.first { it.ready }
             model.previewTimeOff(

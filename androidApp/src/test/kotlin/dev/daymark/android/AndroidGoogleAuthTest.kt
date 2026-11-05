@@ -1,6 +1,8 @@
 package dev.daymark.android
 
 import dev.daymark.auth.*
+import dev.daymark.auth.NativeAuthReply
+import dev.daymark.auth.NativeAuthStatus
 import kotlin.test.*
 
 class AndroidGoogleAuthTest {

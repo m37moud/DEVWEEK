@@ -1,6 +1,6 @@
 package dev.daymark.widgets
 
-import dev.daymark.attendance.AttendanceStatus
+import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.settings.AppLanguage
 import java.util.Locale
 

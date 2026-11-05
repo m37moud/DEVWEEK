@@ -1,17 +1,18 @@
 package dev.daymark.app
 
-import dev.daymark.attendance.TrackerCategory
-import dev.daymark.attendance.DayKey
-import dev.daymark.attendance.RegisteredPlace
+import dev.daymark.models.attendance.DayKey
+import dev.daymark.models.attendance.RegisteredPlace
+import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.setup.SetupDraft
 import dev.daymark.plan.WeeklySchedule
+import dev.daymark.plan.parseWholeDays
 import dev.daymark.plan.resolveDay
+import dev.daymark.reporting.exceedsReportTextLimit
+import kotlin.time.Instant
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Instant
-import dev.daymark.plan.parseWholeDays
-import dev.daymark.reporting.exceedsReportTextLimit
 
 enum class SetupStep { WELCOME, PROFILE, PLACE, SCHEDULE, REVIEW }
 

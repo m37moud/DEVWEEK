@@ -1,13 +1,13 @@
 package dev.daymark.android
 
 import androidx.work.*
-import dev.daymark.attendance.DayKey
+import dev.daymark.models.attendance.DayKey
 import dev.daymark.plan.ScheduledCheck
+import java.util.concurrent.TimeUnit
+import kotlin.time.Clock
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.TimeUnit
-import kotlin.time.Clock
 
 internal fun attendanceWorkName(key: DayKey) = "daymark-attendance:${key.trackerId}:${key.date}"
 private fun trackerTag(id: String) = "daymark-attendance-tracker:$id"

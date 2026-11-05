@@ -2,15 +2,18 @@ package dev.daymark.data
 
 import androidx.room3.withWriteTransaction
 import dev.daymark.at
-import dev.daymark.attendance.AttendanceStatus
-import dev.daymark.attendance.CheckCommit
-import dev.daymark.attendance.CheckMode
-import dev.daymark.attendance.FixVerdict
-import dev.daymark.attendance.TrackerCategory
+import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.PlanVersionEntity
+import dev.daymark.data.local.TrackerEntity
 import dev.daymark.fixtureDate
 import dev.daymark.fixturePlace
 import dev.daymark.fixturePlan
 import dev.daymark.fixtureSchedule
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.CheckCommit
+import dev.daymark.models.attendance.CheckMode
+import dev.daymark.models.attendance.FixVerdict
+import dev.daymark.models.attendance.TrackerCategory
 import kotlin.time.Instant
 
 suspend fun seedDatabase(

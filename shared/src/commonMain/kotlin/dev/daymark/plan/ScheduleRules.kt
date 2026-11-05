@@ -1,14 +1,14 @@
 package dev.daymark.plan
 
-import dev.daymark.attendance.DayKey
-import dev.daymark.attendance.DayPlan
-import dev.daymark.attendance.RegisteredPlace
-import dev.daymark.attendance.TrackerCategory
+import dev.daymark.models.attendance.DayKey
+import dev.daymark.models.attendance.DayPlan
+import dev.daymark.models.attendance.RegisteredPlace
+import dev.daymark.models.attendance.TrackerCategory
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Duration.Companion.minutes
 
 enum class TimeOffKind { HOLIDAY, VACATION }
 

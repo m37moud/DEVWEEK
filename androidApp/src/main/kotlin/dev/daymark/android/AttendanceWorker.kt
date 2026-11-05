@@ -3,7 +3,7 @@ package dev.daymark.android
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import dev.daymark.attendance.DayKey
+import dev.daymark.models.attendance.DayKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.datetime.LocalDate
 

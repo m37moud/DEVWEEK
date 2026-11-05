@@ -1,17 +1,24 @@
 package dev.daymark.ui
 
 import dev.daymark.at
-import dev.daymark.attendance.AttendanceStatus
-import dev.daymark.attendance.RoomAttendanceRepository
 import dev.daymark.attendance.TestClock
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.dashboard.TodayDashboardReader
+import dev.daymark.data.local.openJvmDatabase
+import dev.daymark.data.local.plan.TimeOffService
 import dev.daymark.data.seedDatabase
 import dev.daymark.data.testCommit
 import dev.daymark.fixtureDate
-import dev.daymark.plan.PlanMutationResult
-import dev.daymark.plan.TimeOffCommand
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.plan.PlanMutationResult
+import dev.daymark.models.plan.TimeOffCommand
 import dev.daymark.plan.TimeOffKind
-import dev.daymark.plan.TimeOffService
+import dev.daymark.presentation.component.calendarWeeks
+import dev.daymark.presentation.features.history.HistoryViewModel
+import java.nio.file.Files
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.DateTimeUnit
@@ -20,10 +27,6 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
-import java.nio.file.Files
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class TodayDashboardTest {
     @Test
@@ -93,7 +96,10 @@ class TodayDashboardTest {
                 val repo = RoomAttendanceRepository(db, clock)
                 repo.reconcile(clock.now())
                 val model = HistoryViewModel(
-                    repo, fixtureDate, scope, clock = clock,
+                    repository = dev.daymark.testRepository(attendanceSource = repo),
+                    initialDate = fixtureDate,
+                    scope = scope,
+                    clock = clock,
                     today = { clock.now().toLocalDateTime(TimeZone.UTC).date },
                     refreshBoundary = {
                         clock.now().toLocalDateTime(TimeZone.UTC).date.plus(

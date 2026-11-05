@@ -1,7 +1,8 @@
 package dev.daymark.plan
 
-import dev.daymark.attendance.DayPlan
-import dev.daymark.attendance.TrackerCategory
+import dev.daymark.models.attendance.DayPlan
+import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.plan.TimeOffEntry
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus

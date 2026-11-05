@@ -2,21 +2,21 @@ package dev.daymark.plan
 
 import dev.daymark.acceptedStatus
 import dev.daymark.at
-import dev.daymark.attendance.AttendanceStatus
-import dev.daymark.attendance.CheckMode
-import dev.daymark.attendance.RegisteredPlace
 import dev.daymark.fixtureDate
 import dev.daymark.fixturePlan
 import dev.daymark.fixtureSchedule
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.CheckMode
+import dev.daymark.models.attendance.RegisteredPlace
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.time.Instant
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.time.Instant
 
 class ScheduleRulesTest {
     @Test

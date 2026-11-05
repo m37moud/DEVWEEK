@@ -1,11 +1,22 @@
 package dev.daymark.attendance
 
 import dev.daymark.at
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.openJvmDatabase
 import dev.daymark.data.seedDatabase
 import dev.daymark.fixtureFix
 import dev.daymark.fixturePlan
 import dev.daymark.location.LocationGateway
+import dev.daymark.models.attendance.AttendanceSource
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.Correction
+import dev.daymark.models.attendance.DayOutcome
+import java.nio.file.Files
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.time.Duration
+import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
@@ -16,12 +27,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.datetime.LocalTime
-import java.nio.file.Files
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNull
-import kotlin.time.Duration
-import kotlin.time.Instant
 
 class ForegroundAttendanceTest {
     @Test

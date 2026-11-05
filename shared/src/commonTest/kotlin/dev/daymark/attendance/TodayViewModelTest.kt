@@ -2,6 +2,9 @@
 
 package dev.daymark.attendance
 
+import dev.daymark.TestRepository
+import dev.daymark.models.TodayDashboard
+import dev.daymark.repository.DashboardDataSource
 import dev.daymark.at
 import dev.daymark.fixtureDate
 import dev.daymark.fixtureFix
@@ -10,11 +13,35 @@ import dev.daymark.location.LocationCapabilities
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationPermissionPort
 import dev.daymark.location.LocationResult
+import dev.daymark.models.attendance.AttendanceEvidence
+import dev.daymark.models.attendance.AttendanceSource
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.AutomaticState
+import dev.daymark.models.attendance.CheckCommit
+import dev.daymark.models.attendance.CheckOutcome
+import dev.daymark.models.attendance.CheckRejection
+import dev.daymark.models.attendance.ClaimResult
+import dev.daymark.models.attendance.Correction
+import dev.daymark.models.attendance.DayKey
+import dev.daymark.models.attendance.DayOutcome
+import dev.daymark.models.attendance.FixVerdict
+import dev.daymark.models.attendance.HistoryMonth
+import dev.daymark.models.attendance.StoredDay
 import dev.daymark.plan.PlanReader
 import dev.daymark.plan.PlannedDay
 import dev.daymark.plan.ScheduleContext
 import dev.daymark.plan.TimeOffKind
-import dev.daymark.ui.TodayViewModel
+import dev.daymark.presentation.features.today.TodayViewModel
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.nanoseconds
+import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
@@ -29,16 +56,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
-import kotlin.time.Clock
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.nanoseconds
-import kotlin.time.Instant
 
 class TodayViewModelTest {
     private class Repository(private val clock: Clock, private val baselineOnly: Boolean = false) :
@@ -138,6 +155,40 @@ class TodayViewModelTest {
     }
 
     @Test
+    fun dashboard_updates_only_while_today_is_active() = runTest {
+        val clock = TestClock()
+        val attendanceSource = Repository(clock)
+        val summaries = MutableStateFlow(TodayDashboard(ready = true, present = 1))
+        val repository = object : TestRepository() {
+            override val attendance = attendanceSource
+            override val planReader = this@TodayViewModelTest.plans
+            override val dashboard = object : DashboardDataSource {
+                override fun observe() = summaries
+            }
+        }
+        val model =
+            TodayViewModel(repository, permissions, clock, backgroundScope, initiallyActive = false)
+        runCurrent()
+        assertFalse(model.uiState.value.dashboard.ready)
+
+        model.setActive(true)
+        runCurrent()
+        assertEquals(1, model.uiState.value.dashboard.present)
+        summaries.value = summaries.value.copy(present = 2)
+        runCurrent()
+        assertEquals(2, model.uiState.value.dashboard.present)
+
+        model.setActive(false)
+        runCurrent()
+        summaries.value = summaries.value.copy(present = 3)
+        runCurrent()
+        assertEquals(2, model.uiState.value.dashboard.present)
+        model.setActive(true)
+        runCurrent()
+        assertEquals(3, model.uiState.value.dashboard.present)
+    }
+
+    @Test
     fun duplicate_taps_share_one_check() = runTest {
         val clock = TestClock();
         val repo = Repository(clock)
@@ -149,12 +200,11 @@ class TodayViewModelTest {
             }
         }
         val model = TodayViewModel(
-            repo,
-            AttendanceService(repo, gateway, clock),
-            plans,
-            permissions,
-            clock,
-            backgroundScope
+            repository = dev.daymark.testRepository(
+                attendanceSource = repo,
+                checksSource = AttendanceService(repo, gateway, clock),
+                planReaderSource = plans
+            ), permissions = permissions, clock = clock, scope = backgroundScope
         )
         model.uiState.first { it.canCheck }
         model.checkAttendance(); model.checkAttendance()
@@ -179,12 +229,11 @@ class TodayViewModelTest {
             }
         }
         val model = TodayViewModel(
-            repo,
-            AttendanceService(repo, gateway, clock),
-            plans,
-            permissions,
-            clock,
-            backgroundScope
+            repository = dev.daymark.testRepository(
+                attendanceSource = repo,
+                checksSource = AttendanceService(repo, gateway, clock),
+                planReaderSource = plans
+            ), permissions = permissions, clock = clock, scope = backgroundScope
         )
         model.uiState.first { it.outcome?.status == AttendanceStatus.SCHEDULED }
         assertFalse(model.uiState.value.canCheck)
@@ -217,12 +266,11 @@ class TodayViewModelTest {
                 fixtureFix(capturedAt = clock.now(), latitude = if (outside) 1.0 else 0.0)
         }
         val model = TodayViewModel(
-            repo,
-            AttendanceService(repo, gateway, clock),
-            plans,
-            permissions,
-            clock,
-            backgroundScope
+            repository = dev.daymark.testRepository(
+                attendanceSource = repo,
+                checksSource = AttendanceService(repo, gateway, clock),
+                planReaderSource = plans
+            ), permissions = permissions, clock = clock, scope = backgroundScope
         )
         model.uiState.first { it.canCheck }
         model.checkAttendance()
@@ -254,12 +302,11 @@ class TodayViewModelTest {
             override suspend fun requestFix(budget: Duration) = fixtureFix(capturedAt = clock.now())
         }
         val model = TodayViewModel(
-            repo,
-            AttendanceService(repo, location, clock),
-            futureStart,
-            permissions,
-            clock,
-            backgroundScope
+            repository = dev.daymark.testRepository(
+                attendanceSource = repo,
+                checksSource = AttendanceService(repo, location, clock),
+                planReaderSource = futureStart
+            ), permissions = permissions, clock = clock, scope = backgroundScope
         )
         val initial = model.uiState.first { it.ready }
         assertNull(initial.outcome)
@@ -286,12 +333,11 @@ class TodayViewModelTest {
             }
         }
         val model = TodayViewModel(
-            repo,
-            AttendanceService(repo, location, clock),
-            plans,
-            permissions,
-            clock,
-            backgroundScope
+            repository = dev.daymark.testRepository(
+                attendanceSource = repo,
+                checksSource = AttendanceService(repo, location, clock),
+                planReaderSource = plans
+            ), permissions = permissions, clock = clock, scope = backgroundScope
         )
         model.uiState.first { it.canCheck }
         model.checkAttendance(); runCurrent()
@@ -313,12 +359,11 @@ class TodayViewModelTest {
             }
         }
         val model = TodayViewModel(
-            repo,
-            AttendanceService(repo, location, clock),
-            plans,
-            permissions,
-            clock,
-            backgroundScope
+            repository = dev.daymark.testRepository(
+                attendanceSource = repo,
+                checksSource = AttendanceService(repo, location, clock),
+                planReaderSource = plans
+            ), permissions = permissions, clock = clock, scope = backgroundScope
         )
         model.uiState.first { it.date == fixtureDate }
         clock.value = Instant.parse("2026-10-28T00:00:00Z")
@@ -339,12 +384,11 @@ class TodayViewModelTest {
             override suspend fun requestFix(budget: Duration) = fixtureFix(capturedAt = clock.now())
         }
         val model = TodayViewModel(
-            repo,
-            AttendanceService(repo, location, clock),
-            plans,
-            permissions,
-            clock,
-            backgroundScope
+            repository = dev.daymark.testRepository(
+                attendanceSource = repo,
+                checksSource = AttendanceService(repo, location, clock),
+                planReaderSource = plans
+            ), permissions = permissions, clock = clock, scope = backgroundScope
         )
         assertFalse(model.uiState.first { it.outcome?.status == AttendanceStatus.VACATION }.canCheck)
         repo.off = null
@@ -362,12 +406,11 @@ class TodayViewModelTest {
             }
         }
         val model = TodayViewModel(
-            repo,
-            AttendanceService(repo, location, clock),
-            plans,
-            permissions,
-            clock,
-            backgroundScope
+            repository = dev.daymark.testRepository(
+                attendanceSource = repo,
+                checksSource = AttendanceService(repo, location, clock),
+                planReaderSource = plans
+            ), permissions = permissions, clock = clock, scope = backgroundScope
         )
         model.uiState.first { it.canCheck }
         model.requestQuickCheck("6afba670-5b46-48bc-abff-d57bc453ef29")
@@ -389,12 +432,11 @@ class TodayViewModelTest {
             }
         }
         val model = TodayViewModel(
-            repo,
-            AttendanceService(repo, location, clock),
-            plans,
-            permissions,
-            clock,
-            backgroundScope
+            repository = dev.daymark.testRepository(
+                attendanceSource = repo,
+                checksSource = AttendanceService(repo, location, clock),
+                planReaderSource = plans
+            ), permissions = permissions, clock = clock, scope = backgroundScope
         )
         model.uiState.first { it.ready }
         model.requestQuickCheck(fixturePlan().key.trackerId)
@@ -416,12 +458,14 @@ class TodayViewModelTest {
             }
         }
         val model = TodayViewModel(
-            repo,
-            AttendanceService(repo, location, clock),
-            plans,
-            permissions,
-            clock,
-            backgroundScope,
+            repository = dev.daymark.testRepository(
+                attendanceSource = repo,
+                checksSource = AttendanceService(repo, location, clock),
+                planReaderSource = plans
+            ),
+            permissions = permissions,
+            clock = clock,
+            scope = backgroundScope,
             initiallyActive = false
         )
         model.requestQuickCheck(fixturePlan().key.trackerId)
@@ -452,12 +496,11 @@ class TodayViewModelTest {
                 error("An off day must not obtain GPS")
         }
         val model = TodayViewModel(
-            repo,
-            AttendanceService(repo, location, clock),
-            futureStart,
-            permissions,
-            clock,
-            backgroundScope
+            repository = dev.daymark.testRepository(
+                attendanceSource = repo,
+                checksSource = AttendanceService(repo, location, clock),
+                planReaderSource = futureStart
+            ), permissions = permissions, clock = clock, scope = backgroundScope
         )
         val state = model.uiState.first { it.ready }
         assertEquals(AttendanceStatus.HOLIDAY, state.outcome?.status)

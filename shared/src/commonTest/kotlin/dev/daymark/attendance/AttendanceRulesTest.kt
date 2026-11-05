@@ -6,8 +6,14 @@ import dev.daymark.fixtureFix
 import dev.daymark.fixturePlan
 import dev.daymark.fixtureSchedule
 import dev.daymark.location.LocationResult
+import dev.daymark.models.attendance.AttendanceEvidence
+import dev.daymark.models.attendance.AttendanceSource
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.CheckMode
+import dev.daymark.models.attendance.CheckRejection
+import dev.daymark.models.attendance.FixVerdict
+import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.plan.TimeOffKind
-import kotlinx.datetime.DayOfWeek
 import kotlin.math.PI
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -17,6 +23,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.datetime.DayOfWeek
 
 class AttendanceRulesTest {
     @Test

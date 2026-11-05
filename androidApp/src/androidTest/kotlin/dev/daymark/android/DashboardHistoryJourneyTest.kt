@@ -8,11 +8,14 @@ import androidx.test.platform.app.InstrumentationRegistry
 import dev.daymark.app.App
 import dev.daymark.plan.*
 import dev.daymark.settings.*
+import dev.daymark.settings.AppLanguage
+import dev.daymark.settings.DisplayFormats
+import dev.daymark.settings.LanguagePreference
+import java.util.UUID
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
 import org.junit.*
 import org.junit.runner.RunWith
-import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class DashboardHistoryJourneyTest {

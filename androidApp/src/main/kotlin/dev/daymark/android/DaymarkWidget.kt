@@ -11,16 +11,21 @@ import androidx.compose.ui.unit.sp
 import androidx.glance.*
 import androidx.glance.appwidget.*
 import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.color.ColorProvider as DayNightColorProvider
 import androidx.glance.layout.*
 import androidx.glance.text.*
 import androidx.glance.unit.ColorProvider
-import androidx.glance.color.ColorProvider as DayNightColorProvider
 import dev.daymark.settings.*
-import dev.daymark.widgets.WidgetSnapshot
+import dev.daymark.settings.AppLanguage
+import dev.daymark.settings.DisplayFormats
+import dev.daymark.settings.LanguagePreference
+import dev.daymark.settings.effectiveLanguage
+import dev.daymark.settings.isolated
 import dev.daymark.shared.R
-import kotlinx.datetime.*
+import dev.daymark.widgets.WidgetSnapshot
 import java.util.Locale
 import kotlin.time.Clock
+import kotlinx.datetime.*
 
 class DaymarkWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context,id: GlanceId) {

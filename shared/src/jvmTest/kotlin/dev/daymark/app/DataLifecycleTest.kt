@@ -2,20 +2,22 @@ package dev.daymark.app
 
 import androidx.room3.executeSQL
 import androidx.room3.useWriterConnection
-import dev.daymark.attendance.RoomAttendanceRepository
 import dev.daymark.attendance.TestClock
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.application.DataLifecycleService
+import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.openJvmDatabase
+import dev.daymark.data.local.reporting.RoomReportStore
 import dev.daymark.data.seedDatabase
 import dev.daymark.data.testCommit
-import dev.daymark.reporting.ReportBinding
-import dev.daymark.reporting.RoomReportStore
-import kotlinx.coroutines.runBlocking
+import dev.daymark.models.DeletionResult
+import dev.daymark.models.reporting.ReportBinding
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 
 class DataLifecycleTest {
     @Test

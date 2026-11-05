@@ -1,15 +1,36 @@
 package dev.daymark.android
 
 import dev.daymark.attendance.*
+import dev.daymark.attendance.AttendanceRepository
+import dev.daymark.attendance.AttendanceService
+import dev.daymark.attendance.evaluateDay
 import dev.daymark.location.*
+import dev.daymark.location.LocationFailure
+import dev.daymark.location.LocationGateway
+import dev.daymark.location.LocationResult
+import dev.daymark.models.attendance.AttendanceSource
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.AutomaticState
+import dev.daymark.models.attendance.CheckCommit
+import dev.daymark.models.attendance.CheckOutcome
+import dev.daymark.models.attendance.ClaimResult
+import dev.daymark.models.attendance.Correction
+import dev.daymark.models.attendance.DayKey
+import dev.daymark.models.attendance.DayOutcome
+import dev.daymark.models.attendance.DayPlan
+import dev.daymark.models.attendance.FixVerdict
+import dev.daymark.models.attendance.HistoryMonth
+import dev.daymark.models.attendance.RegisteredPlace
+import dev.daymark.models.attendance.StoredDay
+import dev.daymark.models.attendance.TrackerCategory
+import kotlin.test.*
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Instant
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.*
 import org.junit.Test
-import kotlin.test.*
-import kotlin.time.Clock
-import kotlin.time.Instant
-import kotlin.time.Duration
 
 class AttendanceWorkerTest {
     private val key = DayKey("f8428c3a-1347-40dc-9667-af38e69c6801", LocalDate(2026, 10, 27))

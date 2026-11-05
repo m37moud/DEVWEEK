@@ -37,6 +37,7 @@ kotlin {
         androidMain.get().dependsOn(mobileMain)
         iosMain.get().dependsOn(mobileMain)
         commonMain.dependencies {
+            implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)

@@ -4,18 +4,15 @@ import androidx.room3.executeSQL
 import androidx.room3.useWriterConnection
 import dev.daymark.at
 import dev.daymark.attendance.AttendanceService
-import dev.daymark.attendance.AttendanceSource
-import dev.daymark.attendance.AttendanceStatus
-import dev.daymark.attendance.CheckOutcome
-import dev.daymark.attendance.ClaimResult
-import dev.daymark.attendance.Correction
-import dev.daymark.attendance.DayKey
-import dev.daymark.attendance.RoomAttendanceRepository
 import dev.daymark.attendance.TestClock
-import dev.daymark.attendance.TrackerCategory
-import dev.daymark.data.DaymarkDatabase
-import dev.daymark.data.PlanVersionEntity
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.PlanVersionEntity
+import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.openJvmDatabase
+import dev.daymark.data.local.plan.PlanService
+import dev.daymark.data.local.plan.TimeOffService
+import dev.daymark.data.local.plan.change
+import dev.daymark.data.local.plan.entry
 import dev.daymark.data.seedDatabase
 import dev.daymark.fixtureDate
 import dev.daymark.fixtureFix
@@ -24,13 +21,17 @@ import dev.daymark.fixturePlan
 import dev.daymark.fixtureSchedule
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationResult
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.DayOfWeek
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.LocalTime
+import dev.daymark.models.attendance.AttendanceSource
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.CheckOutcome
+import dev.daymark.models.attendance.ClaimResult
+import dev.daymark.models.attendance.Correction
+import dev.daymark.models.attendance.DayKey
+import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.plan.PlanChange
+import dev.daymark.models.plan.PlanMutationResult
+import dev.daymark.models.plan.PlanRejection
+import dev.daymark.models.plan.TimeOffCommand
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -41,6 +42,13 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Instant
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 class TimeOffTransactionTest {
     private val weekdays = setOf(
@@ -408,11 +416,11 @@ class TimeOffTransactionTest {
     fun retrospective_preview_exposes_before_after_and_preserved_gps_evidence(): Unit =
         kotlinx.coroutines.runBlocking {
             val folder = java.nio.file.Files.createTempDirectory("daymark-preview-evidence-");
-            val db = dev.daymark.data.openJvmDatabase(folder.resolve("test.db").toString())
+            val db = dev.daymark.data.local.openJvmDatabase(folder.resolve("test.db").toString())
             try {
                 dev.daymark.data.seedDatabase(db)
                 val clock = dev.daymark.attendance.TestClock()
-                val repo = dev.daymark.attendance.RoomAttendanceRepository(db, clock)
+                val repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(db, clock)
                 repo.completeCheck(dev.daymark.data.testCommit())
                 val service = TimeOffService(db, clock)
                 val command = TimeOffCommand.Add(
@@ -422,10 +430,16 @@ class TimeOffTransactionTest {
                 )
                 val preview = service.preview(command)
                 val change = preview.changes.single()
-                assertEquals(dev.daymark.attendance.AttendanceStatus.PRESENT, change.before.status)
-                assertEquals(dev.daymark.attendance.AttendanceStatus.HOLIDAY, change.after.status)
                 assertEquals(
-                    dev.daymark.attendance.AttendanceSource.MANUAL_GPS,
+                    dev.daymark.models.attendance.AttendanceStatus.PRESENT,
+                    change.before.status
+                )
+                assertEquals(
+                    dev.daymark.models.attendance.AttendanceStatus.HOLIDAY,
+                    change.after.status
+                )
+                assertEquals(
+                    dev.daymark.models.attendance.AttendanceSource.MANUAL_GPS,
                     change.evidence?.source
                 )
                 assertEquals(
@@ -434,10 +448,16 @@ class TimeOffTransactionTest {
                 )
                 val entry = service.observeEntries().first().single()
                 val removal = service.preview(TimeOffCommand.Remove(entry.id)).changes.single()
-                assertEquals(dev.daymark.attendance.AttendanceStatus.HOLIDAY, removal.before.status)
-                assertEquals(dev.daymark.attendance.AttendanceStatus.PRESENT, removal.after.status)
                 assertEquals(
-                    dev.daymark.attendance.AttendanceSource.MANUAL_GPS,
+                    dev.daymark.models.attendance.AttendanceStatus.HOLIDAY,
+                    removal.before.status
+                )
+                assertEquals(
+                    dev.daymark.models.attendance.AttendanceStatus.PRESENT,
+                    removal.after.status
+                )
+                assertEquals(
+                    dev.daymark.models.attendance.AttendanceSource.MANUAL_GPS,
                     removal.evidence?.source
                 )
             } finally {
@@ -449,18 +469,18 @@ class TimeOffTransactionTest {
     fun cancelling_a_preview_preserves_an_inflight_automatic_confirmation(): Unit =
         kotlinx.coroutines.runBlocking {
             val folder = java.nio.file.Files.createTempDirectory("daymark-preview-claim-");
-            val db = dev.daymark.data.openJvmDatabase(folder.resolve("test.db").toString())
+            val db = dev.daymark.data.local.openJvmDatabase(folder.resolve("test.db").toString())
             try {
                 dev.daymark.data.seedDatabase(db)
                 val clock = dev.daymark.attendance.TestClock()
-                val repo = dev.daymark.attendance.RoomAttendanceRepository(db, clock)
+                val repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(db, clock)
                 val attempt = kotlin.uuid.Uuid.random().toString()
                 assertTrue(
                     repo.claimAutomatic(
                         dev.daymark.fixturePlan().key,
                         attempt,
                         clock.now()
-                    ) is dev.daymark.attendance.ClaimResult.Claimed
+                    ) is dev.daymark.models.attendance.ClaimResult.Claimed
                 )
                 TimeOffService(db, clock).preview(
                     TimeOffCommand.Add(
@@ -471,8 +491,11 @@ class TimeOffTransactionTest {
                 )
                 // No apply: the user dismisses the preview. The already-claimed valid sensor result still commits.
                 val request = dev.daymark.data.testCommit()
-                    .copy(attemptId = attempt, mode = dev.daymark.attendance.CheckMode.AUTOMATIC)
-                assertTrue(repo.completeCheck(request) is dev.daymark.attendance.CheckOutcome.Recorded)
+                    .copy(
+                        attemptId = attempt,
+                        mode = dev.daymark.models.attendance.CheckMode.AUTOMATIC
+                    )
+                assertTrue(repo.completeCheck(request) is dev.daymark.models.attendance.CheckOutcome.Recorded)
             } finally {
                 db.close(); folder.toFile().deleteRecursively()
             }

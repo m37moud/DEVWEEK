@@ -1,7 +1,8 @@
 package dev.daymark.widgets
 
-import dev.daymark.attendance.AttendanceStatus
+import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.settings.ThemePreference
+import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.serialization.Serializable
@@ -9,7 +10,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlin.uuid.Uuid
 
 /** Display-only cache. It cannot be used as location evidence or an attendance write command. */
 @Serializable

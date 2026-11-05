@@ -7,11 +7,14 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.daymark.app.App
 import dev.daymark.auth.*
+import dev.daymark.auth.NativeAuthReply
+import dev.daymark.auth.NativeAuthStatus
+import dev.daymark.auth.NativeGoogleAuth
 import dev.daymark.settings.LanguagePreference
+import java.util.UUID
 import kotlinx.coroutines.runBlocking
 import org.junit.*
 import org.junit.runner.RunWith
-import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class GoogleConnectionJourneyTest {

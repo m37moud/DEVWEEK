@@ -1,18 +1,17 @@
 package dev.daymark.shared
 
 import dev.daymark.location.LocationCapabilities
-import dev.daymark.location.LocationFailure
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationPermissionPort
 import dev.daymark.location.LocationResult
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runInterruptible
 import java.io.IOException
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runInterruptible
 
 internal class MacLocation(private val executable: Path) : LocationGateway, LocationPermissionPort {
     override fun current(): LocationCapabilities = capabilities(nativeReply("status", 2.seconds))

@@ -1,5 +1,19 @@
 package dev.daymark.reporting
 
+import dev.daymark.data.local.reporting.individualRows
+import dev.daymark.data.local.reporting.parseReportRange
+import dev.daymark.data.remote.data_source.domain.ReportTransport
+import dev.daymark.models.reporting.ProjectionKey
+import dev.daymark.models.reporting.RawPatch
+import dev.daymark.models.reporting.RawRange
+import dev.daymark.models.reporting.RemoteWriteOutcome
+import dev.daymark.models.reporting.ReportAccessException
+import dev.daymark.models.reporting.ReportBatch
+import dev.daymark.models.reporting.ReportBinding
+import dev.daymark.models.reporting.SyncPassResult
+import dev.daymark.models.reporting.SyncTrigger
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
@@ -7,21 +21,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.seconds
-
-interface ReportTransport {
-    suspend fun prepareTemplate(
-        report: RemoteReport,
-        trackerId: String,
-        zoneId: String,
-        years: Set<Int>,
-        token: String
-    ): RemoteReport
-
-    suspend fun read(report: RemoteReport, ranges: List<String>, token: String): RemoteSnapshot
-    suspend fun write(report: RemoteReport, patch: RawPatch, token: String): RemoteWriteOutcome
-}
 
 /** A bounded serialized pass. No location dependency and no hidden interactive authorization. */
 class SyncCoordinator(

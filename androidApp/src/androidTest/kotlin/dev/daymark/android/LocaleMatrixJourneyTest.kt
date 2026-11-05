@@ -2,17 +2,19 @@ package dev.daymark.android
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.daymark.app.App
 import dev.daymark.settings.*
+import dev.daymark.settings.LanguagePreference
+import dev.daymark.settings.ThemePreference
+import java.util.UUID
 import kotlinx.coroutines.runBlocking
 import org.junit.*
 import org.junit.runner.RunWith
-import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class LocaleMatrixJourneyTest {

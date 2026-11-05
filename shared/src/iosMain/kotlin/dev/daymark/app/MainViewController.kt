@@ -2,17 +2,17 @@ package dev.daymark.app
 
 import androidx.compose.ui.window.ComposeUIViewController
 import dev.daymark.auth.NativeGoogleAuth
-import dev.daymark.data.DaymarkDatabase
-import dev.daymark.data.openIosDatabase
+import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.openIosDatabase
 import dev.daymark.location.IosLocationGateway
 import dev.daymark.location.IosLocationPermissions
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationPermissionPort
 import dev.daymark.reminders.ReminderPort
 import dev.daymark.widgets.WidgetSink
-import platform.UIKit.UIViewController
-import org.koin.dsl.module
 import kotlin.time.Clock
+import org.koin.dsl.module
+import platform.UIKit.UIViewController
 
 private var applicationGraph: AppGraph? = null
 

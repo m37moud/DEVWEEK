@@ -2,7 +2,7 @@ package dev.daymark.widgets
 
 import android.content.Context
 import android.content.res.Configuration
-import dev.daymark.attendance.AttendanceStatus
+import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.settings.AppLanguage
 import dev.daymark.shared.R
 import java.util.Locale

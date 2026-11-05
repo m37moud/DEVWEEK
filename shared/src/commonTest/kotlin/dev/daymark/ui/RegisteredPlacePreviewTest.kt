@@ -1,6 +1,8 @@
 package dev.daymark.ui
 
-import dev.daymark.attendance.RegisteredPlace
+import dev.daymark.models.attendance.RegisteredPlace
+import dev.daymark.presentation.component.previewCoordinate
+import dev.daymark.presentation.component.registeredPlaceZoom
 import dev.daymark.settings.AppLanguage
 import kotlin.math.abs
 import kotlin.test.Test

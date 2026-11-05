@@ -4,20 +4,19 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import dev.daymark.at
 import dev.daymark.attendance.TestClock
-import dev.daymark.attendance.TrackerCategory
-import dev.daymark.data.openJvmDatabase
-import dev.daymark.fixturePlace
+import dev.daymark.data.local.openJvmDatabase
+import dev.daymark.data.local.setup.SetupService
 import dev.daymark.fixtureFix
+import dev.daymark.fixturePlace
 import dev.daymark.fixtureSchedule
 import dev.daymark.location.LocationCapabilities
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationPermissionPort
 import dev.daymark.location.LocationResult
-import dev.daymark.ui.SetupIssue
-import dev.daymark.ui.SetupViewModel
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.runCurrent
+import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.setup.SetupDraft
+import dev.daymark.presentation.features.setup.SetupIssue
+import dev.daymark.presentation.features.setup.SetupViewModel
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -25,6 +24,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
 
 class SetupViewModelTest {
     @Test
@@ -48,7 +49,13 @@ class SetupViewModelTest {
             override suspend fun requestFix(budget: Duration): LocationResult = error("No GPS")
         }
         try {
-            val model = SetupViewModel(service, gateway, permissions, clock, backgroundScope)
+            val model = SetupViewModel(
+                repository = dev.daymark.testRepository(setupSource = service),
+                location = gateway,
+                permissions = permissions,
+                clock = clock,
+                scope = backgroundScope
+            )
             model.uiState.first { it.ready && it.draftSaved }
             model.advance()
             assertEquals(SetupStep.SCHEDULE, model.uiState.value.draft.step)
@@ -78,11 +85,18 @@ class SetupViewModelTest {
         val connection = BundledSQLiteDriver().open(path)
         connection.execSQL("PRAGMA busy_timeout=5000")
         try {
-            val model = SetupViewModel(service, gateway, permissions, TestClock(), backgroundScope)
+            val model = SetupViewModel(
+                repository = dev.daymark.testRepository(setupSource = service),
+                location = gateway,
+                permissions = permissions,
+                clock = TestClock(),
+                scope = backgroundScope
+            )
             model.uiState.first { it.ready && it.draftSaved }
             connection.execSQL("ALTER TABLE settings RENAME TO temporarily_unavailable_settings")
             model.advance()
-            val failed = model.uiState.first { it.issue == SetupIssue.LOCAL_SAVE_FAILED && !it.busy }
+            val failed =
+                model.uiState.first { it.issue == SetupIssue.LOCAL_SAVE_FAILED && !it.busy }
             assertEquals(SetupStep.WELCOME, failed.draft.step)
             assertFalse(failed.draftSaved)
             connection.execSQL("ALTER TABLE temporarily_unavailable_settings RENAME TO settings")
@@ -90,7 +104,10 @@ class SetupViewModelTest {
             model.uiState.first { it.draft.step == SetupStep.PROFILE && it.draftSaved && !it.busy }
             repeat(12) { model.updateDraft(model.uiState.value.draft.copy(displayName = "Person $it")) }
             model.uiState.first { it.draftSaved }
-            assertEquals("Person 11", (service.observeDraft().first() as SetupDraftLoad.Loaded).draft.displayName)
+            assertEquals(
+                "Person 11",
+                (service.observeDraft().first() as SetupDraftLoad.Loaded).draft.displayName
+            )
         } finally {
             connection.close()
             db.close()
@@ -116,10 +133,17 @@ class SetupViewModelTest {
             override fun openSystemSettings() = Unit
         }
         val gateway = object : LocationGateway {
-            override suspend fun requestFix(budget: Duration): LocationResult = error("No GPS on resume")
+            override suspend fun requestFix(budget: Duration): LocationResult =
+                error("No GPS on resume")
         }
         try {
-            val model = SetupViewModel(service, gateway, permissions, TestClock(), backgroundScope)
+            val model = SetupViewModel(
+                repository = dev.daymark.testRepository(setupSource = service),
+                location = gateway,
+                permissions = permissions,
+                clock = TestClock(),
+                scope = backgroundScope
+            )
             val restored = model.uiState.first { it.ready && it.draftSaved }
             assertEquals(SetupStep.PLACE, restored.draft.step)
             assertEquals("Saved", restored.draft.displayName)
@@ -142,17 +166,27 @@ class SetupViewModelTest {
             override fun openSystemSettings() = Unit
         }
         val gateway = object : LocationGateway {
-            override suspend fun requestFix(budget: Duration): LocationResult = error("No GPS while navigating")
+            override suspend fun requestFix(budget: Duration): LocationResult =
+                error("No GPS while navigating")
         }
         try {
-            val model = SetupViewModel(service, gateway, permissions, TestClock(), backgroundScope)
+            val model = SetupViewModel(
+                repository = dev.daymark.testRepository(setupSource = service),
+                location = gateway,
+                permissions = permissions,
+                clock = TestClock(),
+                scope = backgroundScope
+            )
             model.uiState.first { it.ready && it.draftSaved }
             assertEquals(SetupStep.WELCOME, model.uiState.value.draft.step)
             model.advance()
             assertEquals(SetupStep.WELCOME, model.uiState.value.draft.step)
             val profile = model.uiState.first { it.draft.step == SetupStep.PROFILE && !it.busy }
             assertTrue(profile.draftSaved)
-            assertEquals(SetupStep.PROFILE, (service.observeDraft().first() as SetupDraftLoad.Loaded).draft.step)
+            assertEquals(
+                SetupStep.PROFILE,
+                (service.observeDraft().first() as SetupDraftLoad.Loaded).draft.step
+            )
             model.advance()
             assertEquals(SetupIssue.INVALID_INPUT, model.uiState.value.issue)
             model.updateDraft(
@@ -194,7 +228,10 @@ class SetupViewModelTest {
         val folder = Files.createTempDirectory("daymark-setup-load-")
         val db = openJvmDatabase(folder.resolve("app.db").toString())
         val service = SetupService(db, TestClock())
-        service.saveDraft(SetupDraft(displayName = "Saved before failure"), service.startDraftSession())
+        service.saveDraft(
+            SetupDraft(displayName = "Saved before failure"),
+            service.startDraftSession()
+        )
         val connection = BundledSQLiteDriver().open(folder.resolve("app.db").toString())
         connection.execSQL("ALTER TABLE settings RENAME TO temporarily_unavailable_settings")
         val permissions = object : LocationPermissionPort {
@@ -208,7 +245,13 @@ class SetupViewModelTest {
                 error("No GPS during load")
         }
         try {
-            val model = SetupViewModel(service, gateway, permissions, TestClock(), backgroundScope)
+            val model = SetupViewModel(
+                repository = dev.daymark.testRepository(setupSource = service),
+                location = gateway,
+                permissions = permissions,
+                clock = TestClock(),
+                scope = backgroundScope
+            )
             val failed = model.uiState.first { it.issue == SetupIssue.LOCAL_SAVE_FAILED }
             assertFalse(failed.ready)
             model.updateDraft(SetupDraft(displayName = "Must not overwrite unread draft"))
@@ -250,7 +293,13 @@ class SetupViewModelTest {
                 override fun openSystemSettings() = Unit
             }
             try {
-                val vm = SetupViewModel(service, gateway, permissions, TestClock(), backgroundScope)
+                val vm = SetupViewModel(
+                    repository = dev.daymark.testRepository(setupSource = service),
+                    location = gateway,
+                    permissions = permissions,
+                    clock = TestClock(),
+                    scope = backgroundScope
+                )
                 vm.uiState.first { it.ready }
                 vm.updateDraft(
                     SetupDraft(
@@ -262,7 +311,8 @@ class SetupViewModelTest {
                         "١٢"
                     )
                 )
-                service.observeDraft().first { it is SetupDraftLoad.Loaded && it.draft.displayName == "أحمد / Ahmed" }
+                service.observeDraft()
+                    .first { it is SetupDraftLoad.Loaded && it.draft.displayName == "أحمد / Ahmed" }
                 vm.uiState.first { it.draftSaved }
                 vm.useCurrentLocation()
                 val denied = vm.uiState.first { it.issue == SetupIssue.LOCATION_DENIED && !it.busy }
@@ -300,11 +350,16 @@ class SetupViewModelTest {
             }
             try {
                 val vm = SetupViewModel(
-                    SetupService(db, clock),
-                    gateway,
-                    permissions,
-                    clock,
-                    backgroundScope
+                    repository = dev.daymark.testRepository(
+                        setupSource = SetupService(
+                            db,
+                            clock
+                        )
+                    ),
+                    location = gateway,
+                    permissions = permissions,
+                    clock = clock,
+                    scope = backgroundScope
                 )
                 vm.uiState.first { it.ready }
                 vm.updateDraft(

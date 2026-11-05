@@ -1,5 +1,9 @@
 package dev.daymark.reporting
 
+import dev.daymark.models.reporting.ProjectionKey
+import dev.daymark.models.reporting.ReportBatch
+import dev.daymark.models.reporting.ReportBinding
+import dev.daymark.models.reporting.ReportProjection
 import kotlin.time.Instant
 
 interface ReportStore {

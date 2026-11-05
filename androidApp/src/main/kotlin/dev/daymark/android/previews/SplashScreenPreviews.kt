@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import dev.daymark.app.StartupSplash
 import dev.daymark.settings.ThemePreference
-import dev.daymark.ui.DaymarkTheme
+import dev.daymark.ui.theme.DaymarkTheme
 
 @Preview
 @Composable

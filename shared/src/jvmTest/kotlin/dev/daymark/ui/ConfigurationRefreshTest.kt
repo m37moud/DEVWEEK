@@ -1,27 +1,27 @@
 package dev.daymark.ui
 
-import dev.daymark.app.ConfigurationCoordinator
 import dev.daymark.app.HostPlatform
 import dev.daymark.at
-import dev.daymark.attendance.RoomAttendanceRepository
 import dev.daymark.attendance.TestClock
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.application.ConfigurationCoordinator
+import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.openJvmDatabase
+import dev.daymark.data.local.settings.SettingsRepository
 import dev.daymark.data.seedDatabase
 import dev.daymark.reminders.ReminderCopy
 import dev.daymark.reminders.ReminderPort
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.LanguagePreference
-import dev.daymark.settings.SettingsRepository
+import java.nio.file.Files
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import java.nio.file.Files
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class ConfigurationRefreshTest {
     @Test

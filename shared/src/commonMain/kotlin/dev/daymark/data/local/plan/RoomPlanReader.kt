@@ -1,0 +1,43 @@
+package dev.daymark.data.local.plan
+
+import androidx.room3.withReadTransaction
+import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.models.attendance.AttendanceSource
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.AutomaticState
+import dev.daymark.plan.PlanReader
+import dev.daymark.plan.PlannedDay
+import dev.daymark.plan.ScheduleContext
+import dev.daymark.plan.timeOffOn
+import kotlin.time.Clock
+import kotlinx.datetime.LocalDate
+
+/** Each planning pass reads a consistent snapshot; the claim transaction revalidates it before GPS. */
+class RoomPlanReader(private val db: DaymarkDatabase, private val clock: Clock) : PlanReader {
+    private var snapshot: PlanningStore? = null
+    override suspend fun context(): ScheduleContext? {
+        val store = db.withReadTransaction { db.dao().planning(clock.now()) }
+        snapshot = store
+        return store?.let {
+            ScheduleContext(
+                it.tracker.id, it.active.schedule().zoneId,
+                kotlin.time.Instant.parse(it.tracker.trackingStartsAt), it.tracker.automaticEnabled
+            )
+        }
+    }
+
+    override suspend fun day(date: LocalDate): PlannedDay {
+        val store = requireNotNull(snapshot) { "Read the schedule context first" }
+        val evidence = store.rows[date]?.evidence()
+        return PlannedDay(
+            store.plan(date),
+            timeOffOn(store.entries, date),
+            evidence?.let {
+                it.source == AttendanceSource.MANUAL_CORRECTION || it.status in listOf(
+                    AttendanceStatus.PRESENT,
+                    AttendanceStatus.LATE
+                )
+            } == true,
+            store.rows[date]?.automaticState?.let { it != AutomaticState.UNCLAIMED.name } == true)
+    }
+}

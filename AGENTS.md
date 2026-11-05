@@ -15,28 +15,30 @@ V2 is approved for implementation planning; the plan records implementation/exec
 - `shared/src/commonMain/`: shared Compose UI, lifecycle ViewModels with immutable `StateFlow`, pure attendance/calendar rules, Room persistence, and reporting. Shared resources live in `composeResources/`.
 - `shared/src/androidMain/` and `shared/src/iosMain/`: platform adapters and database factories. Tests use `commonTest`, `androidHostTest`, `androidDeviceTest`, and `iosTest` as applicable.
 - `androidApp/`: Android host, permissions, WorkManager scheduling, native Google authorization, and Glance widget.
-- `iosApp/`: Swift host, Core Location/native authorization integration, UserNotifications, and WidgetKit. The current Xcode project is `iosApp/iosApp.xcodeproj`; the plan's `Daymark.xcodeproj` layout is future work.
+- `iosApp/`: Swift host, Core Location/native authorization integration, UserNotifications, and WidgetKit. The current Xcode project is `iosApp/Daymark.xcodeproj`.
 - `desktopApp/`: Compose Desktop JVM host. `src/main/kotlin/` contains the entry point and desktop composition root; local Room data is stored at `~/.daymark/daymark.db`. macOS location and permissions use the Swift Core Location helper in `src/main/swift/`, bundled with metadata and localized permission text from `src/main/macos/`. Desktop host tests live in `src/test/`. Google authorization, reminders, and widgets remain unsupported desktop adapters; non-macOS hosts also lack location support. Desktop delivery remains outside the Android/iOS MVP.
 - `shared/src/jvmMain/`: desktop implementations for Room, locale, logging, connectivity, host behavior, and the registered-place map fallback. Keep desktop-specific APIs here or in `desktopApp/`, outside shared UI/domain code; JVM tests live in `shared/src/jvmTest/`.
 - `shared/src/mobileMain/`: Android/iOS shared implementations, including the registered-place map; desktop uses the corresponding JVM implementation.
 - `docs/superpowers/`: design, review, and implementation records. The HTML concept under `specs/assets/` is a visual reference with simulated integrations.
 
-Current Kotlin packages are `com.example.myworktracker`. The plan specifies `dev.daymark` for new production Kotlin, provisional application/bundle ID `dev.daymark.app`, and App Group `group.dev.daymark.app`; follow its migration/file map when implementing. Final public identifiers remain release inputs.
+Production Kotlin packages use `dev.daymark`. The application/bundle ID is `dev.daymark.app`, with App Group `group.dev.daymark.app`; final public identifiers remain release inputs.
 
 ## Architecture & Data Flow
 
-The target architecture is feature-oriented MVVM with a central repository and data-source interfaces. It does not have a separate domain module or a general use-case layer. The current code uses feature repositories and constructor injection through `app/AppGraph.kt`; the package layout and Koin wiring below have not yet been implemented.
+The architecture is feature-oriented MVVM with a central `repository/Repository` exposing focused data-source interfaces. `AppRepository` receives those interfaces through constructor injection; it does not resolve dependencies or own a second container. There is no separate domain module or general use-case layer. See [architecture](docs/development/architecture.md) and the recorded architecture amendment in [implementation decisions](docs/development/implementation-decisions.md).
 
-- `presentation/features/`: feature screens, ViewModels, and feature-specific UI state/effects.
-- `presentation/component/`: reusable Compose components.
-- `navigation/`: routes and navigation graphs; `ui/theme/`: shared theme.
-- `repository/`: central `Repository`, which exposes data sources and builds paging flows, plus the token use case.
-- `data/remote/data_source/domain/`: remote data-source interfaces; `data/remote/data_source/data/ktor/`: Ktor implementations; `data/remote/pagesource/`: paging sources.
-- `data/local/`: Room database, DAOs, and local gateway interfaces/implementations; `data/data_store/`: preferences.
-- `models/`: shared models, local models, and mappers; `helpers/` and `util/`: response handling and shared/platform utilities.
-- `di/ktor/`: Koin modules for ViewModels, repositories, gateways, networking, storage, and platform dependencies.
+- `presentation/features/<feature>/`: separate `FeatureScreen.kt`, `FeatureViewModel.kt`, and `FeatureUiState.kt`; add `FeatureUiEffect.kt` for one-time UI actions and `FeatureMapper.kt` for actual model conversion. Feature-specific composables live in `component/` beneath the feature.
+- `presentation/component/`: components shared across features.
+- `navigation/`: serializable routes and Navigation 3 graphs; `ui/theme/`: shared theme and configuration composition locals. Preserve persisted route serial names when moving Kotlin types.
+- `repository/`: the central repository and focused operation/read interfaces. Keep attendance/calendar rules and existing transaction/lifecycle ownership in their responsible implementations.
+- `data/remote/data_source/domain/`: remote data-source interfaces; `data/remote/data_source/data/ktor/`: Ktor implementations.
+- `data/local/`: Room database, DAOs, factories, local gateways, and operation implementations. Preferences remain in Room to preserve transactional behavior.
+- `models/`: portable models and actual conversions; shared/platform helpers retain their existing focused packages.
+- `di/ktor/`: Koin bindings for repositories, data sources, services, networking, storage, native dependencies, and lifecycle ViewModels. Each `AppGraph` owns an isolated container; platform bindings load last.
 
-Target flow: Compose screen → ViewModel → Repository → data-source interface → Ktor API or local storage. ViewModels expose observable state back to the UI. Koin wires dependencies in the target architecture; `expect`/`actual` declarations bridge platform-specific functionality. Preserve these conventions when implementing the target layout and keep portable logic in `commonMain`.
+Flow: Compose screen → ViewModel → Repository → focused data-source interface → Ktor API or local storage. ViewModels expose immutable observable UI state and one-time effects. This also applies to bootstrap, dashboard, Google connection, report retry, and confirmed local deletion. Presentation must not access Room, persistence entities, concrete transports, or `AppGraph`; the top-level `App` function only provides the isolated composition context. Native UI interactions use the existing platform ports.
+
+Do not add paging, DataStore, token abstractions, or empty feature files without a current need. Retain the existing serialized, generation-fenced Google token access. `expect`/`actual` bridges platform-specific functionality; keep portable logic in `commonMain`.
 
 Room is authoritative; Sheets is an outgoing report. Keep native APIs out of shared UI/domain code. Use the planned Material 3, Navigation 3 multiplatform artifact, Room/KSP, Ktor, and native adapters after compatibility verification; avoid a module-per-layer.
 
@@ -80,7 +82,7 @@ Reformat changed code with Android Studio/IntelliJ formatting before presenting 
 
 ## Build and Verification
 
-Use the Gradle wrapper and configure the Android SDK in untracked `local.properties`. Current scaffold settings are compile/target SDK 37, minimum API 24, Android JVM target 11, and Gradle daemon JDK 21. The plan targets minimum API 26, iOS 16, and JVM target/JDK 21; reconcile these in Task 1 rather than assuming that migration already happened. Gradle/catalog/wrapper files describe the actual build; planned pins are candidates until compiled together. Verify compatible stable versions against official sources before dependency changes. Select JDK/Xcode per command; do not change global Java or `xcode-select` settings.
+Use the Gradle wrapper and configure the Android SDK in untracked `local.properties`. Current build settings are compile/target SDK 37, minimum Android API 26, iOS 16, and JVM target/JDK 21. Gradle/catalog/wrapper files describe the actual build; planned pins are candidates until compiled together. Verify compatible stable versions against official sources before dependency changes. Select JDK/Xcode per command; do not change global Java or `xcode-select` settings.
 
 - `./gradlew :androidApp:assembleDebug` — build the Android debug APK.
 - `./gradlew :androidApp:installDebug` — install on a connected device/emulator.

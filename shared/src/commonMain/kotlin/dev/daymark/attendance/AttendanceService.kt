@@ -3,21 +3,32 @@ package dev.daymark.attendance
 import dev.daymark.location.LocationFailure
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationResult
+import dev.daymark.models.attendance.AttendanceSource
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.CheckCommit
+import dev.daymark.models.attendance.CheckMode
+import dev.daymark.models.attendance.CheckOutcome
+import dev.daymark.models.attendance.CheckRejection
+import dev.daymark.models.attendance.ClaimResult
+import dev.daymark.models.attendance.DayKey
+import dev.daymark.models.attendance.FixVerdict
+import dev.daymark.models.attendance.StoredDay
+import dev.daymark.repository.AttendanceChecks
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
+import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.seconds
-import kotlin.uuid.Uuid
 
 class AttendanceService(
     private val repository: AttendanceRepository,
     private val location: LocationGateway,
     private val clock: Clock
-) {
+) : AttendanceChecks {
     private val manual = Mutex()
-    suspend fun manualCheck(): CheckOutcome {
+    override suspend fun manualCheck(): CheckOutcome {
         if (!manual.tryLock()) return CheckOutcome.Busy(null)
         return try {
             val day = repository.loadCurrentDay(clock.now()) ?: return CheckOutcome.Rejected(

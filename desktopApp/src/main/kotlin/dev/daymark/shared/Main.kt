@@ -3,7 +3,7 @@ package dev.daymark.shared
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import dev.daymark.app.App
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.openJvmDatabase
 import java.nio.file.Files
 import java.nio.file.Path
 

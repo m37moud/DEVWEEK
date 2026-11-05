@@ -2,19 +2,23 @@ package dev.daymark.data
 
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
-import dev.daymark.attendance.RoomAttendanceRepository
 import dev.daymark.attendance.TestClock
-import dev.daymark.reporting.ReportBinding
-import dev.daymark.reporting.RoomReportStore
-import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import dev.daymark.data.local.BalanceAdjustmentEntity
+import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.TimeOffEntity
+import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.openJvmDatabase
+import dev.daymark.data.local.reporting.RoomReportStore
+import dev.daymark.models.reporting.ReportBinding
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 class MigrationSafetyTest {
     @Test
@@ -66,8 +70,8 @@ class MigrationSafetyTest {
                 val journal = db.dao().batches(tracker)
                 db.close()
                 val schemaPath = listOf(
-                    Path.of("schemas/dev.daymark.data.DaymarkDatabase/1.json"),
-                    Path.of("shared/schemas/dev.daymark.data.DaymarkDatabase/1.json")
+                    Path.of("schemas/dev.daymark.data.local.DaymarkDatabase/1.json"),
+                    Path.of("shared/schemas/dev.daymark.data.local.DaymarkDatabase/1.json")
                 ).first { Files.exists(it) }
                 val old =
                     Json.parseToJsonElement(Files.readString(schemaPath)).jsonObject.getValue("database").jsonObject

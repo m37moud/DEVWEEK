@@ -2,24 +2,26 @@ package dev.daymark.data
 
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
+import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.openJvmDatabase
 import dev.daymark.fixturePlan
-import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 class DatabaseMigrationTest {
     @Test
     fun schema_one_upgrades_without_losing_tracker_or_adjustment_history() = runTest {
         val schemaPath = listOf(
-            Path.of("schemas/dev.daymark.data.DaymarkDatabase/1.json"),
-            Path.of("shared/schemas/dev.daymark.data.DaymarkDatabase/1.json")
+            Path.of("schemas/dev.daymark.data.local.DaymarkDatabase/1.json"),
+            Path.of("shared/schemas/dev.daymark.data.local.DaymarkDatabase/1.json")
         ).first { Files.exists(it) }
         val schema =
             Json.parseToJsonElement(Files.readString(schemaPath)).jsonObject.getValue("database").jsonObject

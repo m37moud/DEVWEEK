@@ -1,21 +1,21 @@
 package dev.daymark
 
-import dev.daymark.attendance.AttendanceStatus
-import dev.daymark.attendance.CheckMode
-import dev.daymark.attendance.DayKey
-import dev.daymark.attendance.DayPlan
-import dev.daymark.attendance.FixVerdict
-import dev.daymark.attendance.RegisteredPlace
-import dev.daymark.attendance.TrackerCategory
 import dev.daymark.attendance.classifyFix
 import dev.daymark.location.LocationResult
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.CheckMode
+import dev.daymark.models.attendance.DayKey
+import dev.daymark.models.attendance.DayPlan
+import dev.daymark.models.attendance.FixVerdict
+import dev.daymark.models.attendance.RegisteredPlace
+import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.plan.WeeklySchedule
 import dev.daymark.plan.resolveDay
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.Instant
 
 val fixtureDate: LocalDate = LocalDate(2026, 10, 27)
 fun at(time: String): Instant = Instant.parse("2026-10-27T${time}Z")

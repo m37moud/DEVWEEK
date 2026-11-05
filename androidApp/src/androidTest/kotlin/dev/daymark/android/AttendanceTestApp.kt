@@ -2,19 +2,32 @@ package dev.daymark.android
 
 import android.content.Context
 import dev.daymark.app.*
+import dev.daymark.app.AppGraph
 import dev.daymark.attendance.*
 import dev.daymark.auth.*
+import dev.daymark.auth.NativeAuthReply
+import dev.daymark.auth.NativeGoogleAuth
 import dev.daymark.data.*
+import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.openAndroidDatabase
+import dev.daymark.data.local.setup.SetupService
 import dev.daymark.location.*
+import dev.daymark.location.LocationCapabilities
+import dev.daymark.location.LocationGateway
+import dev.daymark.location.LocationPermissionPort
+import dev.daymark.location.LocationResult
+import dev.daymark.models.attendance.RegisteredPlace
+import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.setup.SetupCommand
 import dev.daymark.plan.WeeklySchedule
 import dev.daymark.reminders.ReminderPort
 import dev.daymark.widgets.WidgetSink
-import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.*
-import org.koin.dsl.module
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Instant
+import kotlinx.coroutines.runBlocking
+import kotlinx.datetime.*
+import org.koin.dsl.module
 
 internal class AttendanceTestApp(context: Context, name: String, private val widget: WidgetSink = object : WidgetSink {
     override fun publish(json: String) = false

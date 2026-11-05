@@ -5,14 +5,22 @@ import dev.daymark.fixtureFix
 import dev.daymark.fixturePlan
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationResult
+import dev.daymark.models.attendance.AttendanceEvidence
+import dev.daymark.models.attendance.AttendanceSource
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.AutomaticState
+import dev.daymark.models.attendance.CheckCommit
+import dev.daymark.models.attendance.CheckMode
+import dev.daymark.models.attendance.CheckOutcome
+import dev.daymark.models.attendance.CheckRejection
+import dev.daymark.models.attendance.ClaimResult
+import dev.daymark.models.attendance.Correction
+import dev.daymark.models.attendance.DayKey
+import dev.daymark.models.attendance.DayOutcome
+import dev.daymark.models.attendance.FixVerdict
+import dev.daymark.models.attendance.HistoryMonth
+import dev.daymark.models.attendance.StoredDay
 import dev.daymark.plan.TimeOffKind
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -21,6 +29,13 @@ import kotlin.test.assertNull
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Instant
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
 
 class TestClock(var value: Instant = at("09:02:00")) : Clock {
     override fun now() = value

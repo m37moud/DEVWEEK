@@ -1,13 +1,13 @@
 package dev.daymark.plan
 
-import dev.daymark.attendance.DayKey
-import dev.daymark.attendance.DayPlan
+import dev.daymark.models.attendance.DayKey
+import dev.daymark.models.attendance.DayPlan
+import kotlin.time.Instant
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Instant
 
 data class ScheduledCheck(val key: DayKey, val arrival: Instant, val deadline: Instant)
 data class ScheduleContext(

@@ -19,6 +19,10 @@ import com.google.android.gms.auth.api.identity.AuthorizationResult
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
 import dev.daymark.auth.*
+import dev.daymark.auth.GOOGLE_REPORT_SCOPES
+import dev.daymark.auth.NativeAuthReply
+import dev.daymark.auth.NativeAuthStatus
+import dev.daymark.auth.NativeGoogleAuth
 import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong

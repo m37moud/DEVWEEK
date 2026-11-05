@@ -1,21 +1,28 @@
 package dev.daymark.reporting
 
 import dev.daymark.at
-import dev.daymark.attendance.AttendanceStatus
-import dev.daymark.attendance.Correction
-import dev.daymark.attendance.RoomAttendanceRepository
 import dev.daymark.attendance.TestClock
-import dev.daymark.attendance.TrackerCategory
-import dev.daymark.data.PlanVersionEntity
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.PlanVersionEntity
+import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.openJvmDatabase
+import dev.daymark.data.local.plan.PlanService
+import dev.daymark.data.local.reporting.RoomReportStore
 import dev.daymark.data.seedDatabase
 import dev.daymark.fixtureDate
 import dev.daymark.fixturePlace
 import dev.daymark.fixturePlan
 import dev.daymark.fixtureSchedule
-import dev.daymark.plan.PlanChange
-import dev.daymark.plan.PlanMutationResult
-import dev.daymark.plan.PlanService
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.Correction
+import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.plan.PlanChange
+import dev.daymark.models.plan.PlanMutationResult
+import dev.daymark.models.reporting.ProjectionKey
+import dev.daymark.models.reporting.ReportBinding
+import java.nio.file.Files
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
@@ -24,10 +31,6 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atTime
 import kotlinx.datetime.toInstant
 import kotlinx.serialization.json.JsonPrimitive
-import java.nio.file.Files
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 
 class SetupDayReportTest {
     @Test
@@ -192,7 +195,8 @@ class SetupDayReportTest {
                     .single { it.key == ProjectionKey.Overview }.ranges.single().cells.associate { it[0].content to it[2].content }
                 assertEquals(1, overview.getValue("present").toInt())
                 val dashboard =
-                    dev.daymark.ui.TodayDashboardReader(db, clock).observe().first { it.ready }
+                    dev.daymark.data.local.dashboard.TodayDashboardReader(db, clock).observe()
+                        .first { it.ready }
                 assertEquals(1, dashboard.present)
                 assertFalse(dashboard.week.single { it.date == fixtureDate }.planned)
             } finally {

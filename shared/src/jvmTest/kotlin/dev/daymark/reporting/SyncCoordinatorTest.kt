@@ -2,19 +2,33 @@ package dev.daymark.reporting
 
 import androidx.room3.withWriteTransaction
 import dev.daymark.at
-import dev.daymark.attendance.AttendanceStatus
-import dev.daymark.attendance.Correction
-import dev.daymark.attendance.RoomAttendanceRepository
 import dev.daymark.attendance.TestClock
-import dev.daymark.attendance.TrackerCategory
-import dev.daymark.data.PlanVersionEntity
-import dev.daymark.data.markDirty
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.PlanVersionEntity
+import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.markDirty
+import dev.daymark.data.local.openJvmDatabase
+import dev.daymark.data.local.reporting.RoomReportStore
+import dev.daymark.data.remote.data_source.data.ktor.GoogleReportTransport
+import dev.daymark.data.remote.data_source.domain.ReportTransport
 import dev.daymark.data.seedDatabase
 import dev.daymark.data.testCommit
 import dev.daymark.fixturePlace
 import dev.daymark.fixturePlan
 import dev.daymark.fixtureSchedule
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.Correction
+import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.reporting.ProjectionKey
+import dev.daymark.models.reporting.RawPatch
+import dev.daymark.models.reporting.RawRange
+import dev.daymark.models.reporting.RemoteReport
+import dev.daymark.models.reporting.RemoteSnapshot
+import dev.daymark.models.reporting.RemoteWriteOutcome
+import dev.daymark.models.reporting.ReportAccessException
+import dev.daymark.models.reporting.ReportBinding
+import dev.daymark.models.reporting.SyncPassResult
+import dev.daymark.models.reporting.SyncTrigger
+import dev.daymark.models.reporting.storageKey
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -22,6 +36,13 @@ import io.ktor.client.engine.mock.toByteArray
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import java.nio.file.Files
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.minus
@@ -32,13 +53,6 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import java.nio.file.Files
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.minutes
 
 class SyncCoordinatorTest {
     @Test

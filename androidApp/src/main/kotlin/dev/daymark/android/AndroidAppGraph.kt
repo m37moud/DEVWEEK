@@ -1,20 +1,33 @@
 package dev.daymark.android
 
 import android.content.Context
+import androidx.glance.appwidget.updateAll
 import androidx.room3.withWriteTransaction
 import androidx.work.WorkManager
-import dev.daymark.attendance.*
 import dev.daymark.app.AppGraph
+import dev.daymark.attendance.*
+import dev.daymark.attendance.AttendanceRepository
+import dev.daymark.attendance.AttendanceService
 import dev.daymark.auth.NativeGoogleAuth
-import dev.daymark.reminders.ReminderPort
-import dev.daymark.widgets.WidgetSink
-import dev.daymark.widgets.WidgetPublisher
-import androidx.glance.appwidget.updateAll
-import dev.daymark.widgets.initializeWidgetResources
 import dev.daymark.data.*
+import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.openAndroidDatabase
+import dev.daymark.data.local.reporting.ReportingRuntime
 import dev.daymark.location.*
+import dev.daymark.location.AndroidLocationGateway
+import dev.daymark.location.LocationGateway
+import dev.daymark.location.LocationPermissionPort
+import dev.daymark.location.androidLocationCapabilities
 import dev.daymark.plan.*
+import dev.daymark.plan.PlanReader
+import dev.daymark.plan.nextAttendance
+import dev.daymark.reminders.ReminderPort
 import dev.daymark.reporting.*
+import dev.daymark.reporting.initializeReportConnectivity
+import dev.daymark.widgets.WidgetPublisher
+import dev.daymark.widgets.WidgetSink
+import dev.daymark.widgets.initializeWidgetResources
+import kotlin.time.Clock
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,7 +35,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.koin.dsl.module
 import org.koin.dsl.onClose
-import kotlin.time.Clock
 
 class AndroidAppGraph(context: Context) {
     private val app = context.applicationContext

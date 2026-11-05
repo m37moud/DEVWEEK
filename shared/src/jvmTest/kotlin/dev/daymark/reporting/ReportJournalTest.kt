@@ -3,21 +3,26 @@ package dev.daymark.reporting
 import androidx.room3.withWriteTransaction
 import dev.daymark.at
 import dev.daymark.attendance.TestClock
-import dev.daymark.data.PlanVersionEntity
-import dev.daymark.data.TimeOffEntity
-import dev.daymark.data.markDirty
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.PlanVersionEntity
+import dev.daymark.data.local.TimeOffEntity
+import dev.daymark.data.local.markDirty
+import dev.daymark.data.local.openJvmDatabase
+import dev.daymark.data.local.reporting.RoomReportStore
 import dev.daymark.data.seedDatabase
 import dev.daymark.fixturePlace
 import dev.daymark.fixturePlan
 import dev.daymark.fixtureSchedule
-import kotlinx.coroutines.runBlocking
+import dev.daymark.models.reporting.ProjectionKey
+import dev.daymark.models.reporting.ReportBatch
+import dev.daymark.models.reporting.ReportBinding
+import dev.daymark.models.reporting.storageKey
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 
 class ReportJournalTest {
     @Test
@@ -162,12 +167,12 @@ class ReportJournalTest {
         try {
             seedDatabase(db);
             val clock = TestClock();
-            val repo = dev.daymark.attendance.RoomAttendanceRepository(db, clock)
+            val repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(db, clock)
             val note = "x".repeat(2_000_000)
             repo.correct(
-                dev.daymark.attendance.Correction(
+                dev.daymark.models.attendance.Correction(
                     fixturePlan().key,
-                    dev.daymark.attendance.AttendanceStatus.ABSENT,
+                    dev.daymark.models.attendance.AttendanceStatus.ABSENT,
                     null,
                     note
                 )
@@ -207,14 +212,14 @@ class ReportJournalTest {
                     1,
                     start,
                     begins,
-                    dev.daymark.attendance.TrackerCategory.WORK,
+                    dev.daymark.models.attendance.TrackerCategory.WORK,
                     fixtureSchedule(),
                     fixturePlace(),
                     "Place"
                 )
             )
             val clock = TestClock(at("09:06:00"));
-            val repo = dev.daymark.attendance.RoomAttendanceRepository(db, clock)
+            val repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(db, clock)
             repo.reconcile(clock.now())
             val store = RoomReportStore(db, clock)
             val binding = ReportBinding(

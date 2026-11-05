@@ -1,15 +1,18 @@
 package dev.daymark.app
 
-import dev.daymark.reporting.RawPatch
-import dev.daymark.reporting.RemoteReport
-import dev.daymark.reporting.RemoteSnapshot
-import dev.daymark.reporting.RemoteWriteOutcome
-import dev.daymark.reporting.ReportBinding
-import dev.daymark.reporting.ReportTransport
-import dev.daymark.reporting.RoomReportStore
+import dev.daymark.data.local.reporting.RoomReportStore
+import dev.daymark.data.remote.data_source.domain.ReportTransport
+import dev.daymark.models.reporting.RawPatch
+import dev.daymark.models.reporting.RemoteReport
+import dev.daymark.models.reporting.RemoteSnapshot
+import dev.daymark.models.reporting.RemoteWriteOutcome
+import dev.daymark.models.reporting.ReportBinding
+import dev.daymark.models.reporting.SyncPassResult
+import dev.daymark.models.reporting.SyncTrigger
 import dev.daymark.reporting.SyncCoordinator
-import dev.daymark.reporting.SyncPassResult
-import dev.daymark.reporting.SyncTrigger
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,9 +25,6 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppLifecycleCoordinatorTest {
@@ -66,13 +66,13 @@ class AppLifecycleCoordinatorTest {
         runBlocking {
             val folder = java.nio.file.Files.createTempDirectory("daymark-lifecycle-journal-")
             val path = folder.resolve("test.db").toString()
-            var db = dev.daymark.data.openJvmDatabase(path)
+            var db = dev.daymark.data.local.openJvmDatabase(path)
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
             var owner: AppLifecycleCoordinator? = null
             try {
                 dev.daymark.data.seedDatabase(db)
                 val clock = dev.daymark.attendance.TestClock()
-                var repo = dev.daymark.attendance.RoomAttendanceRepository(db, clock)
+                var repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(db, clock)
                 repo.completeCheck(dev.daymark.data.testCommit())
                 var store = RoomReportStore(db, clock)
                 val tracker = db.dao().tracker()!!.id
@@ -150,12 +150,12 @@ class AppLifecycleCoordinatorTest {
                 owner.onActive(true); withTimeout(10_000) { entered.await() }
                 owner.stop()
                 assertTrue(db.dao().batches(tracker).any { it.status == "AMBIGUOUS" })
-                db.close(); db = dev.daymark.data.openJvmDatabase(path)
-                repo = dev.daymark.attendance.RoomAttendanceRepository(db, clock)
+                db.close(); db = dev.daymark.data.local.openJvmDatabase(path)
+                repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(db, clock)
                 repo.correct(
-                    dev.daymark.attendance.Correction(
+                    dev.daymark.models.attendance.Correction(
                         dev.daymark.fixturePlan().key,
-                        dev.daymark.attendance.AttendanceStatus.ABSENT,
+                        dev.daymark.models.attendance.AttendanceStatus.ABSENT,
                         null,
                         "Updated while offline"
                     )

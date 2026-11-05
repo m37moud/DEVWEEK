@@ -1,11 +1,11 @@
 package dev.daymark.android
 
+import android.app.Activity
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
-import android.app.Activity
 import dev.daymark.app.App
-import dev.daymark.ui.LocationProbeContent
+import dev.daymark.presentation.component.LocationProbeContent
 import dev.daymark.reporting.GoogleConnectivityProbe
 import kotlinx.coroutines.launch
 

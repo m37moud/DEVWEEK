@@ -2,7 +2,21 @@ package dev.daymark.attendance
 
 import dev.daymark.at
 import dev.daymark.fixturePlan
-import dev.daymark.ui.HistoryViewModel
+import dev.daymark.models.attendance.AttendanceSource
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.CheckCommit
+import dev.daymark.models.attendance.CheckOutcome
+import dev.daymark.models.attendance.ClaimResult
+import dev.daymark.models.attendance.Correction
+import dev.daymark.models.attendance.DayKey
+import dev.daymark.models.attendance.DayOutcome
+import dev.daymark.models.attendance.HistoryMonth
+import dev.daymark.models.attendance.StoredDay
+import dev.daymark.presentation.features.history.HistoryViewModel
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import kotlin.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -10,10 +24,6 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
-import kotlin.time.Instant
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class HistoryViewModelTest {
@@ -51,7 +61,11 @@ class HistoryViewModelTest {
 
             override suspend fun completeCheck(request: CheckCommit): CheckOutcome = error("Unused")
         }
-        val model = HistoryViewModel(repo, LocalDate(2026, 10, 27), backgroundScope)
+        val model = HistoryViewModel(
+            repository = dev.daymark.testRepository(attendanceSource = repo),
+            initialDate = LocalDate(2026, 10, 27),
+            scope = backgroundScope
+        )
         model.uiState.first { it.ready }
         model.selectMonth(2025, 12)
         model.uiState.first { it.ready && it.year == 2025 && it.month == 12 }

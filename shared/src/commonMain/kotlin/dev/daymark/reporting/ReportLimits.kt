@@ -1,5 +1,7 @@
 package dev.daymark.reporting
 
+import dev.daymark.models.reporting.ProjectionKey
+import dev.daymark.models.reporting.RawRange
 import kotlinx.serialization.json.Json
 
 /** Conservative per-field boundary; count UTF-16 units so EN/AR and surrogate pairs stay within it. */

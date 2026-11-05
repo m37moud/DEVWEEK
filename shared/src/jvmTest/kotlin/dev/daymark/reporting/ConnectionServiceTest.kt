@@ -5,8 +5,12 @@ import dev.daymark.auth.GoogleAccess
 import dev.daymark.auth.NativeAuthReply
 import dev.daymark.auth.NativeAuthStatus
 import dev.daymark.auth.NativeGoogleAuth
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.openJvmDatabase
+import dev.daymark.data.local.reporting.ConnectionService
+import dev.daymark.data.local.reporting.RoomReportStore
+import dev.daymark.data.remote.data_source.data.ktor.GoogleReportTransport
 import dev.daymark.data.seedDatabase
+import dev.daymark.models.reporting.ConnectionResult
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -14,8 +18,6 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
-import kotlinx.coroutines.async
-import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -24,6 +26,8 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
 
 class ConnectionServiceTest {
     private class Native : NativeGoogleAuth {

@@ -1,18 +1,22 @@
 package dev.daymark.reporting
 
-import dev.daymark.attendance.AttendanceEvidence
-import dev.daymark.attendance.AttendanceSource
-import dev.daymark.attendance.AttendanceStatus
-import dev.daymark.attendance.DayOutcome
-import dev.daymark.attendance.HistoryRecord
 import dev.daymark.attendance.evaluateDay
+import dev.daymark.data.local.reporting.projectDay
+import dev.daymark.data.local.reporting.projectTimeOff
+import dev.daymark.data.local.reporting.reportHumanColumns
+import dev.daymark.data.local.reporting.reportMachineColumns
 import dev.daymark.fixturePlan
-import kotlinx.datetime.LocalDate
-import kotlinx.serialization.json.JsonPrimitive
+import dev.daymark.models.attendance.AttendanceEvidence
+import dev.daymark.models.attendance.AttendanceSource
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.DayOutcome
+import dev.daymark.models.attendance.HistoryRecord
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.serialization.json.JsonPrimitive
 
 class ReportProjectionTest {
     @Test

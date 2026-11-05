@@ -4,7 +4,7 @@ import dev.daymark.app.AppGraph
 import dev.daymark.auth.NativeAuthReply
 import dev.daymark.auth.NativeAuthStatus
 import dev.daymark.auth.NativeGoogleAuth
-import dev.daymark.data.DaymarkDatabase
+import dev.daymark.data.local.DaymarkDatabase
 import dev.daymark.location.LocationCapabilities
 import dev.daymark.location.LocationFailure
 import dev.daymark.location.LocationGateway
@@ -12,8 +12,8 @@ import dev.daymark.location.LocationPermissionPort
 import dev.daymark.location.LocationResult
 import dev.daymark.reminders.ReminderPort
 import dev.daymark.widgets.WidgetSink
-import org.koin.dsl.module
 import kotlin.time.Duration
+import org.koin.dsl.module
 
 internal fun desktopAppGraph(database: DaymarkDatabase): AppGraph {
     return AppGraph(module {

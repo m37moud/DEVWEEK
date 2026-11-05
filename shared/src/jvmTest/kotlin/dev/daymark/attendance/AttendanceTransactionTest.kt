@@ -5,9 +5,10 @@ import androidx.room3.useReaderConnection
 import androidx.room3.useWriterConnection
 import androidx.room3.withWriteTransaction
 import dev.daymark.at
-import dev.daymark.data.DaymarkDatabase
-import dev.daymark.data.PlanVersionEntity
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.PlanVersionEntity
+import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.openJvmDatabase
 import dev.daymark.data.seedDatabase
 import dev.daymark.data.testCommit
 import dev.daymark.fixtureDate
@@ -17,15 +18,15 @@ import dev.daymark.fixturePlan
 import dev.daymark.fixtureSchedule
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationResult
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.LocalTime
+import dev.daymark.models.attendance.AttendanceSource
+import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.AutomaticState
+import dev.daymark.models.attendance.CheckOutcome
+import dev.daymark.models.attendance.CheckRejection
+import dev.daymark.models.attendance.ClaimResult
+import dev.daymark.models.attendance.Correction
+import dev.daymark.models.attendance.FixVerdict
+import dev.daymark.models.attendance.TrackerCategory
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
@@ -36,6 +37,15 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Instant
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 class AttendanceTransactionTest {
     private suspend fun withDatabase(block: suspend (DaymarkDatabase, Path) -> Unit) {

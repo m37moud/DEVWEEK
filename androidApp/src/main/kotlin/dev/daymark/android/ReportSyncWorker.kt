@@ -2,8 +2,8 @@ package dev.daymark.android
 
 import android.content.Context
 import androidx.work.*
-import dev.daymark.reporting.SyncPassResult
-import dev.daymark.reporting.SyncTrigger
+import dev.daymark.models.reporting.SyncPassResult
+import dev.daymark.models.reporting.SyncTrigger
 import java.util.concurrent.TimeUnit
 
 internal const val REPORT_WORK="daymark-report-sync"

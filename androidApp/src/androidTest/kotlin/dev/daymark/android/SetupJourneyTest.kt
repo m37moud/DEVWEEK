@@ -1,35 +1,45 @@
 package dev.daymark.android
 
 import androidx.compose.runtime.*
-import androidx.compose.ui.test.*
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.daymark.app.App
 import dev.daymark.app.AppGraph
 import dev.daymark.app.SetupDraftLoad
-import dev.daymark.settings.LanguagePreference
-import dev.daymark.settings.ThemePreference
 import dev.daymark.attendance.*
 import dev.daymark.auth.*
+import dev.daymark.auth.NativeAuthReply
+import dev.daymark.auth.NativeAuthStatus
+import dev.daymark.auth.NativeGoogleAuth
 import dev.daymark.data.*
+import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.openAndroidDatabase
 import dev.daymark.location.*
+import dev.daymark.location.LocationCapabilities
+import dev.daymark.location.LocationGateway
+import dev.daymark.location.LocationPermissionPort
+import dev.daymark.location.LocationResult
+import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.reminders.ReminderPort
+import dev.daymark.settings.LanguagePreference
+import dev.daymark.settings.ThemePreference
 import dev.daymark.widgets.WidgetSink
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.flow.first
-import org.junit.*
-import org.junit.runner.RunWith
-import org.koin.dsl.module
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Instant
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import org.junit.*
+import org.junit.runner.RunWith
+import org.koin.dsl.module
 
 @RunWith(AndroidJUnit4::class)
 class SetupJourneyTest {
@@ -195,7 +205,7 @@ class SetupJourneyTest {
         }
         compose.onNodeWithText("اسمح بالموقع الدقيق لتسجيل المكان.").assertIsDisplayed()
         runBlocking {
-            dev.daymark.app.SetupService(db, clock).observeDraft()
+            dev.daymark.data.local.setup.SetupService(db, clock).observeDraft()
                 .first { it is SetupDraftLoad.Loaded && it.draft.displayName == "أحمد / Ahmed" }
         }
         compose.runOnIdle { shown = false }

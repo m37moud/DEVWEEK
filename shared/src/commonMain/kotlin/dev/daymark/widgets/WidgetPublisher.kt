@@ -2,20 +2,20 @@ package dev.daymark.widgets
 
 import androidx.room3.withReadTransaction
 import dev.daymark.attendance.AttendanceRepository
-import dev.daymark.attendance.AttendanceStatus
 import dev.daymark.attendance.evaluateDay
-import dev.daymark.data.DaymarkDatabase
+import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.settings.SettingsRepository
+import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.DisplayFormats
-import dev.daymark.settings.SettingsRepository
 import dev.daymark.settings.effectiveLanguage
+import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlin.time.Clock
-import kotlin.time.Instant
 
 class WidgetPublicationException : Exception("Could not update the attendance widget")
 

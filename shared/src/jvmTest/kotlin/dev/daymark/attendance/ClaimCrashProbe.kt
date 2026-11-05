@@ -1,14 +1,15 @@
 package dev.daymark.attendance
 
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.openJvmDatabase
 import dev.daymark.data.seedDatabase
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationResult
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.time.Duration
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.runBlocking
 
 /** Separate test process parks after the real claim commits; the parent kills it without closing Room. */
 fun main(args: Array<String>): Unit = runBlocking {

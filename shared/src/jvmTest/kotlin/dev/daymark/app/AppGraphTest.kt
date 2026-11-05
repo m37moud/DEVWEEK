@@ -5,19 +5,31 @@ import dev.daymark.attendance.AttendanceService
 import dev.daymark.attendance.TestClock
 import dev.daymark.auth.NativeAuthReply
 import dev.daymark.auth.NativeGoogleAuth
-import dev.daymark.data.DaymarkDatabase
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.openJvmDatabase
 import dev.daymark.location.LocationCapabilities
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationPermissionPort
 import dev.daymark.location.LocationResult
+import dev.daymark.presentation.features.app.AppViewModel
+import dev.daymark.presentation.features.history.HistoryViewModel
+import dev.daymark.presentation.features.plan.PlanViewModel
+import dev.daymark.presentation.features.settings.SettingsViewModel
+import dev.daymark.presentation.features.setup.SetupViewModel
+import dev.daymark.presentation.features.today.TodayViewModel
 import dev.daymark.reminders.ReminderPort
-import dev.daymark.ui.HistoryViewModel
-import dev.daymark.ui.PlanViewModel
-import dev.daymark.ui.SettingsViewModel
-import dev.daymark.ui.SetupViewModel
-import dev.daymark.ui.TodayViewModel
+import dev.daymark.repository.Repository
 import dev.daymark.widgets.WidgetSink
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import java.nio.file.Files
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotSame
+import kotlin.test.assertSame
+import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -27,14 +39,6 @@ import kotlinx.coroutines.test.setMain
 import kotlinx.datetime.LocalDate
 import org.koin.core.parameter.parametersOf
 import org.koin.dsl.module
-import java.nio.file.Files
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotSame
-import kotlin.test.assertSame
-import kotlin.time.Clock
-import kotlin.time.Duration
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppGraphTest {
@@ -49,6 +53,8 @@ class AppGraphTest {
         val models = ViewModelStore()
         try {
             assertSame(db, graph.db)
+            assertSame(graph.repository, graph.koin.get<Repository>())
+            assertSame(graph.attendance, graph.repository.checks)
             assertSame(clock, graph.clock)
             assertSame(graph.attendance, graph.koin.get<AttendanceService>())
             assertNotSame(graph.clock, other.clock)
@@ -65,7 +71,12 @@ class AppGraphTest {
             val nextToday = graph.koin.get<TodayViewModel>()
             models.put("next-today", nextToday)
             assertNotSame(today, nextToday)
-            for (modelClass in listOf(SetupViewModel::class, PlanViewModel::class, SettingsViewModel::class)) {
+            for (modelClass in listOf(
+                AppViewModel::class,
+                SetupViewModel::class,
+                PlanViewModel::class,
+                SettingsViewModel::class
+            )) {
                 models.put(modelClass.simpleName!!, graph.koin.get(modelClass))
             }
             val month = LocalDate(2026, 11, 1)
@@ -86,16 +97,21 @@ class AppGraphTest {
     }
 
     private fun platformModule(db: DaymarkDatabase, clock: Clock) = module {
+        single<HttpClient> { HttpClient(MockEngine { error("No network during DI resolution") }) }
         single<DaymarkDatabase> { db }
         single<Clock> { clock }
         single<LocationGateway> {
             object : LocationGateway {
-                override suspend fun requestFix(budget: Duration): LocationResult = error("No GPS during DI resolution")
+                override suspend fun requestFix(budget: Duration): LocationResult =
+                    error("No GPS during DI resolution")
             }
         }
         single<NativeGoogleAuth> {
             object : NativeGoogleAuth {
-                override fun authorize(interactive: Boolean, completion: (NativeAuthReply) -> Unit) =
+                override fun authorize(
+                    interactive: Boolean,
+                    completion: (NativeAuthReply) -> Unit
+                ) =
                     error("No Google authorization during DI resolution")
 
                 override fun forget(completion: (Boolean) -> Unit) = completion(true)
@@ -104,8 +120,11 @@ class AppGraphTest {
         single<ReminderPort> {
             object : ReminderPort {
                 override fun requestPermission(completion: (Boolean) -> Unit) = completion(false)
-                override fun replace(remindersJson: String, completion: (Boolean) -> Unit) = completion(false)
-                override fun cancelTracker(trackerId: String, completion: (Boolean) -> Unit) = completion(true)
+                override fun replace(remindersJson: String, completion: (Boolean) -> Unit) =
+                    completion(false)
+
+                override fun cancelTracker(trackerId: String, completion: (Boolean) -> Unit) =
+                    completion(true)
             }
         }
         single<WidgetSink> {

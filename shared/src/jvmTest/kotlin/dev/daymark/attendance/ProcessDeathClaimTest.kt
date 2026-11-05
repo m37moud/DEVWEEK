@@ -1,12 +1,10 @@
 package dev.daymark.attendance
 
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.openJvmDatabase
 import dev.daymark.fixturePlan
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import dev.daymark.models.attendance.AutomaticState
+import dev.daymark.models.attendance.ClaimResult
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
@@ -14,6 +12,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 
 class ProcessDeathClaimTest {
     @Test

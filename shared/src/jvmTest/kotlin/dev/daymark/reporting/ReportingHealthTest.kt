@@ -1,21 +1,26 @@
 package dev.daymark.reporting
 
-import dev.daymark.attendance.RoomAttendanceRepository
 import dev.daymark.attendance.TestClock
 import dev.daymark.auth.GoogleAccess
 import dev.daymark.auth.NativeAuthReply
 import dev.daymark.auth.NativeGoogleAuth
-import dev.daymark.data.SettingEntity
-import dev.daymark.data.openJvmDatabase
+import dev.daymark.data.local.SettingEntity
+import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.openJvmDatabase
+import dev.daymark.data.local.reporting.ReportingRuntime
+import dev.daymark.data.local.reporting.RoomReportStore
+import dev.daymark.data.remote.data_source.data.ktor.GoogleReportTransport
 import dev.daymark.data.seedDatabase
+import dev.daymark.models.reporting.ReportBinding
+import dev.daymark.models.reporting.SyncPassResult
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
-import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlinx.coroutines.runBlocking
 
 class ReportingHealthTest {
     @Test
