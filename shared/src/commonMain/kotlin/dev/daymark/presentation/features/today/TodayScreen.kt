@@ -21,16 +21,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.daymark.models.DayDashboardDay
-import dev.daymark.models.NextAttendance
-import dev.daymark.models.NextAttendanceKey
 import dev.daymark.models.TodayDashboard
+import dev.daymark.models.WeekDaySummary
 import dev.daymark.models.attendance.AttendanceSource
 import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.models.attendance.CheckRejection
+import dev.daymark.models.attendance.DayKey
 import dev.daymark.models.attendance.DayOutcome
 import dev.daymark.models.attendance.DayPlan
-import dev.daymark.models.attendance.DayPlanKey
+import dev.daymark.models.attendance.RegisteredPlace
+import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.reporting.ReportHealth
 import dev.daymark.presentation.features.today.component.TodayErrorCallout
 import dev.daymark.presentation.features.today.component.TodayHeroCard
@@ -48,7 +48,7 @@ import dev.daymark.settings.isolated
 import dev.daymark.settings.str
 import dev.daymark.ui.theme.DaymarkTheme
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.LocalTime
+import kotlin.time.Instant
 
 private data class TodayActions(
     val checkAttendance: () -> Unit,
@@ -167,22 +167,33 @@ private fun TodayContent(
 }
 
 @Preview
+@Preview(name = "Awaiting narrow large text", widthDp = 320, fontScale = 2f)
 @Composable
 private fun TodayScreenPreview() {
     val actions = TodayActions({}, {})
     val sampleDate = LocalDate(2026, 10, 27)
     val plan = DayPlan(
-        key = DayPlanKey(1L, sampleDate),
-        isScheduled = true,
-        arrival = LocalTime(9, 0),
-        deadline = LocalTime(9, 5),
-        zoneId = "Africa/Cairo"
+        key = DayKey("preview-tracker", sampleDate),
+        category = TrackerCategory.WORK,
+        arrival = Instant.fromEpochMilliseconds(1793084400000),
+        deadline = Instant.fromEpochMilliseconds(1793084700000),
+        zoneId = "Africa/Cairo",
+        scheduleVersion = 1L,
+        place = RegisteredPlace(30.0, 31.0, 100, 1L),
+        isScheduled = true
     )
     val weekDays = (26..31).map { dayNumber ->
         val date = LocalDate(2026, 10, dayNumber)
-        DayDashboardDay(
+        WeekDaySummary(
             date = date,
-            status = if (dayNumber == 27) AttendanceStatus.AWAITING_CHECK else AttendanceStatus.PRESENT,
+            status = when (dayNumber) {
+                26 -> AttendanceStatus.PRESENT
+                27 -> AttendanceStatus.AWAITING_CHECK
+                28 -> AttendanceStatus.HOLIDAY
+                29 -> AttendanceStatus.VACATION
+                30 -> AttendanceStatus.SCHEDULED
+                else -> AttendanceStatus.DAY_OFF
+            },
             planned = dayNumber > 27
         )
     }
@@ -194,10 +205,10 @@ private fun TodayScreenPreview() {
         late = 2,
         absent = 1,
         week = weekDays,
-        nextAttendance = NextAttendance(
-            key = NextAttendanceKey(1L, LocalDate(2026, 10, 28)),
-            arrival = LocalTime(9, 0),
-            zoneId = "Africa/Cairo"
+        nextAttendance = plan.copy(
+            key = DayKey("preview-tracker", LocalDate(2026, 10, 30)),
+            arrival = Instant.fromEpochMilliseconds(1793343600000),
+            deadline = Instant.fromEpochMilliseconds(1793343900000)
         )
     )
 
@@ -211,7 +222,9 @@ private fun TodayScreenPreview() {
                 canCheck = true,
                 outcome = DayOutcome(
                     status = AttendanceStatus.AWAITING_CHECK,
-                    source = AttendanceSource.NONE
+                    source = AttendanceSource.NONE,
+                    confirmedAt = null,
+                    offReason = null
                 ),
                 dashboard = dashboard,
                 report = ReportHealth()
@@ -224,16 +237,20 @@ private fun TodayScreenPreview() {
 }
 
 @Preview
+@Preview(name = "Corrected narrow large text", widthDp = 320, fontScale = 2f)
 @Composable
-private fun TodayScreenConfirmedDarkPreview() {
+private fun TodayScreenCorrectedDarkPreview() {
     val actions = TodayActions({}, {})
     val sampleDate = LocalDate(2026, 10, 27)
     val plan = DayPlan(
-        key = DayPlanKey(1L, sampleDate),
-        isScheduled = true,
-        arrival = LocalTime(9, 0),
-        deadline = LocalTime(9, 5),
-        zoneId = "Africa/Cairo"
+        key = DayKey("preview-tracker", sampleDate),
+        category = TrackerCategory.WORK,
+        arrival = Instant.fromEpochMilliseconds(1793084400000),
+        deadline = Instant.fromEpochMilliseconds(1793084700000),
+        zoneId = "Africa/Cairo",
+        scheduleVersion = 1L,
+        place = RegisteredPlace(30.0, 31.0, 100, 1L),
+        isScheduled = true
     )
     DaymarkTheme(ThemePreference.DARK) {
         TodayContent(
@@ -245,10 +262,15 @@ private fun TodayScreenConfirmedDarkPreview() {
                 canCheck = false,
                 outcome = DayOutcome(
                     status = AttendanceStatus.PRESENT,
-                    source = AttendanceSource.AUTOMATIC_GPS,
-                    confirmedAt = kotlinx.datetime.Instant.fromEpochMilliseconds(1793084520000)
+                    source = AttendanceSource.MANUAL_CORRECTION,
+                    confirmedAt = Instant.fromEpochMilliseconds(1793084520000),
+                    offReason = null
                 ),
-                dashboard = TodayDashboard(ready = true, date = sampleDate, placeName = "Harbor Office"),
+                dashboard = TodayDashboard(
+                    ready = true,
+                    date = sampleDate,
+                    placeName = "Harbor Office"
+                ),
                 report = ReportHealth()
             ),
             displayName = "Alex",
