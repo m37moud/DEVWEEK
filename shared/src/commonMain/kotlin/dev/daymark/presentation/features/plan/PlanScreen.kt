@@ -2,6 +2,7 @@ package dev.daymark.presentation.features.plan
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -55,7 +56,6 @@ import dev.daymark.presentation.component.ZonePicker
 import dev.daymark.presentation.component.label
 import dev.daymark.presentation.component.localTimeLabel
 import dev.daymark.presentation.features.setup.SetupIssue
-import dev.daymark.presentation.features.setup.title
 import dev.daymark.resources.Res
 import dev.daymark.resources.add_time_off
 import dev.daymark.resources.adjust_balance
@@ -107,15 +107,15 @@ import dev.daymark.settings.ThemePreference
 import dev.daymark.settings.isolated
 import dev.daymark.settings.str
 import dev.daymark.ui.theme.DaymarkTheme
-import kotlin.math.roundToInt
-import kotlin.time.Clock
-import kotlin.time.Instant
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
+import kotlin.math.roundToInt
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 private data class PlanActions(
     val edit: ((PlanChange) -> PlanChange) -> Unit,
@@ -193,28 +193,37 @@ private fun PlanContent(
                 )
             }
             Text(str(Res.string.setup_type), style = MaterialTheme.typography.titleMedium)
-            for (category in TrackerCategory.entries) FilterChip(
-                selected = draft.category == category,
-                enabled = !state.busy,
-                onClick = { actions.edit { it.copy(category = category) } },
-                label = { Text(str(category.label())) })
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (category in TrackerCategory.entries)
+                    FilterChip(
+                        selected = draft.category == category,
+                        enabled = !state.busy,
+                        onClick = { actions.edit { it.copy(category = category) } },
+                        label = { Text(str(category.label())) })
+            }
+
             Text(str(Res.string.attendance_days), style = MaterialTheme.typography.titleMedium)
-            for (day in DayOfWeek.entries) FilterChip(
-                selected = day in draft.schedule.days,
-                enabled = !state.busy,
-                modifier = Modifier.testTag("plan-day-${day.name}"),
-                onClick = {
-                    actions.edit {
-                        val days =
-                            if (day in it.schedule.days) it.schedule.days - day else it.schedule.days + day
-                        it.copy(
-                            schedule = it.schedule.copy(
-                                days = days,
-                                overrides = it.schedule.overrides.filterKeys { selected -> selected in days })
-                        )
-                    }
-                },
-                label = { Text(str(day.label())) })
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                for (day in DayOfWeek.entries)
+                    FilterChip(
+                        selected = day in draft.schedule.days,
+                        enabled = !state.busy,
+                        modifier = Modifier.testTag("plan-day-${day.name}"),
+                        onClick = {
+                            actions.edit {
+                                val days =
+                                    if (day in it.schedule.days) it.schedule.days - day else it.schedule.days + day
+                                it.copy(
+                                    schedule = it.schedule.copy(
+                                        days = days,
+                                        overrides = it.schedule.overrides.filterKeys { selected -> selected in days })
+                                )
+                            }
+                        },
+                        label = { Text(str(day.label())) })
+
+            }
             OutlinedButton(
                 enabled = !state.busy,
                 onClick = { timeDay = "default" },

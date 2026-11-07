@@ -14,13 +14,13 @@ import dev.daymark.models.attendance.DayKey
 import dev.daymark.models.attendance.FixVerdict
 import dev.daymark.models.attendance.StoredDay
 import dev.daymark.repository.AttendanceChecks
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.seconds
-import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
+import kotlin.uuid.Uuid
 
 class AttendanceService(
     private val repository: AttendanceRepository,
@@ -130,13 +130,13 @@ class AttendanceService(
 
     private fun commit(day: StoredDay, verdict: FixVerdict, mode: CheckMode, attemptId: String?) =
         CheckCommit(
-            day.plan.key,
-            attemptId,
-            day.plan.scheduleVersion,
-            day.plan.place.version,
-            verdict,
-            mode,
-            clock.now(),
-            day.userEditRevision
+            key = day.plan.key,
+            attemptId = attemptId,
+            expectedScheduleVersion = day.plan.scheduleVersion,
+            expectedPlaceVersion = day.plan.place.version,
+            verdict = verdict,
+            mode = mode,
+            updatedAt = clock.now(),
+            expectedUserEditRevision = day.userEditRevision
         )
 }

@@ -34,7 +34,6 @@ import dev.daymark.app.HostPlatform
 import dev.daymark.app.QuickCheckIntents
 import dev.daymark.app.QuickCheckRequest
 import dev.daymark.models.TrackerSummary
-import dev.daymark.presentation.component.label
 import dev.daymark.presentation.features.app.AppUiEffect
 import dev.daymark.presentation.features.app.AppViewModel
 import dev.daymark.presentation.features.history.HistoryScreen
