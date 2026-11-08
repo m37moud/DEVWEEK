@@ -5,6 +5,7 @@ import kotlin.time.Instant
 
 expect object DisplayFormats {
     fun date(date: LocalDate, language: AppLanguage): String
+    fun monthYear(date: LocalDate, language: AppLanguage): String
     fun time(at: Instant, zoneId: String, language: AppLanguage): String
     fun number(value: Int, language: AppLanguage): String
 }

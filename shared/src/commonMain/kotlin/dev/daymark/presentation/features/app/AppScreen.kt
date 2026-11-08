@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Button
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -109,7 +110,7 @@ internal fun AppScreen(model: AppViewModel, platform: HostPlatform) {
             DaymarkTheme(ready.settings.theme) {
                 Scaffold(
                     topBar = {
-                        if (ready.tracker != null) TopAppBar(
+                        if (ready.tracker != null) CenterAlignedTopAppBar(
                             title = { Text(str(Res.string.app_name)) }
                         )
                     }

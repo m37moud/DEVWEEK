@@ -42,6 +42,17 @@ actual object DisplayFormats {
         ).stringFromDate(requireNotNull(calendar.dateFromComponents(components)))
     }
 
+    actual fun monthYear(date: LocalDate, language: AppLanguage): String {
+        val calendar = NSCalendar(NSCalendarIdentifierGregorian).apply {
+            timeZone = NSTimeZone.timeZoneForSecondsFromGMT(0)
+        }
+        val components = NSDateComponents().apply {
+            year = date.year.toLong(); month = date.month.number.toLong(); day = 1; hour = 12
+        }
+        return formatter(language, "UTC", "MMMM yyyy")
+            .stringFromDate(requireNotNull(calendar.dateFromComponents(components)))
+    }
+
     actual fun time(at: Instant, zoneId: String, language: AppLanguage): String =
         formatter(
             language,

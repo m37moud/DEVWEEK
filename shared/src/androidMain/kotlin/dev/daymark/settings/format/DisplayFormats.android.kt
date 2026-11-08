@@ -18,6 +18,13 @@ actual object DisplayFormats {
                 .withDecimalStyle(DecimalStyle.of(locale(language)))
         )
 
+    actual fun monthYear(date: LocalDate, language: AppLanguage): String =
+        java.time.LocalDate.parse(date.toString()).format(
+            DateTimeFormatter.ofPattern("MMMM yyyy", locale(language))
+                .withChronology(IsoChronology.INSTANCE)
+                .withDecimalStyle(DecimalStyle.of(locale(language)))
+        )
+
     actual fun time(at: Instant, zoneId: String, language: AppLanguage): String =
         DateTimeFormatter.ofPattern("h:mm a", locale(language))
             .withDecimalStyle(DecimalStyle.of(locale(language))).withZone(ZoneId.of(zoneId))

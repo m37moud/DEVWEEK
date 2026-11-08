@@ -35,8 +35,12 @@ class LocaleControllerTest {
     fun gregorian_keys_survive_formatting_in_both_languages() {
         val date = LocalDate(2026, 10, 27)
         assertTrue(DisplayFormats.date(date, AppLanguage.EN).contains("2026"))
+        assertEquals("October 2026", DisplayFormats.monthYear(date, AppLanguage.EN))
         val arabic = DisplayFormats.date(date, AppLanguage.AR)
         assertTrue(arabic.contains("٢٠٢٦"), "Gregorian Arabic display: $arabic")
+        val arabicMonthYear = DisplayFormats.monthYear(date, AppLanguage.AR)
+        assertTrue(arabicMonthYear.contains("٢٠٢٦"), "Gregorian Arabic month/year: $arabicMonthYear")
+        assertFalse(arabicMonthYear.contains("٢٧"))
         assertEquals("2026-10-27", date.toString())
         assertEquals("12", DisplayFormats.number(12, AppLanguage.EN))
         assertEquals("١٢", DisplayFormats.number(12, AppLanguage.AR))
