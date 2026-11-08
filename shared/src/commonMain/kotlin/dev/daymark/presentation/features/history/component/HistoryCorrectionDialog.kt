@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -39,10 +40,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Clock
 import dev.daymark.models.attendance.AttendanceStatus
+import dev.daymark.models.attendance.AttendanceSource
+import dev.daymark.models.attendance.DayKey
+import dev.daymark.models.attendance.DayOutcome
+import dev.daymark.models.attendance.DayPlan
+import dev.daymark.models.attendance.RegisteredPlace
+import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.attendance.Correction
 import dev.daymark.models.attendance.HistoryRecord
 import dev.daymark.presentation.component.label
@@ -62,6 +70,9 @@ import dev.daymark.resources.save
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.str
+import dev.daymark.settings.ThemePreference
+import dev.daymark.ui.theme.DaymarkTheme
+import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
@@ -92,7 +103,8 @@ internal fun HistoryCorrectionDialog(
         )
     }
     var note by rememberSaveable { mutableStateOf(record.evidence?.note.orEmpty()) }
-    val initial = record.evidence?.confirmedAt?.toLocalDateTime(TimeZone.of(record.plan.zoneId))?.time
+    val initial =
+        record.evidence?.confirmedAt?.toLocalDateTime(TimeZone.of(record.plan.zoneId))?.time
     var arrival by rememberSaveable { mutableStateOf(initial?.toString()) }
     var pickTime by remember { mutableStateOf(false) }
 
@@ -127,9 +139,10 @@ internal fun HistoryCorrectionDialog(
                 )
 
                 // Status Filter Chips
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     listOf(
                         AttendanceStatus.PRESENT,
@@ -318,6 +331,39 @@ internal fun HistoryCorrectionDialog(
                     Text(str(Res.string.cancel))
                 }
             }
+        )
+    }
+}
+
+@Preview(name = "Narrow large text", widthDp = 320, fontScale = 2f)
+@Composable
+private fun HistoryCorrectionDialogPreview() {
+    val at = Instant.parse("2026-11-07T09:00:00Z")
+    val record = HistoryRecord(
+        plan = DayPlan(
+            key = DayKey("preview", LocalDate(2026, 11, 7)),
+            category = TrackerCategory.WORK,
+            arrival = at,
+            deadline = at,
+            zoneId = "UTC",
+            scheduleVersion = 1,
+            place = RegisteredPlace(0.0, 0.0, 100, 1),
+            isScheduled = true
+        ),
+        evidence = null,
+        outcome = DayOutcome(AttendanceStatus.ABSENT, AttendanceSource.NONE, null, null)
+    )
+    DaymarkTheme(ThemePreference.LIGHT) {
+        HistoryCorrectionDialog(
+            record = record,
+            busy = false,
+            noteTooLong = false,
+            invalidCorrection = false,
+            storageError = false,
+            language = AppLanguage.EN,
+            onSaveCorrection = {},
+            onEditTimeOff = {},
+            onDismiss = {}
         )
     }
 }

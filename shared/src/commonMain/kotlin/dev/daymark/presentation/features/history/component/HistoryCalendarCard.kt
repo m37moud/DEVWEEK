@@ -20,12 +20,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -73,9 +73,9 @@ import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.ThemePreference
 import dev.daymark.settings.str
 import dev.daymark.ui.theme.DaymarkTheme
-import kotlin.time.Instant
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
+import kotlin.time.Instant
 
 @Composable
 internal fun HistoryCalendarCard(
@@ -239,8 +239,9 @@ private fun CalendarDayCell(
         status == AttendanceStatus.LATE -> MaterialTheme.colorScheme.tertiary to false
         status == AttendanceStatus.ABSENT -> MaterialTheme.colorScheme.error to false
         status == AttendanceStatus.HOLIDAY ||
-            status == AttendanceStatus.VACATION ||
-            status == AttendanceStatus.DAY_OFF -> MaterialTheme.colorScheme.secondary to false
+                status == AttendanceStatus.VACATION ||
+                status == AttendanceStatus.DAY_OFF -> MaterialTheme.colorScheme.secondary to false
+
         planned -> MaterialTheme.colorScheme.outlineVariant to true
         else -> Color.Transparent to false
     }
@@ -290,13 +291,14 @@ private fun CalendarDayCell(
                 BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
             } else null,
             modifier = Modifier
-                .size(width = 42.dp, height = 46.dp)
+                .width(42.dp)
+                .heightIn(min = 48.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .clickable { onSelect(date) }
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
                     .padding(vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
@@ -360,6 +362,7 @@ private fun LegendBadge(
 }
 
 @Preview
+@Preview(name = "Narrow large text", widthDp = 320, fontScale = 2f)
 @Composable
 private fun HistoryCalendarCardPreview() {
     val sampleDate = LocalDate(2026, 11, 7)

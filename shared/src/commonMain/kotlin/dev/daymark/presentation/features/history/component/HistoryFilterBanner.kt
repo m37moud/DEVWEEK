@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import dev.daymark.models.attendance.HistoryRecord
 import dev.daymark.resources.Res
 import dev.daymark.resources.edit_time_off
@@ -33,6 +34,8 @@ import dev.daymark.resources.show_all_records
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.str
+import dev.daymark.settings.ThemePreference
+import dev.daymark.ui.theme.DaymarkTheme
 import kotlinx.datetime.LocalDate
 
 @Composable
@@ -53,7 +56,8 @@ internal fun HistoryFilterBanner(
     ) {
         if (selected == null) return@AnimatedVisibility
 
-        val isFutureWithoutRecord = selected > today && records.none { it.plan.key.date == selected }
+        val isFutureWithoutRecord =
+            selected > today && records.none { it.plan.key.date == selected }
 
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -66,37 +70,28 @@ internal fun HistoryFilterBanner(
                 modifier = Modifier.padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Text(
+                    text = DisplayFormats.date(selected, language),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                TextButton(
+                    onClick = onClearFilter,
+                    modifier = Modifier.testTag("history-show-all"),
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            text = DisplayFormats.date(selected, language),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                    }
-
-                    TextButton(
-                        onClick = onClearFilter,
-                        modifier = Modifier.testTag("history-show-all"),
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = null,
-                                modifier = Modifier.padding(end = 2.dp)
-                            )
-                            Text(text = str(Res.string.show_all_records))
-                        }
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = null,
+                            modifier = Modifier.padding(end = 2.dp)
+                        )
+                        Text(text = str(Res.string.show_all_records))
                     }
                 }
 
@@ -120,5 +115,20 @@ internal fun HistoryFilterBanner(
                 }
             }
         }
+    }
+}
+
+@Preview(name = "Narrow large text", widthDp = 320, fontScale = 2f)
+@Composable
+private fun HistoryFilterBannerPreview() {
+    DaymarkTheme(ThemePreference.LIGHT) {
+        HistoryFilterBanner(
+            selected = LocalDate(2026, 11, 8),
+            today = LocalDate(2026, 11, 7),
+            records = emptyList(),
+            language = AppLanguage.EN,
+            onClearFilter = {},
+            onEditTimeOff = {}
+        )
     }
 }
