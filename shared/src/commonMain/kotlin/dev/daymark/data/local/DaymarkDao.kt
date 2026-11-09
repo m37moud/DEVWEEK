@@ -5,9 +5,19 @@ import androidx.room3.Insert
 import androidx.room3.Query
 import androidx.room3.Upsert
 import kotlinx.coroutines.flow.Flow
+import dev.daymark.data.local.address.PlaceAddressEntity
 
 @Dao
 interface DaymarkDao {
+    @Query("SELECT * FROM place_addresses WHERE latitude = :latitude AND longitude = :longitude AND language = :language")
+    suspend fun placeAddress(latitude: Double, longitude: Double, language: String): PlaceAddressEntity?
+
+    @Upsert
+    suspend fun putPlaceAddress(address: PlaceAddressEntity)
+
+    @Query("DELETE FROM place_addresses")
+    suspend fun deletePlaceAddresses()
+
     @Query("SELECT * FROM trackers LIMIT 1")
     suspend fun tracker(): TrackerEntity?
 
@@ -150,6 +160,7 @@ internal suspend fun DaymarkDao.markDirty(trackerId: String, key: String) {
 
 /** Caller owns the write transaction. Failure rolls back every authoritative table together. */
 internal suspend fun DaymarkDao.deleteAllLocalRows() {
+    deletePlaceAddresses()
     deleteAttendance(); deleteTimeOffRows(); deleteBalanceRows(); deleteReportBatches(); deleteDirtyRows()
     deleteBindings(); deletePlanVersions(); deleteTrackers(); deleteSettings()
 }

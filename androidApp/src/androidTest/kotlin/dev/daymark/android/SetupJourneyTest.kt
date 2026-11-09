@@ -75,6 +75,7 @@ class SetupJourneyTest {
             single<DaymarkDatabase> { db }
             single<Clock> { clock }
             single<LocationGateway> { location }
+            single<dev.daymark.location.PlaceGeocoder> { dev.daymark.location.PlaceGeocoder { null } }
             single<LocationPermissionPort> { permissions }
             single<NativeGoogleAuth> {
                 object : NativeGoogleAuth {

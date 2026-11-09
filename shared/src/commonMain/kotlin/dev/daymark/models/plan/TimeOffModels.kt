@@ -70,5 +70,8 @@ data class PlanChange(
 data class PlanState(
     val current: PlanChange,
     val pending: PlanChange?,
-    val effectiveFrom: LocalDate?
-)
+    val effectiveFrom: LocalDate?,
+    val placeName: String = ""
+) {
+    override fun toString() = "PlanState(metadata=<redacted>)"
+}

@@ -25,6 +25,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.location.PlaceAddressRequest
+import dev.daymark.presentation.component.PlaceAddressUiState
+import dev.daymark.settings.AppLanguage
 import dev.daymark.models.plan.PlanChange
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.plan.TimeOffCommand
@@ -34,6 +37,8 @@ import dev.daymark.plan.WeeklySchedule
 import dev.daymark.presentation.component.ZonePicker
 import dev.daymark.presentation.features.plan.component.ArrivalTimeDialog
 import dev.daymark.presentation.features.plan.component.BalanceAdjustDialog
+import dev.daymark.presentation.features.plan.component.PlanPlaceActions
+import dev.daymark.presentation.features.plan.component.PlanPlaceUiState
 import dev.daymark.presentation.features.plan.component.PlanPlaceCard
 import dev.daymark.presentation.features.plan.component.PlanPreviewDialog
 import dev.daymark.presentation.features.plan.component.PlanRoutineCard
@@ -76,6 +81,11 @@ private data class PlanActions(
 @Composable
 fun PlanScreen(model: PlanViewModel, clock: Clock, initialTimeOffDate: LocalDate? = null) {
     val state by model.uiState.collectAsStateWithLifecycle()
+    val language = LocalAppLanguage.current
+    val place = state.draft?.place
+    LaunchedEffect(model, place?.latitude, place?.longitude, language, state.placeRegistrationRevision) {
+        if (place != null) model.showPlaceAddress(place, language)
+    }
     val actions = remember(model) {
         PlanActions(
             model::edit,
@@ -206,14 +216,17 @@ private fun PlanContent(
             )
 
             PlanPlaceCard(
-                place = draft.place,
-                busy = state.busy,
-                locationIssue = state.locationIssue,
-                onRadiusChange = { radius ->
-                    actions.edit { it.copy(place = it.place.copy(radiusMetres = radius)) }
-                },
-                onRegisterCurrentPlace = actions.registerCurrentPlace,
-                onOpenLocationSettings = actions.openLocationSettings
+                state = PlanPlaceUiState(
+                    draft.place, state.placeAddress, state.plan?.placeName.orEmpty(),
+                    state.busy, state.locationIssue
+                ),
+                actions = PlanPlaceActions(
+                    changeRadius = { radius ->
+                        actions.edit { it.copy(place = it.place.copy(radiusMetres = radius)) }
+                    },
+                    registerCurrentPlace = actions.registerCurrentPlace,
+                    openLocationSettings = actions.openLocationSettings
+                )
             )
 
             PlanTimeOffCard(
@@ -366,6 +379,10 @@ private fun samplePlanState(): PlanUiState {
     return PlanUiState(
         ready = true,
         draft = draft,
+        placeAddress = PlaceAddressUiState(
+            PlaceAddressRequest(draft.place.latitude, draft.place.longitude, AppLanguage.EN),
+            "Market Street, San Francisco, California, United States"
+        ),
         availableBalance = 12,
         entries = listOf(
             TimeOffEntry("sample-1", TimeOffKind.VACATION, LocalDate(2026, 11, 20), LocalDate(2026, 11, 25), Instant.fromEpochMilliseconds(0)),

@@ -6,6 +6,9 @@ import dev.daymark.location.LocationFailure
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationPermissionPort
 import dev.daymark.location.LocationResult
+import dev.daymark.location.PlaceAddressRequest
+import dev.daymark.presentation.component.placeAddressStates
+import dev.daymark.settings.AppLanguage
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.plan.PlanChange
 import dev.daymark.models.plan.PlanMutationResult
@@ -39,6 +42,14 @@ class PlanViewModel(
 ) : ViewModel(scope) {
     private val state = MutableStateFlow(PlanUiState())
     val uiState = state.asStateFlow()
+
+    suspend fun showPlaceAddress(place: RegisteredPlace, language: AppLanguage) {
+        val request = PlaceAddressRequest(place.latitude, place.longitude, language)
+        repository.placeAddressStates(request).collect { address ->
+            state.update { it.copy(placeAddress = address) }
+        }
+    }
+
     private var pendingPlan: PlanChange? = null
     private var pendingOff: TimeOffCommand? = null
 
@@ -184,7 +195,8 @@ class PlanViewModel(
                             draft.place.version
                         )
                     ),
-                    preview = null, locationIssue = null
+                    preview = null, locationIssue = null,
+                    placeRegistrationRevision = it.placeRegistrationRevision + 1
                 )
             }
         }

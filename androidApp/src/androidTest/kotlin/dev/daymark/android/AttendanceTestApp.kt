@@ -56,6 +56,7 @@ internal class AttendanceTestApp(context: Context, name: String, private val wid
             single<DaymarkDatabase> { db }
             single<Clock> { clock }
             single<LocationGateway> { location }
+            single<PlaceGeocoder> { PlaceGeocoder { null } }
             single<LocationPermissionPort> { permissions }
             single<NativeGoogleAuth> {
                 nativeAuth ?: object : NativeGoogleAuth {

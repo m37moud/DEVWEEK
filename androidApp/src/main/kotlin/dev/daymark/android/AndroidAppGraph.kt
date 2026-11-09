@@ -47,6 +47,7 @@ class AndroidAppGraph(context: Context) {
         module {
             single<DaymarkDatabase> { openAndroidDatabase(app) }
             single<LocationGateway> { AndroidLocationGateway(app) }
+            single<PlaceGeocoder> { AndroidPlaceGeocoder(app) }
             single { AndroidGoogleAuth(app) }
             single<NativeGoogleAuth> { get<AndroidGoogleAuth>() }
             single { AndroidAttendanceScheduler(WorkManager.getInstance(app), get(), scope) }

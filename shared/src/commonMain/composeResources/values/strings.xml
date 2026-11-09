@@ -239,6 +239,8 @@
     <string name="widget_sample_place">Workplace</string>
     <string name="widget_sample_status">Present · On time</string>
     <string name="registered_coordinates">Latitude: %1$s · Longitude: %2$s</string>
+    <string name="registered_address_loading">Finding address…</string>
+    <string name="registered_address_unavailable">Address unavailable</string>
     <string name="registered_map_unavailable">Map preview unavailable. Your registered location is saved; you can continue.</string>
     <string name="registered_map_loading">Loading map…</string>
     <string name="registered_map_retry">Retry map</string>

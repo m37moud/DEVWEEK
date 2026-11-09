@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 
 open class TestRepository : Repository {
+    override val placeAddresses: PlaceAddressDataSource get() = error("Unexpected address access")
     override val attendance: AttendanceRepository get() = error("Unexpected attendance access")
     override val checks: AttendanceChecks get() = error("Unexpected check access")
     override val plans: PlanDataSource get() = error("Unexpected plan access")

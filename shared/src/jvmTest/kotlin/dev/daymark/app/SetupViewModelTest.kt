@@ -378,6 +378,9 @@ class SetupViewModelTest {
                 vm.useCurrentLocation()
                 val registered = vm.uiState.first { it.draft.place != null && !it.busy }
                 assertEquals(0.0, registered.draft.place?.latitude)
+                assertEquals(1L, registered.placeRegistrationRevision)
+                vm.useCurrentLocation()
+                vm.uiState.first { it.placeRegistrationRevision == 2L && !it.busy }
                 vm.submit()
                 vm.uiState.first { it.completed }
                 val tracker = requireNotNull(db.dao().tracker())

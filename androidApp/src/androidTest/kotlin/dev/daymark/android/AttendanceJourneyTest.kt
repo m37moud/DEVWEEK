@@ -102,6 +102,7 @@ class AttendanceJourneyTest {
             single<DaymarkDatabase> { db }
             single<Clock> { clock }
             single<LocationGateway> { location }
+            single<dev.daymark.location.PlaceGeocoder> { dev.daymark.location.PlaceGeocoder { null } }
             single<LocationPermissionPort> { permissions }
             single<dev.daymark.auth.NativeGoogleAuth> {
                 object : dev.daymark.auth.NativeGoogleAuth {

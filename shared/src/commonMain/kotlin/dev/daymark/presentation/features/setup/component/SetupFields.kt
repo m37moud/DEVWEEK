@@ -157,7 +157,7 @@ internal fun SetupPlace(state: SetupUiState, actions: SetupActions) {
             place,
             state.busy
         ) { updated -> actions.updateDraft(draft.copy(place = updated)) }
-        RegisteredPlacePreview(place, Modifier.fillMaxWidth())
+        RegisteredPlacePreview(place, state.placeAddress, draft.placeName, Modifier.fillMaxWidth())
     }
 }
 

@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.presentation.component.RegisteredPlacePreview
+import dev.daymark.presentation.component.PlaceAddressUiState
 import dev.daymark.presentation.component.label
 import dev.daymark.presentation.features.setup.SetupIssue
 import dev.daymark.resources.Res
@@ -45,16 +46,29 @@ import dev.daymark.settings.isolated
 import dev.daymark.settings.str
 import kotlin.math.roundToInt
 
+internal data class PlanPlaceUiState(
+    val place: RegisteredPlace,
+    val address: PlaceAddressUiState,
+    val placeName: String,
+    val busy: Boolean,
+    val locationIssue: SetupIssue?
+) {
+    override fun toString() = "PlanPlaceUiState(metadata=<redacted>)"
+}
+
+internal data class PlanPlaceActions(
+    val changeRadius: (Int) -> Unit,
+    val registerCurrentPlace: () -> Unit,
+    val openLocationSettings: () -> Unit
+)
+
 @Composable
 internal fun PlanPlaceCard(
-    place: RegisteredPlace,
-    busy: Boolean,
-    locationIssue: SetupIssue?,
-    onRadiusChange: (Int) -> Unit,
-    onRegisterCurrentPlace: () -> Unit,
-    onOpenLocationSettings: () -> Unit,
+    state: PlanPlaceUiState,
+    actions: PlanPlaceActions,
     modifier: Modifier = Modifier
 ) {
+    val place = state.place
     val language = LocalAppLanguage.current
     val metresText = isolated(DisplayFormats.number(place.radiusMetres, language))
     val radiusLabel = str(Res.string.radius)
@@ -87,7 +101,7 @@ internal fun PlanPlaceCard(
                 )
             }
 
-            RegisteredPlacePreview(place = place, modifier = Modifier.fillMaxWidth())
+            RegisteredPlacePreview(place, state.address, state.placeName, Modifier.fillMaxWidth())
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(
@@ -114,10 +128,10 @@ internal fun PlanPlaceCard(
                 }
                 Slider(
                     value = place.radiusMetres.toFloat(),
-                    onValueChange = { onRadiusChange(it.roundToInt()) },
+                    onValueChange = { actions.changeRadius(it.roundToInt()) },
                     valueRange = 100f..500f,
                     steps = 7,
-                    enabled = !busy,
+                    enabled = !state.busy,
                     modifier = Modifier.semantics {
                         contentDescription = radiusLabel
                         stateDescription = radiusDescription
@@ -126,15 +140,15 @@ internal fun PlanPlaceCard(
             }
 
             Button(
-                onClick = onRegisterCurrentPlace,
-                enabled = !busy,
+                onClick = actions.registerCurrentPlace,
+                enabled = !state.busy,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (busy) {
+                    if (state.busy) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
                             color = LocalContentColor.current,
@@ -149,7 +163,7 @@ internal fun PlanPlaceCard(
                     }
                     Text(
                         text = str(
-                            if (busy) Res.string.checking_location
+                            if (state.busy) Res.string.checking_location
                             else Res.string.register_place
                         )
                     )
@@ -162,7 +176,7 @@ internal fun PlanPlaceCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            locationIssue?.let { issue ->
+            state.locationIssue?.let { issue ->
                 Surface(
                     shape = MaterialTheme.shapes.small,
                     color = MaterialTheme.colorScheme.errorContainer,
@@ -178,7 +192,7 @@ internal fun PlanPlaceCard(
                 }
                 if (issue == SetupIssue.LOCATION_DENIED || issue == SetupIssue.LOCATION_DISABLED) {
                     TextButton(
-                        onClick = onOpenLocationSettings,
+                        onClick = actions.openLocationSettings,
                         modifier = Modifier.align(Alignment.End)
                     ) {
                         Text(str(Res.string.open_settings))

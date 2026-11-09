@@ -18,10 +18,15 @@ import kotlinx.serialization.json.jsonPrimitive
 
 class DatabaseMigrationTest {
     @Test
-    fun schema_one_upgrades_without_losing_tracker_or_adjustment_history() = runTest {
+    fun schema_one_upgrades_without_losing_tracker_or_adjustment_history() = verifyMigration(1)
+
+    @Test
+    fun schema_two_upgrades_without_losing_tracker_or_adjustment_history() = verifyMigration(2)
+
+    private fun verifyMigration(version: Int) = runTest {
         val schemaPath = listOf(
-            Path.of("schemas/dev.daymark.data.local.DaymarkDatabase/1.json"),
-            Path.of("shared/schemas/dev.daymark.data.local.DaymarkDatabase/1.json")
+            Path.of("schemas/dev.daymark.data.local.DaymarkDatabase/$version.json"),
+            Path.of("shared/schemas/dev.daymark.data.local.DaymarkDatabase/$version.json")
         ).first { Files.exists(it) }
         val schema =
             Json.parseToJsonElement(Files.readString(schemaPath)).jsonObject.getValue("database").jsonObject
@@ -51,7 +56,7 @@ class DatabaseMigrationTest {
                 val id = fixturePlan().key.trackerId
                 connection.execSQL("INSERT INTO trackers(id, displayName, createdAt, trackingStartsAt, openingBalance, automaticEnabled, singleton) VALUES('$id', 'Legacy person', '2026-10-27T08:00:00Z', '2026-10-27T09:00:00Z', 12, 1, 0)")
                 connection.execSQL("INSERT INTO balance_adjustments(id, trackerId, delta, createdAt) VALUES('legacy-adjustment', '$id', -2, '2026-10-27T08:00:00Z')")
-                connection.execSQL("PRAGMA user_version = 1")
+                connection.execSQL("PRAGMA user_version = $version")
             }
             val db = openJvmDatabase(path.toString())
             try {
@@ -62,6 +67,7 @@ class DatabaseMigrationTest {
                 val adjustment = db.dao().balanceAdjustments(tracker.id).single()
                 assertEquals(-2, adjustment.delta)
                 assertNull(adjustment.note)
+                assertNull(db.dao().placeAddress(30.0, 31.0, "en"))
             } finally {
                 db.close()
             }

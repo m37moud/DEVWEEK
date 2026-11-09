@@ -10,6 +10,10 @@ import dev.daymark.location.LocationFailure
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationPermissionPort
 import dev.daymark.location.LocationResult
+import dev.daymark.location.PlaceAddressRequest
+import dev.daymark.presentation.component.placeAddressStates
+import dev.daymark.settings.AppLanguage
+import kotlinx.coroutines.flow.collect
 import dev.daymark.logging.AppLogger
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.attendance.TrackerCategory
@@ -47,6 +51,13 @@ class SetupViewModel(
 ) : ViewModel(scope) {
     private val state = MutableStateFlow(SetupUiState())
     val uiState = state.asStateFlow()
+
+    suspend fun showPlaceAddress(place: RegisteredPlace, language: AppLanguage) {
+        val request = PlaceAddressRequest(place.latitude, place.longitude, language)
+        repository.placeAddressStates(request).collect { address ->
+            state.update { it.copy(placeAddress = address) }
+        }
+    }
 
     private data class DraftWrite(val draft: SetupDraft, val revision: Long)
 
@@ -285,7 +296,12 @@ class SetupViewModel(
                                     1
                                 )
                             )
-                            state.update { it.copy(draft = draft, draftSaved = false) }
+                            state.update {
+                                it.copy(
+                                    draft = draft, draftSaved = false,
+                                    placeRegistrationRevision = it.placeRegistrationRevision + 1
+                                )
+                            }
                             enqueueDraft(draft)
                             AppLogger.i(
                                 "SetupViewModel",

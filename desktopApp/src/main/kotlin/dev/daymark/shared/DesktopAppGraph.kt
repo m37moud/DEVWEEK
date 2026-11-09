@@ -8,6 +8,7 @@ import dev.daymark.location.LocationFailure
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationPermissionPort
 import dev.daymark.location.LocationResult
+import dev.daymark.location.PlaceGeocoder
 import dev.daymark.reminders.ReminderPort
 import dev.daymark.widgets.WidgetSink
 import kotlin.time.Duration
@@ -18,6 +19,7 @@ internal fun desktopAppGraph(database: DaymarkDatabase): AppGraph {
     return AppGraph(module {
         single { MacLocation(macLocationExecutable()) }
         single<DaymarkDatabase> { database }
+        single<PlaceGeocoder> { PlaceGeocoder { null } }
         single<LocationGateway> {
             if (System.getProperty("os.name").startsWith("Mac")) get<MacLocation>() else DesktopLocation
         }

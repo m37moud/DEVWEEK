@@ -5,6 +5,8 @@ import dev.daymark.attendance.AttendanceRepository
 import dev.daymark.attendance.AttendanceService
 import dev.daymark.auth.GoogleAccess
 import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.address.RoomPlaceAddressDataSource
+import dev.daymark.repository.PlaceAddressDataSource
 import dev.daymark.data.local.RoomApplicationDataSource
 import dev.daymark.data.local.application.ConfigurationCoordinator
 import dev.daymark.data.local.application.DataLifecycleService
@@ -52,6 +54,7 @@ import org.koin.dsl.module
 import org.koin.dsl.onClose
 
 internal fun attendanceModule() = module {
+    single<PlaceAddressDataSource> { RoomPlaceAddressDataSource(get(), get()) }
     single<AttendanceChecks> { get<AttendanceService>() }
     single<PlanDataSource> { get<PlanService>() }
     single<TimeOffDataSource> { get<TimeOffService>() }
@@ -73,6 +76,7 @@ internal fun attendanceModule() = module {
     }
     single<Repository> {
         AppRepository(
+            get(),
             get(),
             get(),
             get(),

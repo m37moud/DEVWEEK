@@ -244,6 +244,8 @@
     <string name="widget_sample_place">مكان العمل</string>
     <string name="widget_sample_status">حاضر · في الموعد</string>
     <string name="registered_coordinates">خط العرض: %1$s · خط الطول: %2$s</string>
+    <string name="registered_address_loading">جارٍ البحث عن العنوان…</string>
+    <string name="registered_address_unavailable">العنوان غير متاح</string>
     <string name="registered_map_unavailable">معاينة الخريطة غير متاحة. تم حفظ موقع مكانك ويمكنك المتابعة.</string>
     <string name="registered_map_loading">جارٍ تحميل الخريطة…</string>
     <string name="registered_map_retry">إعادة تحميل الخريطة</string>

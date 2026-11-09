@@ -45,6 +45,11 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 import dev.daymark.app.HostPlatform
 import dev.daymark.app.SetupStep
 import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.attendance.RegisteredPlace
+import dev.daymark.models.setup.SetupDraft
+import dev.daymark.location.PlaceAddressRequest
+import dev.daymark.presentation.component.PlaceAddressUiState
+import dev.daymark.settings.AppLanguage
 import dev.daymark.navigation.SetupFinish
 import dev.daymark.presentation.component.isLocationIssue
 import dev.daymark.presentation.features.setup.component.OnboardingProgress
@@ -79,6 +84,7 @@ import dev.daymark.resources.setup_description
 import dev.daymark.resources.start_tracking
 import dev.daymark.resources.storage_unavailable
 import dev.daymark.settings.ThemePreference
+import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.str
 import dev.daymark.ui.theme.DaymarkTheme
 import org.jetbrains.compose.resources.painterResource
@@ -99,6 +105,20 @@ fun SetupScreen(
     onFinish: (SetupFinish) -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val language = LocalAppLanguage.current
+    val place = state.draft.place
+    LaunchedEffect(
+        viewModel,
+        place?.latitude,
+        place?.longitude,
+        language,
+        state.draft.step,
+        state.placeRegistrationRevision
+    ) {
+        if (place != null && state.draft.step == SetupStep.PLACE) {
+            viewModel.showPlaceAddress(place, language)
+        }
+    }
     val keyboard = LocalSoftwareKeyboardController.current
     val actions = SetupActions(
         updateDraft = viewModel::updateDraft,
@@ -310,9 +330,18 @@ internal fun SetupStep.title() = when (this) {
 }
 
 @Preview
+@Preview(name = "Place large text", widthDp = 320, fontScale = 2f)
 @Composable
 private fun SetupScreenPreview() {
-    val state = SetupUiState(ready = true)
+    val place = RegisteredPlace(37.7749, -122.4194, 150, 1)
+    val state = SetupUiState(
+        ready = true,
+        draft = SetupDraft(step = SetupStep.PLACE, placeName = "Office", place = place),
+        placeAddress = PlaceAddressUiState(
+            PlaceAddressRequest(place.latitude, place.longitude, AppLanguage.EN),
+            "Market Street, San Francisco, California, United States"
+        )
+    )
     val controls = OnboardingActions({}, {}, {}, {}, {}) {}
     DaymarkTheme(ThemePreference.LIGHT) {
         OnboardingLayout(state, controls) {

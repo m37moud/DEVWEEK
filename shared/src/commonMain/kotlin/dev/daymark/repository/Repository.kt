@@ -4,6 +4,7 @@ import dev.daymark.attendance.AttendanceRepository
 import dev.daymark.plan.PlanReader
 
 interface Repository {
+    val placeAddresses: PlaceAddressDataSource
     val attendance: AttendanceRepository
     val checks: AttendanceChecks
     val plans: PlanDataSource
@@ -28,5 +29,6 @@ class AppRepository(
     override val dashboard: DashboardDataSource,
     override val reporting: ReportingDataSource,
     override val application: ApplicationDataSource,
-    override val dataLifecycle: DataLifecycleDataSource
+    override val dataLifecycle: DataLifecycleDataSource,
+    override val placeAddresses: PlaceAddressDataSource
 ) : Repository

@@ -97,6 +97,7 @@ class AppGraphTest {
     }
 
     private fun platformModule(db: DaymarkDatabase, clock: Clock) = module {
+        single<dev.daymark.location.PlaceGeocoder> { dev.daymark.location.PlaceGeocoder { null } }
         single<HttpClient> { HttpClient(MockEngine { error("No network during DI resolution") }) }
         single<DaymarkDatabase> { db }
         single<Clock> { clock }

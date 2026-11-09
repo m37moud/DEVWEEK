@@ -8,6 +8,8 @@ import dev.daymark.location.IosLocationGateway
 import dev.daymark.location.IosLocationPermissions
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationPermissionPort
+import dev.daymark.location.PlaceGeocoder
+import dev.daymark.location.IosPlaceGeocoder
 import dev.daymark.reminders.ReminderPort
 import dev.daymark.widgets.WidgetSink
 import kotlin.time.Clock
@@ -25,6 +27,7 @@ fun MainViewController(
     val graph = applicationGraph ?: AppGraph(module {
         single<DaymarkDatabase> { openIosDatabase() }
         single<LocationGateway> { IosLocationGateway(get<Clock>()) }
+        single<PlaceGeocoder> { IosPlaceGeocoder() }
         single<LocationPermissionPort> { IosLocationPermissions() }
         single<NativeGoogleAuth> { auth }
         single<ReminderPort> { reminders }

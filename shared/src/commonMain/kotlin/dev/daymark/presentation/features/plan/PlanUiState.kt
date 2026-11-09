@@ -6,6 +6,7 @@ import dev.daymark.models.plan.PlanState
 import dev.daymark.models.plan.TimeOffEntry
 import dev.daymark.models.plan.TimeOffPreview
 import dev.daymark.presentation.features.setup.SetupIssue
+import dev.daymark.presentation.component.PlaceAddressUiState
 
 data class PlanUiState(
     val plan: PlanState? = null,
@@ -20,4 +21,6 @@ data class PlanUiState(
     val invalidInput: Boolean = false,
     val locationIssue: SetupIssue? = null,
     val storageError: Boolean = false,
+    val placeAddress: PlaceAddressUiState = PlaceAddressUiState(),
+    val placeRegistrationRevision: Long = 0,
 )
