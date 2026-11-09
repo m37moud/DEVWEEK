@@ -503,20 +503,20 @@ private fun ConnectedReportQuickActions(
     onOpenSpreadsheet: (String) -> Unit,
     onRetry: () -> Unit
 ) {
-    Row(
+    FlowRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         FilledTonalButton(
             enabled = interactive,
-            onClick = { onOpenSpreadsheet(spreadsheetId) },
-            modifier = Modifier.weight(1f)
+            onClick = { onOpenSpreadsheet(spreadsheetId) }
         ) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(str(Res.string.report_open))
+                Text(str(Res.string.report_open), modifier = Modifier.weight(1f, fill = false))
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
@@ -538,7 +538,7 @@ private fun ConnectedReportQuickActions(
                     contentDescription = null,
                     modifier = Modifier.size(16.dp)
                 )
-                Text(str(Res.string.retry))
+                Text(str(Res.string.retry), modifier = Modifier.weight(1f, fill = false))
             }
         }
     }
@@ -807,7 +807,7 @@ private fun ReportConfirmationDialog(
     )
 }
 
-@Preview
+@Preview(widthDp = 320, fontScale = 2f)
 @Composable
 private fun GoogleConnectionConnectedPreview() {
     val sampleBinding = ReportBinding(
