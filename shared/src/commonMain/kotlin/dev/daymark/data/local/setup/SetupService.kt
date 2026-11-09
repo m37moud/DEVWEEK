@@ -3,6 +3,7 @@ package dev.daymark.data.local.setup
 import androidx.room3.withWriteTransaction
 import androidx.sqlite.SQLiteException
 import dev.daymark.repository.SetupStorageException
+import dev.daymark.repository.SettingsStorageException
 import kotlinx.coroutines.flow.catch
 import dev.daymark.app.SetupDraftLoad
 import dev.daymark.app.SetupStep
@@ -115,6 +116,8 @@ class SetupService(
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (_: SettingsStorageException) {
+            SetupResult.LocalSaveFailed
         } catch (_: androidx.sqlite.SQLiteException) {
             SetupResult.LocalSaveFailed
         } catch (_: IllegalStateException) {

@@ -12,11 +12,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -27,7 +30,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import compose.icons.FontAwesomeIcons
+import compose.icons.fontawesomeicons.Regular
+import compose.icons.fontawesomeicons.Solid
+import compose.icons.fontawesomeicons.solid.Backspace
+import compose.icons.fontawesomeicons.solid.Backward
+import compose.icons.fontawesomeicons.solid.Undo
+import compose.icons.fontawesomeicons.solid.UndoAlt
 import dev.daymark.app.SetupStep
 import dev.daymark.navigation.SetupFinish
 import dev.daymark.presentation.component.isLocationIssue
@@ -43,6 +56,7 @@ import dev.daymark.resources.onboarding_next
 import dev.daymark.resources.onboarding_unsaved
 import dev.daymark.resources.retry
 import dev.daymark.resources.start_tracking
+import dev.daymark.resources.onboarding_preferences_failed
 import dev.daymark.settings.str
 
 @Composable
@@ -60,13 +74,27 @@ internal fun SetupStepActions(state: SetupUiState, actions: OnboardingActions) {
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             SetupSaveStatus(state, actions.retrySave)
+            if (state.preferencesError) {
+                Text(
+                    str(Res.string.onboarding_preferences_failed),
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier
+                        .testTag("setup-preferences-error")
+                        .semantics { liveRegion = LiveRegionMode.Polite }
+                )
+                TextButton(
+                    onClick = actions.retryPreferences,
+                    enabled = !state.busy && !state.preferencesSaving,
+                    modifier = Modifier.testTag("setup-preferences-retry")
+                ) { Text(str(Res.string.retry)) }
+            }
             if (state.issue != null && !state.issue.isLocationIssue()) {
                 SetupError(state.issue)
             }
             if (state.draft.step == SetupStep.REVIEW) {
                 Button(
                     onClick = { actions.finish(SetupFinish.TODAY) },
-                    enabled = !state.busy,
+                    enabled = !state.interactionBusy,
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 48.dp)
@@ -86,7 +114,7 @@ internal fun SetupStepActions(state: SetupUiState, actions: OnboardingActions) {
                 }
                 OutlinedButton(
                     onClick = { actions.finish(SetupFinish.CUSTOMIZE) },
-                    enabled = !state.busy,
+                    enabled = !state.interactionBusy,
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 48.dp)
@@ -96,7 +124,7 @@ internal fun SetupStepActions(state: SetupUiState, actions: OnboardingActions) {
                 }
                 TextButton(
                     onClick = actions.back,
-                    enabled = !state.busy,
+                    enabled = !state.interactionBusy,
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 44.dp)
@@ -107,7 +135,7 @@ internal fun SetupStepActions(state: SetupUiState, actions: OnboardingActions) {
             } else if (state.draft.step == SetupStep.WELCOME) {
                 Button(
                     onClick = actions.advance,
-                    enabled = !state.busy,
+                    enabled = !state.interactionBusy,
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 48.dp)
@@ -127,33 +155,47 @@ internal fun SetupStepActions(state: SetupUiState, actions: OnboardingActions) {
                 }
             } else {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedButton(
                         onClick = actions.back,
-                        enabled = !state.busy,
+                        enabled = !state.interactionBusy,
                         modifier = Modifier
-                            .weight(0.4f)
                             .heightIn(min = 48.dp)
-                            .testTag("setup-back")
+                            .testTag("setup-back"),
+                        elevation = ButtonDefaults.elevatedButtonElevation(10.dp)
                     ) {
-                        Text(str(Res.string.onboarding_back), maxLines = 1)
+                        IconButton(
+                            onClick = actions.back,
+                            enabled = !state.interactionBusy,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .testTag("setup-back-icon")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                contentDescription = str(Res.string.onboarding_back),
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
+
                     Button(
                         onClick = actions.advance,
-                        enabled = !state.busy,
+                        enabled = !state.interactionBusy,
                         modifier = Modifier
-                            .weight(0.6f)
+                            .fillMaxWidth()
                             .heightIn(min = 48.dp)
                             .testTag("setup-next")
                     ) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(str(Res.string.onboarding_next), maxLines = 1)
+                        ){
+
+                            Text(str(Res.string.onboarding_next))
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                 contentDescription = null,
@@ -182,7 +224,7 @@ private fun SetupSaveStatus(state: SetupUiState, onRetry: () -> Unit) {
             )
             TextButton(
                 onClick = onRetry,
-                enabled = !state.busy,
+                enabled = !state.interactionBusy,
                 modifier = Modifier.testTag("setup-save-retry")
             ) {
                 Text(str(Res.string.retry))

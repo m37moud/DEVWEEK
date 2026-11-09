@@ -49,12 +49,16 @@ import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.isolated
 import dev.daymark.settings.str
+import dev.daymark.settings.LanguagePreference
+import dev.daymark.settings.ThemePreference
 import kotlin.math.roundToInt
 
 internal data class SetupActions(
     val updateDraft: (SetupDraft) -> Unit,
     val registerPlace: () -> Unit,
-    val openSettings: () -> Unit
+    val openSettings: () -> Unit,
+    val setLanguage: (LanguagePreference) -> Unit,
+    val setTheme: (ThemePreference) -> Unit
 )
 
 @Composable

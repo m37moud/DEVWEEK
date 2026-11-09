@@ -38,6 +38,7 @@ import dev.daymark.resources.grace
 import dev.daymark.resources.grace_minutes
 import dev.daymark.resources.ios_manual_help
 import dev.daymark.resources.onboarding_extras_help
+import dev.daymark.resources.onboarding_edit_section
 import dev.daymark.resources.onboarding_place
 import dev.daymark.resources.onboarding_profile
 import dev.daymark.resources.opening_balance
@@ -195,10 +196,9 @@ private fun SetupReviewSection(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Edit,
-                            contentDescription = null,
+                            contentDescription = str(Res.string.onboarding_edit_section, title),
                             modifier = Modifier.size(16.dp)
                         )
-//                        Text(str(Res.string.onboarding_edit_section, title))
                     }
                 }
             }

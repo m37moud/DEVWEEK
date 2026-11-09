@@ -13,6 +13,10 @@ import dev.daymark.location.LocationResult
 import dev.daymark.location.PlaceAddressRequest
 import dev.daymark.presentation.component.placeAddressStates
 import dev.daymark.settings.AppLanguage
+import dev.daymark.settings.LanguagePreference
+import dev.daymark.settings.ThemePreference
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import dev.daymark.logging.AppLogger
 import dev.daymark.models.attendance.RegisteredPlace
@@ -24,6 +28,7 @@ import dev.daymark.plan.WeeklySchedule
 import dev.daymark.plan.parseWholeDays
 import dev.daymark.presentation.component.registrationIssue
 import dev.daymark.repository.Repository
+import dev.daymark.repository.SettingsStorageException
 import dev.daymark.repository.SetupStorageException
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
@@ -64,6 +69,9 @@ class SetupViewModel(
     private val writes = Channel<DraftWrite>(Channel.UNLIMITED)
     private var revision = 0L
     private var draftSession: String? = null
+
+    private var preferencesJob: Job? = null
+    private var preferenceWrite: (suspend () -> Unit)? = null
 
     init {
         retryLoad()
@@ -110,6 +118,7 @@ class SetupViewModel(
 
     fun retryLoad() {
         if (state.value.ready || state.value.busy) return
+        observePreferences()
         state.update { it.copy(busy = true, issue = null) }
         viewModelScope.launch {
             try {
@@ -117,7 +126,11 @@ class SetupViewModel(
                 val loaded = repository.setup.observeDraft().first()
                 if (loaded is SetupDraftLoad.Unreadable) {
                     state.value =
-                        SetupUiState(issue = SetupIssue.LOCAL_SAVE_FAILED, unreadable = true)
+                        state.value.copy(
+                            busy = false,
+                            issue = SetupIssue.LOCAL_SAVE_FAILED,
+                            unreadable = true
+                        )
                     return@launch
                 }
                 val saved = (loaded as? SetupDraftLoad.Loaded)?.draft ?: SetupDraft()
@@ -135,19 +148,91 @@ class SetupViewModel(
                         LocalTime(9, 0), emptyMap(), 5, TimeZone.currentSystemDefault().id
                     )
                 )
-                state.value = SetupUiState(draft = draft, ready = true, draftSaved = saved == draft)
+                state.update {
+                    it.copy(
+                        draft = draft,
+                        ready = true,
+                        busy = false,
+                        issue = null,
+                        draftSaved = saved == draft
+                    )
+                }
                 if (saved != draft || loaded is SetupDraftLoad.Absent) enqueueDraft(draft)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: SetupStorageException) {
-                state.value = SetupUiState(issue = SetupIssue.LOCAL_SAVE_FAILED)
+                state.update { it.copy(busy = false, issue = SetupIssue.LOCAL_SAVE_FAILED) }
             } catch (_: IllegalStateException) {
-                state.value = SetupUiState(issue = SetupIssue.LOCAL_SAVE_FAILED)
+                state.update { it.copy(busy = false, issue = SetupIssue.LOCAL_SAVE_FAILED) }
             }
         }
     }
 
-    private fun canEdit() = state.value.ready && !state.value.busy && !state.value.completed
+    private fun observePreferences() {
+        preferencesJob?.cancel()
+        state.update { it.copy(preferencesError = false) }
+        preferencesJob = viewModelScope.launch {
+            repository.settings.observe().catch { failure ->
+                when (failure) {
+                    is CancellationException -> throw failure
+                    is SettingsStorageException, is IllegalStateException -> preferenceFailed(
+                        failure
+                    )
+
+                    else -> throw failure
+                }
+            }.collect { preferences ->
+                state.update { it.copy(preferences = preferences, preferencesReady = true) }
+            }
+        }
+    }
+
+    fun setLanguage(language: LanguagePreference) =
+        savePreference { repository.settings.update(language = language) }
+
+    fun setTheme(theme: ThemePreference) =
+        savePreference { repository.settings.update(theme = theme) }
+
+    fun retryPreferences() {
+        if (state.value.busy || state.value.preferencesSaving) return
+        val pending = preferenceWrite
+        observePreferences()
+        if (pending != null) savePreference(pending)
+    }
+
+    private fun savePreference(write: suspend () -> Unit) {
+        if (!canEdit()) return
+        if (preferencesJob?.isActive != true) observePreferences()
+        preferenceWrite = write
+        state.update { it.copy(preferencesSaving = true, preferencesError = false) }
+        AppLogger.d("SetupViewModel", "Saving onboarding preference")
+        viewModelScope.launch { persistPreference(write) }
+    }
+
+    private suspend fun persistPreference(write: suspend () -> Unit) {
+        try {
+            write()
+            preferenceWrite = null
+            AppLogger.i("SetupViewModel", "Onboarding preference saved")
+        } catch (cancelled: CancellationException) {
+            AppLogger.d("SetupViewModel", "Onboarding preference save cancelled")
+            throw cancelled
+        } catch (failure: SettingsStorageException) {
+            preferenceFailed(failure)
+        } catch (failure: IllegalStateException) {
+            preferenceFailed(failure)
+        } finally {
+            state.update { it.copy(preferencesSaving = false) }
+        }
+    }
+
+    private fun preferenceFailed(failure: Exception) {
+        AppLogger.e("SetupViewModel", "Onboarding preference storage failed", failure)
+        state.update { it.copy(preferencesError = true) }
+    }
+
+    private fun canEdit() =
+        state.value.ready && !state.value.interactionBusy && !state.value.completed
 
     fun updateDraft(draft: SetupDraft) {
         if (!canEdit()) return
@@ -216,7 +301,15 @@ class SetupViewModel(
         viewModelScope.launch {
             try {
                 repository.setup.resetDraft(requireNotNull(draftSession))
-                state.value = SetupUiState()
+                state.update {
+                    it.copy(
+                        draft = SetupDraft(),
+                        ready = false,
+                        busy = false,
+                        unreadable = false,
+                        issue = null
+                    )
+                }
                 retryLoad()
             } catch (cancelled: CancellationException) {
                 throw cancelled

@@ -14,7 +14,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 
-enum class SetupStep { WELCOME, PROFILE, PLACE, SCHEDULE, REVIEW }
+enum class SetupStep { WELCOME, PREFERENCE, PROFILE, PLACE, SCHEDULE, REVIEW }
 
 sealed interface SetupDraftLoad {
     data object Absent : SetupDraftLoad

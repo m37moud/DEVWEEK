@@ -1,6 +1,9 @@
 package dev.daymark.data.local.settings
 
 import androidx.room3.withWriteTransaction
+import androidx.sqlite.SQLiteException
+import dev.daymark.repository.SettingsStorageException
+import kotlinx.coroutines.flow.catch
 import dev.daymark.data.local.DaymarkDatabase
 import dev.daymark.data.local.SettingEntity
 import dev.daymark.data.local.markDirty
@@ -25,41 +28,48 @@ class SettingsRepository(private val db: DaymarkDatabase) : SettingsDataSource {
     override fun observe(): Flow<AppSettings> =
         combine(dao.observeSetting("ui-settings"), dao.observeTracker()) { row, tracker ->
             decode(row?.value).let { it.copy(displayName = tracker?.displayName ?: it.displayName) }
-        }.distinctUntilChanged()
+        }.distinctUntilChanged().catch { failure ->
+            if (failure is SQLiteException) throw SettingsStorageException(failure)
+            throw failure
+        }
 
     override suspend fun update(
         language: LanguagePreference?,
         theme: ThemePreference?,
         displayName: String?,
         remindersEnabled: Boolean?
-    ) = db.withWriteTransaction {
-        require(
-            displayName == null || (displayName.isNotBlank() && !dev.daymark.reporting.exceedsReportTextLimit(
-                displayName
-            ))
-        )
-        val before = decode(dao.setting("ui-settings")?.value)
-        val after = before.copy(
-            displayName = displayName ?: before.displayName,
-            language = language ?: before.language,
-            theme = theme ?: before.theme,
-            remindersEnabled = remindersEnabled ?: before.remindersEnabled
-        )
-        if (after != before) dao.putSetting(SettingEntity("ui-settings", buildJsonObject {
-            put("displayName", after.displayName); put(
-            "language",
-            after.language.name
-        ); put("theme", after.theme.name); put("remindersEnabled", after.remindersEnabled)
-        }.toString()))
-        if (displayName != null) dao.tracker()?.takeIf { it.displayName != displayName }?.let {
-            dao.putTracker(
-                it.copy(
-                    displayName = displayName,
-                    changeRevision = it.changeRevision + 1
-                )
+    ): Unit = try {
+        db.withWriteTransaction {
+            require(
+                displayName == null || (displayName.isNotBlank() && !dev.daymark.reporting.exceedsReportTextLimit(
+                    displayName
+                ))
             )
-            dao.markDirty(it.id, "OVERVIEW")
+            val before = decode(dao.setting("ui-settings")?.value)
+            val after = before.copy(
+                displayName = displayName ?: before.displayName,
+                language = language ?: before.language,
+                theme = theme ?: before.theme,
+                remindersEnabled = remindersEnabled ?: before.remindersEnabled
+            )
+            if (after != before) dao.putSetting(SettingEntity("ui-settings", buildJsonObject {
+                put("displayName", after.displayName); put(
+                "language",
+                after.language.name
+            ); put("theme", after.theme.name); put("remindersEnabled", after.remindersEnabled)
+            }.toString()))
+            if (displayName != null) dao.tracker()?.takeIf { it.displayName != displayName }?.let {
+                dao.putTracker(
+                    it.copy(
+                        displayName = displayName,
+                        changeRevision = it.changeRevision + 1
+                    )
+                )
+                dao.markDirty(it.id, "OVERVIEW")
+            }
         }
+    } catch (failure: SQLiteException) {
+        throw SettingsStorageException(failure)
     }
 
     override fun observeTracker(): Flow<TrackerSummary?> = dao.observeTracker().map { tracker ->

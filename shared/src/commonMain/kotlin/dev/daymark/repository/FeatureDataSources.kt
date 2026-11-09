@@ -60,6 +60,9 @@ interface SetupDataSource {
     suspend fun complete(command: SetupCommand): SetupResult
 }
 
+class SettingsStorageException(cause: Throwable) :
+    RuntimeException("Settings storage failed", cause)
+
 interface SettingsDataSource {
     fun observe(): Flow<AppSettings>
     fun observeTracker(): Flow<TrackerSummary?>

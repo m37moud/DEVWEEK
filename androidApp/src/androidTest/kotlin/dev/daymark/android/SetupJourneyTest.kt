@@ -157,6 +157,7 @@ class SetupJourneyTest {
     }
 
     private fun enterProfile() {
+        nextTo("settings-language-system")
         nextTo("setup-name")
         compose.onNodeWithTag("setup-name").performScrollTo().performTextReplacement("Local test")
     }
@@ -227,6 +228,49 @@ class SetupJourneyTest {
     }
 
     @Test
+    fun review_edit_actions_have_localized_accessible_names() {
+        reviewSetup()
+        for (section in listOf("Your profile", "Your place", "Your weekly schedule")) {
+            compose.onNodeWithContentDescription("Edit $section").assertHasClickAction()
+        }
+        seedLanguage(LanguagePreference.AR)
+        for (section in listOf("ملفك الشخصي", "مكانك", "جدولك الأسبوعي")) {
+            compose.onNodeWithContentDescription("تعديل $section").assertHasClickAction()
+        }
+        compose.mainClock.autoAdvance = false
+        try {
+            compose.onNodeWithContentDescription("تعديل ملفك الشخصي").performScrollTo()
+                .performClick()
+            compose.waitUntil(10_000) {
+                compose.mainClock.advanceTimeByFrame()
+                compose.onAllNodesWithTag("setup-name").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithContentDescription("تعديل مكانك").assertDoesNotExist()
+        } finally {
+            compose.mainClock.autoAdvance = true
+        }
+    }
+
+    @Test
+    fun large_text_navigation_labels_fit_in_both_languages() {
+        enterProfile()
+        compose.runOnIdle { fontScale = 2f }
+        for ((language, labels) in listOf(
+            LanguagePreference.EN to listOf("Back", "Next"),
+            LanguagePreference.AR to listOf("السابق", "التالي")
+        )) {
+            seedLanguage(language)
+            for (label in labels) {
+                val text = compose.onNodeWithText(label, useUnmergedTree = true)
+                text.assertIsDisplayed()
+                val layouts = mutableListOf<TextLayoutResult>()
+                text.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+                Assert.assertFalse(layouts.single().hasVisualOverflow)
+            }
+        }
+    }
+
+    @Test
     fun valid_setup_can_skip_google_and_notifications_and_uses_real_local_storage() {
         reviewSetup()
         compose.onNodeWithTag("setup-start").performClick()
@@ -290,7 +334,40 @@ class SetupJourneyTest {
     }
 
     @Test
-    fun preferences_are_only_in_settings_and_persist_after_relaunch() {
+    fun onboarding_preferences_apply_and_resume_before_profile() {
+        nextTo("settings-language-ar")
+        compose.onNodeWithTag("settings-language-ar").performScrollTo().performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodes(hasTestTag("settings-language-ar") and isSelected())
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("setup-heading").assertTextEquals("التفضيلات")
+        compose.onNodeWithTag("settings-theme-dark").performScrollTo().performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodes(hasTestTag("settings-theme-dark") and isSelected())
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.runOnIdle { shown = false }
+        compose.waitForIdle()
+        graph?.close()
+        db.close()
+        db = openAndroidDatabase(context, name)
+        compose.runOnIdle { graph = graph(); shown = true }
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("settings-language-ar").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("settings-language-ar").assertIsSelected()
+        compose.onNodeWithTag("settings-theme-dark").performScrollTo().assertIsSelected()
+        nextTo("setup-name")
+        runBlocking {
+            Assert.assertEquals(LanguagePreference.AR, graph!!.settings.observe().first().language)
+            Assert.assertEquals(ThemePreference.DARK, graph!!.settings.observe().first().theme)
+            Assert.assertNull(db.dao().tracker())
+        }
+    }
+
+    @Test
+    fun settings_preferences_persist_after_relaunch() {
         compose.onNodeWithTag("language-en").assertDoesNotExist()
         compose.onNodeWithTag("theme-dark").assertDoesNotExist()
         reviewSetup()

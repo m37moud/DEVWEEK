@@ -18,6 +18,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -26,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
@@ -40,7 +43,10 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 import dev.daymark.app.HostPlatform
 import dev.daymark.app.SetupStep
 import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.setup.SetupDraft
+import dev.daymark.models.settings.AppSettings
 import dev.daymark.navigation.SetupFinish
+import dev.daymark.presentation.features.settings.component.SettingsPreferencesCard
 import dev.daymark.presentation.features.setup.component.OnboardingProgress
 import dev.daymark.presentation.features.setup.component.OnboardingStep
 import dev.daymark.presentation.features.setup.component.OpeningBalance
@@ -57,9 +63,13 @@ import dev.daymark.resources.onboarding_place
 import dev.daymark.resources.onboarding_profile
 import dev.daymark.resources.onboarding_review
 import dev.daymark.resources.onboarding_welcome
+import dev.daymark.resources.onboarding_preferences
 import dev.daymark.resources.schedule
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.ThemePreference
+import dev.daymark.settings.LanguagePreference
+import dev.daymark.settings.AppLanguage
+import dev.daymark.settings.WithPlatformLocale
 import dev.daymark.settings.str
 import dev.daymark.ui.theme.DaymarkTheme
 
@@ -69,6 +79,7 @@ internal data class OnboardingActions(
     val retryLoad: () -> Unit,
     val retrySave: () -> Unit,
     val reset: () -> Unit,
+    val retryPreferences: () -> Unit,
     val finish: (SetupFinish) -> Unit
 )
 
@@ -100,16 +111,19 @@ fun SetupScreen(
             keyboard?.hide()
             viewModel.useCurrentLocation()
         },
-        openSettings = viewModel::openLocationSettings
+        openSettings = viewModel::openLocationSettings,
+        setLanguage = viewModel::setLanguage,
+        setTheme = viewModel::setTheme
     )
     val controls = OnboardingActions(
         advance = { keyboard?.hide(); viewModel.advance() },
         back = { keyboard?.hide(); viewModel.back() },
         retryLoad = viewModel::retryLoad,
         retrySave = viewModel::retrySave,
-        reset = viewModel::resetDraft
+        reset = viewModel::resetDraft,
+        retryPreferences = viewModel::retryPreferences
     ) { destination ->
-        if (!viewModel.uiState.value.busy && !viewModel.uiState.value.completed) {
+        if (!viewModel.uiState.value.interactionBusy && !viewModel.uiState.value.completed) {
             keyboard?.hide()
             onFinish(destination)
             viewModel.submit()
@@ -117,7 +131,7 @@ fun SetupScreen(
     }
     NavigationBackHandler(
         rememberNavigationEventState(NavigationEventInfo.None),
-        isBackEnabled = state.draft.step != SetupStep.WELCOME,
+        isBackEnabled = state.draft.step != SetupStep.WELCOME && !state.interactionBusy,
         onBackCompleted = viewModel::back
     )
     OnboardingLayout(state, controls) {
@@ -223,6 +237,14 @@ private fun SetupStepContent(
 ) {
     when (step) {
         SetupStep.WELCOME -> SetupWelcome()
+        SetupStep.PREFERENCE -> SettingsPreferencesCard(
+            languagePreference = state.preferences.language,
+            themePreference = state.preferences.theme,
+            onLanguageChange = actions.setLanguage,
+            onThemeChange = actions.setTheme,
+            busy = state.interactionBusy
+        )
+
         SetupStep.PROFILE -> SetupProfile(state, actions.updateDraft)
         SetupStep.PLACE -> SetupPlace(state, actions)
         SetupStep.SCHEDULE -> {
@@ -236,12 +258,14 @@ private fun SetupStepContent(
                 OpeningBalance(state, actions.updateDraft)
             }
         }
+
         SetupStep.REVIEW -> SetupReview(state, platform, onEdit)
     }
 }
 
 internal fun SetupStep.title() = when (this) {
     SetupStep.WELCOME -> Res.string.onboarding_welcome
+    SetupStep.PREFERENCE -> Res.string.onboarding_preferences
     SetupStep.PROFILE -> Res.string.onboarding_profile
     SetupStep.PLACE -> Res.string.onboarding_place
     SetupStep.SCHEDULE -> Res.string.schedule
@@ -251,15 +275,15 @@ internal fun SetupStep.title() = when (this) {
 @Preview
 @Composable
 private fun SetupScreenPreview() {
-    val state = SetupUiState(ready = true)
-    val controls = OnboardingActions({}, {}, {}, {}, {}) {}
+    val state = SetupUiState(ready = true, preferencesReady = true)
+    val controls = OnboardingActions({}, {}, {}, {}, {}, {}) {}
     DaymarkTheme(ThemePreference.LIGHT) {
         OnboardingLayout(state, controls) {
             OnboardingHeading(state.draft.step)
             SetupStepContent(
                 state.draft.step,
                 state,
-                SetupActions({}, {}, {}),
+                SetupActions({}, {}, {}, {}, {}),
                 HostPlatform.ANDROID
             ) {}
         }
@@ -269,15 +293,15 @@ private fun SetupScreenPreview() {
 @Preview(name = "Dark Theme")
 @Composable
 private fun SetupScreenDarkPreview() {
-    val state = SetupUiState(ready = true)
-    val controls = OnboardingActions({}, {}, {}, {}, {}) {}
+    val state = SetupUiState(ready = true, preferencesReady = true)
+    val controls = OnboardingActions({}, {}, {}, {}, {}, {}) {}
     DaymarkTheme(ThemePreference.DARK) {
         OnboardingLayout(state, controls) {
             OnboardingHeading(state.draft.step)
             SetupStepContent(
                 state.draft.step,
                 state,
-                SetupActions({}, {}, {}),
+                SetupActions({}, {}, {}, {}, {}),
                 HostPlatform.ANDROID
             ) {}
         }
@@ -287,17 +311,70 @@ private fun SetupScreenDarkPreview() {
 @Preview(name = "Narrow large text", widthDp = 320, fontScale = 2f)
 @Composable
 private fun SetupScreenNarrowLargeTextPreview() {
-    val state = SetupUiState(ready = true)
-    val controls = OnboardingActions({}, {}, {}, {}, {}) {}
+    val state = SetupUiState(
+        ready = true,
+        preferencesReady = true,
+        draft = SetupDraft(step = SetupStep.PROFILE)
+    )
+    val controls = OnboardingActions({}, {}, {}, {}, {}, {}) {}
     DaymarkTheme(ThemePreference.LIGHT) {
         OnboardingLayout(state, controls) {
             OnboardingHeading(state.draft.step)
             SetupStepContent(
                 state.draft.step,
                 state,
-                SetupActions({}, {}, {}),
+                SetupActions({}, {}, {}, {}, {}),
                 HostPlatform.ANDROID
             ) {}
         }
+    }
+}
+
+@Preview(name = "Preferences light")
+@Preview(name = "Preferences narrow large text", widthDp = 320, fontScale = 2f)
+@Composable
+private fun SetupPreferencesLightPreview() {
+    SetupPreferencesPreview(ThemePreference.LIGHT, AppLanguage.EN)
+}
+
+@Preview(name = "Preferences dark")
+@Composable
+private fun SetupPreferencesDarkPreview() {
+    SetupPreferencesPreview(ThemePreference.DARK, AppLanguage.EN)
+}
+
+@Preview(name = "Preferences Arabic RTL", locale = "ar")
+@Composable
+private fun SetupPreferencesArabicPreview() {
+    SetupPreferencesPreview(ThemePreference.LIGHT, AppLanguage.AR)
+}
+
+@Composable
+private fun SetupPreferencesPreview(theme: ThemePreference, language: AppLanguage) {
+    val state = SetupUiState(
+        ready = true, preferencesReady = true, draftSaved = true,
+        draft = SetupDraft(step = SetupStep.PREFERENCE),
+        preferences = AppSettings(
+            language = if (language == AppLanguage.AR) LanguagePreference.AR else LanguagePreference.EN,
+            theme = theme
+        )
+    )
+    WithPlatformLocale(language) {
+        CompositionLocalProvider(
+            LocalAppLanguage provides language,
+            LocalLayoutDirection provides if (language.isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
+        ) {
+            DaymarkTheme(theme) { SetupPreferencesPreviewContent(state) }
+        }
+    }
+}
+
+@Composable
+private fun SetupPreferencesPreviewContent(state: SetupUiState) {
+    OnboardingLayout(state, OnboardingActions({}, {}, {}, {}, {}, {}) {}) {
+        OnboardingHeading(SetupStep.PREFERENCE)
+        SetupStepContent(
+            SetupStep.PREFERENCE, state, SetupActions({}, {}, {}, {}, {}), HostPlatform.ANDROID
+        ) {}
     }
 }

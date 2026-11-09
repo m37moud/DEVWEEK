@@ -253,4 +253,6 @@
     <string name="registered_map_provider">الخرائط من OpenFreeMap. تحميل الخريطة يشارك المنطقة المعروضة مع مزوّد الخرائط.</string>
     <string name="registered_map_contributors">© المساهمون في OpenStreetMap</string>
     <string name="registered_map_privacy">خصوصية الخرائط</string>
+    <string name="onboarding_preferences">التفضيلات</string>
+    <string name="onboarding_preferences_failed">تعذّر حفظ تفضيلاتك. حاول مرة أخرى.</string>
 </resources>

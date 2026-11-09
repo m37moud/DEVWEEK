@@ -6,6 +6,12 @@ import dev.daymark.at
 import dev.daymark.attendance.TestClock
 import dev.daymark.data.local.openJvmDatabase
 import dev.daymark.data.local.setup.SetupService
+import dev.daymark.data.local.settings.SettingsRepository
+import dev.daymark.repository.SettingsDataSource
+import dev.daymark.repository.SettingsStorageException
+import dev.daymark.settings.LanguagePreference
+import dev.daymark.settings.ThemePreference
+import kotlinx.coroutines.CompletableDeferred
 import dev.daymark.fixtureFix
 import dev.daymark.fixturePlace
 import dev.daymark.fixtureSchedule
@@ -29,6 +35,82 @@ import kotlinx.coroutines.test.runTest
 
 class SetupViewModelTest {
     @Test
+    fun preferences_save_immediately_block_navigation_and_retry_without_losing_the_step() =
+        runTest {
+            val folder = Files.createTempDirectory("daymark-setup-preferences-")
+            val db = openJvmDatabase(folder.resolve("app.db").toString())
+            val stored = SettingsRepository(db)
+            val releaseWrite = CompletableDeferred<Unit>()
+            var failWrite = false
+            val settings = object : SettingsDataSource by stored {
+                override suspend fun update(
+                    language: LanguagePreference?, theme: ThemePreference?,
+                    displayName: String?, remindersEnabled: Boolean?
+                ) {
+                    releaseWrite.await()
+                    if (failWrite) throw SettingsStorageException(IllegalStateException("Test storage failure"))
+                    stored.update(language, theme, displayName, remindersEnabled)
+                }
+            }
+            val permissions = object : LocationPermissionPort {
+                override fun current() = LocationCapabilities(false, false, false, true)
+                override suspend fun requestForeground() = error("No GPS permission expected")
+                override suspend fun requestBackground() =
+                    error("No background permission expected")
+
+                override fun openSystemSettings() = Unit
+            }
+            val gateway = object : LocationGateway {
+                override suspend fun requestFix(budget: Duration): LocationResult =
+                    error("No GPS expected")
+            }
+            val repository = dev.daymark.testRepository(
+                setupSource = SetupService(db, TestClock()), settingsSource = settings
+            )
+            try {
+                val model =
+                    SetupViewModel(repository, gateway, permissions, TestClock(), backgroundScope)
+                model.uiState.first { it.ready && it.preferencesReady && it.draftSaved }
+                assertEquals(LanguagePreference.SYSTEM, model.uiState.value.preferences.language)
+                assertEquals(ThemePreference.SYSTEM, model.uiState.value.preferences.theme)
+                model.advance()
+                model.uiState.first { it.draft.step == SetupStep.PREFERENCE && !it.busy }
+                model.setLanguage(LanguagePreference.AR)
+                assertTrue(model.uiState.value.preferencesSaving)
+                model.advance()
+                model.back()
+                assertEquals(SetupStep.PREFERENCE, model.uiState.value.draft.step)
+                assertEquals(LanguagePreference.SYSTEM, model.uiState.value.preferences.language)
+                releaseWrite.complete(Unit)
+                model.uiState.first { !it.preferencesSaving && it.preferences.language == LanguagePreference.AR }
+                assertEquals(LanguagePreference.AR, stored.observe().first().language)
+                failWrite = true
+                model.setTheme(ThemePreference.DARK)
+                model.uiState.first { !it.preferencesSaving && it.preferencesError }
+                assertEquals(ThemePreference.SYSTEM, model.uiState.value.preferences.theme)
+                failWrite = false
+                model.retryPreferences()
+                model.uiState.first { !it.preferencesSaving && it.preferences.theme == ThemePreference.DARK }
+                assertFalse(model.uiState.value.preferencesError)
+                val reopened =
+                    SetupViewModel(repository, gateway, permissions, TestClock(), backgroundScope)
+                val restored = reopened.uiState.first { it.ready && it.preferencesReady }
+                assertEquals(SetupStep.PREFERENCE, restored.draft.step)
+                assertEquals(LanguagePreference.AR, restored.preferences.language)
+                assertEquals(ThemePreference.DARK, restored.preferences.theme)
+                reopened.advance()
+                reopened.uiState.first { it.draft.step == SetupStep.PROFILE && !it.busy }
+                reopened.back()
+                reopened.uiState.first { it.draft.step == SetupStep.PREFERENCE && !it.busy }
+                assertNull(db.dao().tracker())
+            } finally {
+                db.close()
+                folder.toFile().deleteRecursively()
+            }
+        }
+
+
+    @Test
     fun invalid_midnight_window_cannot_advance_to_review() = runTest {
         val folder = Files.createTempDirectory("daymark-midnight-step-")
         val db = openJvmDatabase(folder.resolve("app.db").toString())
@@ -50,13 +132,16 @@ class SetupViewModelTest {
         }
         try {
             val model = SetupViewModel(
-                repository = dev.daymark.testRepository(setupSource = service),
+                repository = dev.daymark.testRepository(
+                    setupSource = service,
+                    settingsSource = SettingsRepository(db)
+                ),
                 location = gateway,
                 permissions = permissions,
                 clock = clock,
                 scope = backgroundScope
             )
-            model.uiState.first { it.ready && it.draftSaved }
+            model.uiState.first { it.ready && it.preferencesReady && it.draftSaved }
             model.advance()
             assertEquals(SetupStep.SCHEDULE, model.uiState.value.draft.step)
             assertEquals(SetupIssue.INVALID_INPUT, model.uiState.value.issue)
@@ -86,13 +171,16 @@ class SetupViewModelTest {
         connection.execSQL("PRAGMA busy_timeout=5000")
         try {
             val model = SetupViewModel(
-                repository = dev.daymark.testRepository(setupSource = service),
+                repository = dev.daymark.testRepository(
+                    setupSource = service,
+                    settingsSource = SettingsRepository(db)
+                ),
                 location = gateway,
                 permissions = permissions,
                 clock = TestClock(),
                 scope = backgroundScope
             )
-            model.uiState.first { it.ready && it.draftSaved }
+            model.uiState.first { it.ready && it.preferencesReady && it.draftSaved }
             connection.execSQL("ALTER TABLE settings RENAME TO temporarily_unavailable_settings")
             model.advance()
             val failed =
@@ -101,7 +189,7 @@ class SetupViewModelTest {
             assertFalse(failed.draftSaved)
             connection.execSQL("ALTER TABLE temporarily_unavailable_settings RENAME TO settings")
             model.retrySave()
-            model.uiState.first { it.draft.step == SetupStep.PROFILE && it.draftSaved && !it.busy }
+            model.uiState.first { it.draft.step == SetupStep.PREFERENCE && it.draftSaved && !it.busy }
             repeat(12) { model.updateDraft(model.uiState.value.draft.copy(displayName = "Person $it")) }
             model.uiState.first { it.draftSaved }
             assertEquals(
@@ -138,13 +226,16 @@ class SetupViewModelTest {
         }
         try {
             val model = SetupViewModel(
-                repository = dev.daymark.testRepository(setupSource = service),
+                repository = dev.daymark.testRepository(
+                    setupSource = service,
+                    settingsSource = SettingsRepository(db)
+                ),
                 location = gateway,
                 permissions = permissions,
                 clock = TestClock(),
                 scope = backgroundScope
             )
-            val restored = model.uiState.first { it.ready && it.draftSaved }
+            val restored = model.uiState.first { it.ready && it.preferencesReady && it.draftSaved }
             assertEquals(SetupStep.PLACE, restored.draft.step)
             assertEquals("Saved", restored.draft.displayName)
             assertNull(db.dao().tracker())
@@ -171,16 +262,21 @@ class SetupViewModelTest {
         }
         try {
             val model = SetupViewModel(
-                repository = dev.daymark.testRepository(setupSource = service),
+                repository = dev.daymark.testRepository(
+                    setupSource = service,
+                    settingsSource = SettingsRepository(db)
+                ),
                 location = gateway,
                 permissions = permissions,
                 clock = TestClock(),
                 scope = backgroundScope
             )
-            model.uiState.first { it.ready && it.draftSaved }
+            model.uiState.first { it.ready && it.preferencesReady && it.draftSaved }
             assertEquals(SetupStep.WELCOME, model.uiState.value.draft.step)
             model.advance()
             assertEquals(SetupStep.WELCOME, model.uiState.value.draft.step)
+            model.uiState.first { it.draft.step == SetupStep.PREFERENCE && !it.busy }
+            model.advance()
             val profile = model.uiState.first { it.draft.step == SetupStep.PROFILE && !it.busy }
             assertTrue(profile.draftSaved)
             assertEquals(
@@ -233,6 +329,7 @@ class SetupViewModelTest {
             service.startDraftSession()
         )
         val connection = BundledSQLiteDriver().open(folder.resolve("app.db").toString())
+        connection.execSQL("PRAGMA busy_timeout=5000")
         connection.execSQL("ALTER TABLE settings RENAME TO temporarily_unavailable_settings")
         val permissions = object : LocationPermissionPort {
             override fun current() = LocationCapabilities(false, false, false, true)
@@ -246,7 +343,10 @@ class SetupViewModelTest {
         }
         try {
             val model = SetupViewModel(
-                repository = dev.daymark.testRepository(setupSource = service),
+                repository = dev.daymark.testRepository(
+                    setupSource = service,
+                    settingsSource = SettingsRepository(db)
+                ),
                 location = gateway,
                 permissions = permissions,
                 clock = TestClock(),
@@ -258,7 +358,7 @@ class SetupViewModelTest {
             assertTrue(model.uiState.value.draft.displayName.isEmpty())
             connection.execSQL("ALTER TABLE temporarily_unavailable_settings RENAME TO settings")
             model.retryLoad()
-            val loaded = model.uiState.first { it.ready }
+            val loaded = model.uiState.first { it.ready && it.preferencesReady }
             assertEquals("Saved before failure", loaded.draft.displayName)
             assertEquals(TrackerCategory.WORK, loaded.draft.category)
             assertEquals(5, loaded.draft.schedule?.graceMinutes)
@@ -294,13 +394,16 @@ class SetupViewModelTest {
             }
             try {
                 val vm = SetupViewModel(
-                    repository = dev.daymark.testRepository(setupSource = service),
+                    repository = dev.daymark.testRepository(
+                        setupSource = service,
+                        settingsSource = SettingsRepository(db)
+                    ),
                     location = gateway,
                     permissions = permissions,
                     clock = TestClock(),
                     scope = backgroundScope
                 )
-                vm.uiState.first { it.ready }
+                vm.uiState.first { it.ready && it.preferencesReady }
                 vm.updateDraft(
                     SetupDraft(
                         "أحمد / Ahmed",
@@ -354,14 +457,15 @@ class SetupViewModelTest {
                         setupSource = SetupService(
                             db,
                             clock
-                        )
+                        ),
+                        settingsSource = SettingsRepository(db)
                     ),
                     location = gateway,
                     permissions = permissions,
                     clock = clock,
                     scope = backgroundScope
                 )
-                vm.uiState.first { it.ready }
+                vm.uiState.first { it.ready && it.preferencesReady }
                 vm.updateDraft(
                     SetupDraft(
                         "Person",
