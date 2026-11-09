@@ -1,6 +1,6 @@
 # Desktop Google connection
 
-The desktop development host uses Google's installed-app authorization flow: the system browser, a random loopback port on `127.0.0.1`, a random state value, and PKCE with SHA-256. Only `drive.file` is requested. No client secret is embedded or sent. Attendance remains available without Google.
+The desktop development host uses Google's installed-app authorization flow: the system browser, a random loopback port on `127.0.0.1`, a random state value, and PKCE with SHA-256. Only `drive.file` is requested. No client secret is embedded in the app. A desktop client secret supplied in the local configuration is sent only to Google's HTTPS token endpoint. Attendance remains available without Google.
 
 ## Create the desktop client
 
@@ -9,11 +9,11 @@ The desktop development host uses Google's installed-app authorization flow: the
 3. Under **Data Access**, configure `https://www.googleapis.com/auth/drive.file`.
 4. Enable the **Google Drive API** and **Google Sheets API** in **APIs & Services → Library**.
 5. Open **Clients → Create client**, choose **Desktop app**, and name it **Daymark Desktop**. Use a separate client from Android and iOS.
-6. Download the client JSON and save it as `~/.daymark/google-oauth-client.json`. Keep the download outside the repository. The file must have the Google-generated `installed.client_id` field; a Web application client is rejected. Other fields, including any downloaded client secret, are ignored.
+6. Download the client JSON and save it as `~/.daymark/google-oauth-client.json`. Keep the download outside the repository. The file must have the Google-generated `installed.client_id` field; a Web application client is rejected. Preserve `installed.client_secret` when supplied: Google can require it for token exchange and refresh. It is never included in the browser URL, logs, or Room.
 7. Restrict the file to your account: `chmod 600 ~/.daymark/google-oauth-client.json`.
 8. Run `./gradlew :desktopApp:run`, open Settings, and click **Connect Google**. Finish consent in the browser. If you close the browser without responding, the attempt expires after three minutes.
 
-Google documents the client secret as optional for this flow. If your client rejects a token exchange, verify its type and configuration; do not embed a secret to work around it. See [Google's desktop OAuth documentation](https://developers.google.com/identity/protocols/oauth2/native-app).
+Google documents the client secret as optional for this flow, but the configured client may reject token requests without it. The app reads that value at runtime from your private local JSON; do not copy it into source code or build resources. See [Google's desktop OAuth documentation](https://developers.google.com/identity/protocols/oauth2/native-app).
 
 ## Session and platform behavior
 

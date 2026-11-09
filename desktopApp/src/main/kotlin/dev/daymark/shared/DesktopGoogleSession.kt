@@ -9,7 +9,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-internal class DesktopOAuthClient(val id: String)
+internal class DesktopOAuthClient(val id: String, val clientSecret: String? = null)
 
 /** Missing, invalid, or unreadable local configuration requires desktop OAuth setup. */
 internal fun loadDesktopOAuthClient(
@@ -22,8 +22,10 @@ internal fun loadDesktopOAuthClient(
             Json.parseToJsonElement(Files.readString(path)).jsonObject["installed"]?.jsonObject
                 ?: return null
         val id = installed["client_id"]?.jsonPrimitive?.content ?: return null
+        val secret = installed["client_secret"]?.jsonPrimitive
+        if (secret != null && (!secret.isString || secret.content.isBlank())) return null
         id.takeIf { it.matches(Regex("[A-Za-z0-9_-]+\\.apps\\.googleusercontent\\.com")) }
-            ?.let(::DesktopOAuthClient)
+            ?.let { DesktopOAuthClient(it, secret?.content) }
     } catch (_: IOException) {
         null
     } catch (_: IllegalArgumentException) {

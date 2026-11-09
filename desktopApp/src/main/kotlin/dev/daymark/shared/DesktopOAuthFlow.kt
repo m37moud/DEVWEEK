@@ -48,8 +48,7 @@ internal class DesktopOAuthFlow(
             if (parameters["error"] == "access_denied") return null
             check(parameters["error"] == null) { "authorization_failed" }
             return tokenRequest(
-                mapOf(
-                    "client_id" to client.id,
+                client.tokenParameters() + mapOf(
                     "code" to parameters.getValue("code"),
                     "code_verifier" to verifier,
                     "redirect_uri" to redirect,
@@ -89,13 +88,17 @@ internal class DesktopOAuthFlow(
     }
 
     suspend fun refresh(client: DesktopOAuthClient, refreshToken: String) = tokenRequest(
-        mapOf(
-            "client_id" to client.id,
+        client.tokenParameters() + mapOf(
             "refresh_token" to refreshToken,
             "grant_type" to "refresh_token"
         )
     )
 
+}
+
+private fun DesktopOAuthClient.tokenParameters(): Map<String, String> = buildMap {
+    put("client_id", id)
+    clientSecret?.let { put("client_secret", it) }
 }
 
 private suspend fun googleToken(parameters: Map<String, String>): JsonObject =

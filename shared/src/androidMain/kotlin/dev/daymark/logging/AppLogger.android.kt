@@ -4,14 +4,14 @@ import android.util.Log
 
 actual object AppLogger {
     actual fun d(tag: String, message: String) {
-        Log.d(tag, message)
+        runCatching { Log.d(tag, message) }
     }
 
     actual fun i(tag: String, message: String) {
-        Log.i(tag, message)
+        runCatching { Log.i(tag, message) }
     }
 
     actual fun e(tag: String, message: String, throwable: Throwable?) {
-        Log.e(tag, errorMessage(message, throwable))
+        runCatching { Log.e(tag, errorMessage(message, throwable)) }
     }
 }

@@ -21,7 +21,35 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 
 class DesktopGoogleAuthTest {
-    private val client = DesktopOAuthClient("test.apps.googleusercontent.com")
+    private val client = DesktopOAuthClient("test.apps.googleusercontent.com", "test-client-secret")
+
+    @Test
+    fun downloaded_client_secret_is_used_only_for_token_requests(): Unit = runBlocking {
+        val folder = Files.createTempDirectory("daymark-oauth-client-secret-")
+        val file = folder.resolve("client.json")
+        try {
+            Files.writeString(
+                file,
+                """{"installed":{"client_id":"test.apps.googleusercontent.com","client_secret":"test-client-secret"}}"""
+            )
+            val configuredClient = requireNotNull(loadDesktopOAuthClient(file))
+            val parameters = parameters(
+                authorizationUri(
+                    configuredClient,
+                    "http://127.0.0.1:1234/oauth2callback", "verifier", "nonce"
+                )
+            )
+            assertFalse(parameters.containsKey("client_secret"))
+            val flow = DesktopOAuthFlow(tokenRequest = { request ->
+                assertEquals("test-client-secret", request["client_secret"])
+                Json.parseToJsonElement("{}").jsonObject
+            })
+            flow.refresh(configuredClient, "test-refresh")
+        } finally {
+            file.toFile().delete()
+            folder.toFile().delete()
+        }
+    }
 
     @Test
     fun local_client_file_accepts_only_valid_installed_app_configuration() {
@@ -101,6 +129,7 @@ class DesktopGoogleAuthTest {
             }
         }, tokenRequest = { request ->
             grants += request.getValue("grant_type")
+            assertEquals("test-client-secret", request["client_secret"])
             if (request["grant_type"] == "authorization_code") {
                 assertEquals("code", request["code"])
                 assertEquals(43, request.getValue("code_verifier").length)
