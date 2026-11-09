@@ -272,7 +272,8 @@ internal fun SetupStep.title() = when (this) {
     SetupStep.REVIEW -> Res.string.onboarding_review
 }
 
-@Preview
+@Preview(name = "Welcome light")
+@Preview(name = "Welcome narrow large text", widthDp = 320, fontScale = 2f)
 @Composable
 private fun SetupScreenPreview() {
     val state = SetupUiState(ready = true, preferencesReady = true)
@@ -334,26 +335,26 @@ private fun SetupScreenNarrowLargeTextPreview() {
 @Preview(name = "Preferences narrow large text", widthDp = 320, fontScale = 2f)
 @Composable
 private fun SetupPreferencesLightPreview() {
-    SetupPreferencesPreview(ThemePreference.LIGHT, AppLanguage.EN)
+    SetupActionsPreview(ThemePreference.LIGHT, AppLanguage.EN, SetupStep.PREFERENCE)
 }
 
 @Preview(name = "Preferences dark")
 @Composable
 private fun SetupPreferencesDarkPreview() {
-    SetupPreferencesPreview(ThemePreference.DARK, AppLanguage.EN)
+    SetupActionsPreview(ThemePreference.DARK, AppLanguage.EN, SetupStep.PREFERENCE)
 }
 
 @Preview(name = "Preferences Arabic RTL", locale = "ar")
 @Composable
 private fun SetupPreferencesArabicPreview() {
-    SetupPreferencesPreview(ThemePreference.LIGHT, AppLanguage.AR)
+    SetupActionsPreview(ThemePreference.LIGHT, AppLanguage.AR, SetupStep.PREFERENCE)
 }
 
 @Composable
-private fun SetupPreferencesPreview(theme: ThemePreference, language: AppLanguage) {
+private fun SetupActionsPreview(theme: ThemePreference, language: AppLanguage, step: SetupStep) {
     val state = SetupUiState(
         ready = true, preferencesReady = true, draftSaved = true,
-        draft = SetupDraft(step = SetupStep.PREFERENCE),
+        draft = SetupDraft(step = step),
         preferences = AppSettings(
             language = if (language == AppLanguage.AR) LanguagePreference.AR else LanguagePreference.EN,
             theme = theme
@@ -364,17 +365,23 @@ private fun SetupPreferencesPreview(theme: ThemePreference, language: AppLanguag
             LocalAppLanguage provides language,
             LocalLayoutDirection provides if (language.isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
         ) {
-            DaymarkTheme(theme) { SetupPreferencesPreviewContent(state) }
+            DaymarkTheme(theme) { SetupActionsPreviewContent(state) }
         }
     }
 }
 
 @Composable
-private fun SetupPreferencesPreviewContent(state: SetupUiState) {
+private fun SetupActionsPreviewContent(state: SetupUiState) {
     OnboardingLayout(state, OnboardingActions({}, {}, {}, {}, {}, {}) {}) {
-        OnboardingHeading(SetupStep.PREFERENCE)
+        OnboardingHeading(state.draft.step)
         SetupStepContent(
-            SetupStep.PREFERENCE, state, SetupActions({}, {}, {}, {}, {}), HostPlatform.ANDROID
+            state.draft.step, state, SetupActions({}, {}, {}, {}, {}), HostPlatform.ANDROID
         ) {}
     }
+}
+
+@Preview(name = "Welcome Arabic RTL", locale = "ar")
+@Composable
+private fun SetupWelcomeArabicPreview() {
+    SetupActionsPreview(ThemePreference.LIGHT, AppLanguage.AR, SetupStep.WELCOME)
 }

@@ -1,5 +1,15 @@
 package dev.daymark.android
 
+import android.animation.ValueAnimator
+import android.os.ParcelFileDescriptor
+import androidx.compose.ui.unit.dp
+import dev.daymark.app.SetupStep
+import dev.daymark.data.local.setup.SetupService
+import dev.daymark.models.setup.SetupDraft
+import dev.daymark.repository.SetupDataSource
+import dev.daymark.repository.SetupStorageException
+import kotlinx.coroutines.CompletableDeferred
+
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
@@ -55,6 +65,8 @@ class SetupJourneyTest {
     private var permitted = false
     private var googleCalls = 0
     private var locationCalls = 0
+    private var draftWriteGate: CompletableDeferred<Unit>? = null
+    private var rejectDraftSave = false
     private var shown by mutableStateOf(true)
     private var graph by mutableStateOf<AppGraph?>(null)
     private val permissions = object : LocationPermissionPort {
@@ -74,6 +86,16 @@ class SetupJourneyTest {
         return AppGraph(module {
             single<DaymarkDatabase> { db }
             single<Clock> { clock }
+            single<SetupDataSource> {
+                val storage = SetupService(db, clock)
+                object : SetupDataSource by storage {
+                    override suspend fun saveDraft(draft: SetupDraft, session: String): Boolean {
+                        draftWriteGate?.await()
+                        if (rejectDraftSave) throw SetupStorageException(IllegalStateException("Test save failure"))
+                        return storage.saveDraft(draft, session)
+                    }
+                }
+            }
             single<LocationGateway> { location }
             single<dev.daymark.location.PlaceGeocoder> { dev.daymark.location.PlaceGeocoder { null } }
             single<LocationPermissionPort> { permissions }
@@ -228,6 +250,141 @@ class SetupJourneyTest {
     }
 
     @Test
+    fun primary_action_morphs_in_both_directions_and_layout_directions() = withAnimatorScale("1") {
+        for (language in listOf(LanguagePreference.EN, LanguagePreference.AR)) {
+            seedLanguage(language)
+            compose.waitForIdle()
+            val full = compose.onNodeWithTag("setup-next").fetchSemanticsNode().boundsInRoot
+            compose.mainClock.autoAdvance = false
+            try {
+                compose.onNodeWithTag("setup-next").performClick()
+                waitForStep(SetupStep.PREFERENCE)
+                compose.mainClock.advanceTimeBy(32)
+                val forward = compose.onNodeWithTag("setup-next").fetchSemanticsNode().boundsInRoot
+                compose.mainClock.advanceTimeBy(1_000)
+                val narrow = compose.onNodeWithTag("setup-next").fetchSemanticsNode().boundsInRoot
+                Assert.assertTrue(forward.width > narrow.width && forward.width < full.width)
+                val trailing = if (language == LanguagePreference.AR) narrow.left else narrow.right
+                val fullTrailing = if (language == LanguagePreference.AR) full.left else full.right
+                Assert.assertEquals(fullTrailing, trailing, 1f)
+                compose.onAllNodesWithTag("setup-next").assertCountEquals(1)
+                compose.onNodeWithTag("setup-back").assertIsEnabled()
+                compose.onNodeWithTag("setup-back").performClick()
+                waitForStep(SetupStep.WELCOME)
+                compose.onNodeWithTag("setup-back").assertDoesNotExist()
+                compose.mainClock.advanceTimeBy(32)
+                val reverse = compose.onNodeWithTag("setup-next").fetchSemanticsNode().boundsInRoot
+                Assert.assertTrue(reverse.width > narrow.width && reverse.width < full.width)
+                compose.mainClock.advanceTimeBy(1_000)
+                val restored = compose.onNodeWithTag("setup-next").fetchSemanticsNode().boundsInRoot
+                Assert.assertEquals(full.width, restored.width, 1f)
+                compose.onAllNodesWithTag("setup-next").assertCountEquals(1)
+            } finally {
+                compose.mainClock.autoAdvance = true
+            }
+        }
+    }
+
+    @Test
+    fun reduced_motion_uses_destination_bounds_immediately() = withAnimatorScale("0") {
+        compose.mainClock.autoAdvance = false
+        try {
+            val full = compose.onNodeWithTag("setup-next").fetchSemanticsNode().boundsInRoot
+            compose.onNodeWithTag("setup-next").performClick()
+            waitForStep(SetupStep.PREFERENCE)
+            compose.mainClock.advanceTimeByFrame()
+            val immediate = compose.onNodeWithTag("setup-next").fetchSemanticsNode().boundsInRoot
+            compose.mainClock.advanceTimeBy(1_000)
+            val settled = compose.onNodeWithTag("setup-next").fetchSemanticsNode().boundsInRoot
+            Assert.assertTrue(immediate.width < full.width)
+            Assert.assertEquals(settled, immediate)
+            compose.onNodeWithTag("setup-back").performClick()
+            waitForStep(SetupStep.WELCOME)
+            compose.mainClock.advanceTimeByFrame()
+            Assert.assertEquals(
+                full,
+                compose.onNodeWithTag("setup-next").fetchSemanticsNode().boundsInRoot
+            )
+        } finally {
+            compose.mainClock.autoAdvance = true
+        }
+    }
+
+    @Test
+    fun pending_and_failed_step_saves_keep_the_welcome_action_bounds() {
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("setup-draft-saved").fetchSemanticsNodes().isNotEmpty()
+        }
+        val full = compose.onNodeWithTag("setup-next").fetchSemanticsNode().boundsInRoot
+        draftWriteGate = CompletableDeferred()
+        rejectDraftSave = true
+        try {
+            compose.onNodeWithTag("setup-next").performClick()
+            compose.onNodeWithTag("setup-next").assertIsNotEnabled()
+            Assert.assertEquals(
+                full,
+                compose.onNodeWithTag("setup-next").fetchSemanticsNode().boundsInRoot
+            )
+            draftWriteGate!!.complete(Unit)
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("setup-save-retry").fetchSemanticsNodes().isNotEmpty()
+            }
+            Assert.assertEquals(
+                full.width,
+                compose.onNodeWithTag("setup-next").fetchSemanticsNode().boundsInRoot.width,
+                1f
+            )
+            compose.onNodeWithTag("setup-back").assertDoesNotExist()
+            rejectDraftSave = false
+            compose.onNodeWithTag("setup-save-retry").performClick()
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("settings-language-system").fetchSemanticsNodes()
+                    .isNotEmpty()
+            }
+        } finally {
+            draftWriteGate?.complete(Unit)
+            draftWriteGate = null
+            rejectDraftSave = false
+        }
+    }
+
+    private fun waitForStep(step: SetupStep) {
+        val arabic =
+            runBlocking { graph!!.settings.observe().first().language } == LanguagePreference.AR
+        val label = when {
+            step == SetupStep.WELCOME && arabic -> "ابدأ الإعداد"
+            step == SetupStep.WELCOME -> "Get started"
+            arabic -> "التالي"
+            else -> "Next"
+        }
+        compose.waitUntil(10_000) {
+            compose.mainClock.advanceTimeByFrame()
+            compose.onAllNodesWithText(label).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    private fun withAnimatorScale(scale: String, checkMotion: () -> Unit) {
+        val original = shell("settings get global animator_duration_scale")
+        require(original == "null" || original.toFloatOrNull() != null)
+        try {
+            shell("settings put global animator_duration_scale $scale")
+            compose.waitUntil(10_000) { ValueAnimator.areAnimatorsEnabled() == (scale != "0") }
+            compose.runOnIdle { shown = false }
+            compose.waitForIdle()
+            compose.runOnIdle { shown = true }
+            compose.waitForIdle()
+            checkMotion()
+        } finally {
+            if (original == "null") shell("settings delete global animator_duration_scale")
+            else shell("settings put global animator_duration_scale $original")
+        }
+    }
+
+    private fun shell(command: String): String = ParcelFileDescriptor.AutoCloseInputStream(
+        InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
+    ).bufferedReader().use { it.readText().trim() }
+
+    @Test
     fun review_edit_actions_have_localized_accessible_names() {
         reviewSetup()
         for (section in listOf("Your profile", "Your place", "Your weekly schedule")) {
@@ -261,6 +418,11 @@ class SetupJourneyTest {
         )) {
             seedLanguage(language)
             for (label in labels) {
+                if (label == labels.first()) {
+                    compose.onNodeWithTag("setup-back").assertContentDescriptionEquals(label)
+                        .assertHeightIsAtLeast(48.dp)
+                    continue
+                }
                 val text = compose.onNodeWithText(label, useUnmergedTree = true)
                 text.assertIsDisplayed()
                 val layouts = mutableListOf<TextLayoutResult>()
@@ -352,9 +514,18 @@ class SetupJourneyTest {
         graph?.close()
         db.close()
         db = openAndroidDatabase(context, name)
-        compose.runOnIdle { graph = graph(); shown = true }
-        compose.waitUntil(10_000) {
-            compose.onAllNodesWithTag("settings-language-ar").fetchSemanticsNodes().isNotEmpty()
+        compose.mainClock.autoAdvance = false
+        try {
+            compose.runOnIdle { graph = graph(); shown = true }
+            waitForStep(SetupStep.PREFERENCE)
+            val restored = compose.onNodeWithTag("setup-next").fetchSemanticsNode().boundsInRoot
+            compose.mainClock.advanceTimeBy(1_000)
+            Assert.assertEquals(
+                restored,
+                compose.onNodeWithTag("setup-next").fetchSemanticsNode().boundsInRoot
+            )
+        } finally {
+            compose.mainClock.autoAdvance = true
         }
         compose.onNodeWithTag("settings-language-ar").assertIsSelected()
         compose.onNodeWithTag("settings-theme-dark").performScrollTo().assertIsSelected()

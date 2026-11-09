@@ -12,14 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -34,13 +30,6 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import compose.icons.FontAwesomeIcons
-import compose.icons.fontawesomeicons.Regular
-import compose.icons.fontawesomeicons.Solid
-import compose.icons.fontawesomeicons.solid.Backspace
-import compose.icons.fontawesomeicons.solid.Backward
-import compose.icons.fontawesomeicons.solid.Undo
-import compose.icons.fontawesomeicons.solid.UndoAlt
 import dev.daymark.app.SetupStep
 import dev.daymark.navigation.SetupFinish
 import dev.daymark.presentation.component.isLocationIssue
@@ -51,8 +40,6 @@ import dev.daymark.resources.Res
 import dev.daymark.resources.draft_saved
 import dev.daymark.resources.onboarding_back
 import dev.daymark.resources.onboarding_finish_customize
-import dev.daymark.resources.onboarding_get_started
-import dev.daymark.resources.onboarding_next
 import dev.daymark.resources.onboarding_unsaved
 import dev.daymark.resources.retry
 import dev.daymark.resources.start_tracking
@@ -132,78 +119,8 @@ internal fun SetupStepActions(state: SetupUiState, actions: OnboardingActions) {
                 ) {
                     Text(str(Res.string.onboarding_back))
                 }
-            } else if (state.draft.step == SetupStep.WELCOME) {
-                Button(
-                    onClick = actions.advance,
-                    enabled = !state.interactionBusy,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .testTag("setup-next")
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(str(Res.string.onboarding_get_started))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
             } else {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedButton(
-                        onClick = actions.back,
-                        enabled = !state.interactionBusy,
-                        modifier = Modifier
-                            .heightIn(min = 48.dp)
-                            .testTag("setup-back"),
-                        elevation = ButtonDefaults.elevatedButtonElevation(10.dp)
-                    ) {
-                        IconButton(
-                            onClick = actions.back,
-                            enabled = !state.interactionBusy,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .testTag("setup-back-icon")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                contentDescription = str(Res.string.onboarding_back),
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-
-                    Button(
-                        onClick = actions.advance,
-                        enabled = !state.interactionBusy,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp)
-                            .testTag("setup-next")
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ){
-
-                            Text(str(Res.string.onboarding_next))
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
+                SetupNavigationActions(state, actions)
             }
         }
     }
