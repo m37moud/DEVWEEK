@@ -35,7 +35,7 @@ import dev.daymark.models.plan.TimeOffEntry
 import dev.daymark.plan.TimeOffKind
 import dev.daymark.plan.WeeklySchedule
 import dev.daymark.presentation.component.ZonePicker
-import dev.daymark.presentation.features.plan.component.ArrivalTimeDialog
+import dev.daymark.presentation.component.ArrivalTimeDialog
 import dev.daymark.presentation.features.plan.component.BalanceAdjustDialog
 import dev.daymark.presentation.features.plan.component.PlanPlaceActions
 import dev.daymark.presentation.features.plan.component.PlanPlaceUiState

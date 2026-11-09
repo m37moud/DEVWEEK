@@ -11,19 +11,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -41,6 +36,8 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Clock
 import dev.daymark.plan.WeeklySchedule
+import dev.daymark.presentation.component.ArrivalTimeDialog
+import dev.daymark.presentation.component.WeekdayOverrides
 import dev.daymark.presentation.component.ZonePicker
 import dev.daymark.presentation.component.label
 import dev.daymark.presentation.component.localTimeLabel
@@ -48,14 +45,9 @@ import dev.daymark.resources.Res
 import dev.daymark.resources.arrival
 import dev.daymark.resources.attendance_days
 import dev.daymark.resources.attendance_zone
-import dev.daymark.resources.cancel
 import dev.daymark.resources.grace
 import dev.daymark.resources.grace_minutes
-import dev.daymark.resources.reset
-import dev.daymark.resources.same_arrival
-import dev.daymark.resources.save
 import dev.daymark.resources.schedule
-import dev.daymark.resources.weekday_overrides
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.isolated
@@ -63,7 +55,6 @@ import dev.daymark.settings.plural
 import dev.daymark.settings.str
 import kotlin.math.roundToInt
 import kotlinx.datetime.DayOfWeek
-import kotlinx.datetime.LocalTime
 
 @Composable
 internal fun SetupSchedule(
@@ -120,7 +111,14 @@ internal fun SetupSchedule(
 
         GracePeriod(schedule, busy, onScheduleChange)
 
-        WeekdayOverrides(schedule, busy, onScheduleChange) { picker = it.name }
+        WeekdayOverrides(
+            schedule = schedule,
+            busy = busy,
+            onPickDayOverride = { picker = it.name },
+            onResetOverride = { day ->
+                onScheduleChange(schedule.copy(overrides = schedule.overrides - day))
+            }
+        )
 
         OutlinedButton(
             onClick = { chooseZone = true },
@@ -271,84 +269,4 @@ private fun GracePeriod(
             )
         }
     }
-}
-
-@Composable
-private fun WeekdayOverrides(
-    schedule: WeeklySchedule,
-    busy: Boolean,
-    onChange: (WeeklySchedule) -> Unit,
-    onPickTime: (DayOfWeek) -> Unit
-) {
-    val language = LocalAppLanguage.current
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = str(Res.string.weekday_overrides),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        schedule.days.sortedBy { it.ordinal }.forEach { day ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedButton(
-                    onClick = { onPickTime(day) },
-                    enabled = !busy,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = 44.dp)
-                ) {
-                    Text(
-                        text = str(day.label()) + " · " + (schedule.overrides[day]?.let {
-                            localTimeLabel(it, language)
-                        } ?: str(Res.string.same_arrival)),
-                        maxLines = 1
-                    )
-                }
-                if (day in schedule.overrides) {
-                    TextButton(
-                        onClick = { onChange(schedule.copy(overrides = schedule.overrides - day)) },
-                        enabled = !busy,
-                        modifier = Modifier.heightIn(min = 44.dp)
-                    ) {
-                        Text(str(Res.string.reset))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ArrivalTimeDialog(
-    initial: LocalTime,
-    onConfirm: (LocalTime) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val time = rememberTimePickerState(
-        initialHour = initial.hour,
-        initialMinute = initial.minute,
-        is24Hour = true
-    )
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(str(Res.string.arrival)) },
-        text = { TimePicker(time) },
-        confirmButton = {
-            TextButton(onClick = {
-                onConfirm(LocalTime(time.hour, time.minute))
-            }) {
-                Text(str(Res.string.save))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(str(Res.string.cancel))
-            }
-        }
-    )
 }

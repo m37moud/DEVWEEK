@@ -16,9 +16,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,7 +37,6 @@ import dev.daymark.resources.google_optional
 import dev.daymark.resources.grace
 import dev.daymark.resources.grace_minutes
 import dev.daymark.resources.ios_manual_help
-import dev.daymark.resources.onboarding_edit_section
 import dev.daymark.resources.onboarding_extras_help
 import dev.daymark.resources.onboarding_place
 import dev.daymark.resources.onboarding_profile
@@ -101,57 +100,62 @@ internal fun SetupReview(state: SetupUiState, platform: HostPlatform, onEdit: (S
             ScheduleSummary(state.draft)
         }
 
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth()
+        SetupReviewHint(platform)
+    }
+}
+
+@Composable
+private fun SetupReviewHint(platform: HostPlatform) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        text = str(
-                            if (platform == HostPlatform.ANDROID) Res.string.automation_help
-                            else Res.string.ios_manual_help
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                if (platform == HostPlatform.IOS) {
-                    Text(
-                        text = str(Res.string.reminder_horizon),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Text(
-                    text = str(Res.string.google_optional),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
                 )
-
                 Text(
-                    text = str(Res.string.onboarding_extras_help),
+                    text = str(
+                        if (platform == HostPlatform.ANDROID) Res.string.automation_help
+                        else Res.string.ios_manual_help
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            if (platform == HostPlatform.IOS) {
+                Text(
+                    text = str(Res.string.reminder_horizon),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
+            Text(
+                text = str(Res.string.google_optional),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Text(
+                text = str(Res.string.onboarding_extras_help),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -181,7 +185,7 @@ private fun SetupReviewSection(
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                TextButton(
+                OutlinedButton(
                     onClick = onEdit,
                     modifier = Modifier.heightIn(min = 40.dp)
                 ) {
@@ -194,7 +198,7 @@ private fun SetupReviewSection(
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )
-                        Text(str(Res.string.onboarding_edit_section, title))
+//                        Text(str(Res.string.onboarding_edit_section, title))
                     }
                 }
             }

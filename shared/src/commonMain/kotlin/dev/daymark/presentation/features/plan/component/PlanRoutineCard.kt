@@ -43,6 +43,7 @@ import compose.icons.fontawesomeicons.solid.Clock
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.plan.WeeklySchedule
+import dev.daymark.presentation.component.WeekdayOverrides
 import dev.daymark.presentation.component.label
 import dev.daymark.presentation.component.localTimeLabel
 import dev.daymark.presentation.component.shortLabel
@@ -236,7 +237,7 @@ internal fun PlanRoutineCard(
                 )
             }
 
-            CustomDays(
+            WeekdayOverrides(
                 schedule = schedule,
                 busy = busy,
                 onPickDayOverride = onPickDayOverride,
@@ -313,167 +314,7 @@ internal fun PlanRoutineCard(
     }
 }
 
-@Composable
-private fun CustomDays(
-    schedule: WeeklySchedule,
-    busy: Boolean,
-    onPickDayOverride: (DayOfWeek) -> Unit,
-    appLanguage: AppLanguage,
-    onResetOverride: (DayOfWeek) -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = str(Res.string.weekday_overrides),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = str(Res.string.override_arrival),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-            )
-        }
 
-        val scheduledDays =
-            remember(schedule.days) { DayOfWeek.entries.filter { it in schedule.days } }
-
-        if (scheduledDays.isEmpty()) {
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = str(Res.string.preview_no_dates),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(12.dp)
-                )
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (day in scheduledDays) {
-                    val overrideTime = schedule.overrides[day]
-                    val isOverridden = overrideTime != null
-                    val effectiveTime = overrideTime ?: schedule.arrival
-
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = if (isOverridden) {
-                            MaterialTheme.colorScheme.surfaceContainer
-                        } else {
-                            MaterialTheme.colorScheme.surfaceContainerLow
-                        },
-                        border = if (isOverridden) {
-                            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
-                        } else {
-                            BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = !busy) { onPickDayOverride(day) }
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .defaultMinSize(minHeight = 48.dp)
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                modifier = Modifier.weight(1f, fill = false)
-                            ) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = if (isOverridden) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceContainerHighest
-                                    },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Text(
-                                            text = str(day.shortLabel()),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = if (isOverridden) {
-                                                MaterialTheme.colorScheme.onPrimaryContainer
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurfaceVariant
-                                            }
-                                        )
-                                    }
-                                }
-                                Text(
-                                    text = str(day.label()),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Surface(
-                                    shape = MaterialTheme.shapes.extraSmall,
-                                    color = if (isOverridden) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceContainerHighest
-                                    }
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        if (isOverridden) {
-                                            Icon(
-                                                imageVector = FontAwesomeIcons.Solid.Clock,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(12.dp)
-                                            )
-                                        }
-                                        Text(
-                                            text = localTimeLabel(effectiveTime, appLanguage),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = if (isOverridden) {
-                                                MaterialTheme.colorScheme.onPrimaryContainer
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurfaceVariant
-                                            }
-                                        )
-                                    }
-                                }
-
-                                if (isOverridden) {
-                                    IconButton(
-                                        onClick = { onResetOverride(day) },
-                                        enabled = !busy,
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = str(Res.string.reset),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Preview
 @Composable

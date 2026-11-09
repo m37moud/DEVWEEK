@@ -25,9 +25,9 @@ import dev.daymark.settings.str
 import org.jetbrains.compose.resources.painterResource
 
 @Composable
-fun SetupWelcome(modifier: Modifier = Modifier) {
+internal fun SetupWelcome() {
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Card(

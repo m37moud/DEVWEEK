@@ -1,4 +1,4 @@
-package dev.daymark.presentation.features.plan.component
+package dev.daymark.presentation.component
 
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api

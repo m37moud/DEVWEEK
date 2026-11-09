@@ -1,51 +1,28 @@
 package dev.daymark.presentation.features.setup
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -64,44 +41,27 @@ import dev.daymark.app.HostPlatform
 import dev.daymark.app.SetupStep
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.navigation.SetupFinish
-import dev.daymark.presentation.component.isLocationIssue
 import dev.daymark.presentation.features.setup.component.OnboardingProgress
 import dev.daymark.presentation.features.setup.component.OnboardingStep
 import dev.daymark.presentation.features.setup.component.OpeningBalance
 import dev.daymark.presentation.features.setup.component.SetupActions
-import dev.daymark.presentation.features.setup.component.SetupError
 import dev.daymark.presentation.features.setup.component.SetupPlace
 import dev.daymark.presentation.features.setup.component.SetupProfile
+import dev.daymark.presentation.features.setup.component.SetupRecovery
 import dev.daymark.presentation.features.setup.component.SetupReview
 import dev.daymark.presentation.features.setup.component.SetupSchedule
+import dev.daymark.presentation.features.setup.component.SetupStepActions
 import dev.daymark.presentation.features.setup.component.SetupWelcome
 import dev.daymark.resources.Res
-import dev.daymark.resources.cancel
-import dev.daymark.resources.draft_saved
-import dev.daymark.resources.onboarding_back
-import dev.daymark.resources.onboarding_finish_customize
-import dev.daymark.resources.onboarding_get_started
-import dev.daymark.resources.onboarding_illustration
-import dev.daymark.resources.onboarding_next
 import dev.daymark.resources.onboarding_place
 import dev.daymark.resources.onboarding_profile
-import dev.daymark.resources.onboarding_reset
-import dev.daymark.resources.onboarding_reset_confirmation
 import dev.daymark.resources.onboarding_review
-import dev.daymark.resources.onboarding_unsaved
 import dev.daymark.resources.onboarding_welcome
-import dev.daymark.resources.onboarding_welcome_body
-import dev.daymark.resources.reset
-import dev.daymark.resources.retry
 import dev.daymark.resources.schedule
-import dev.daymark.resources.setup_description
-import dev.daymark.resources.start_tracking
-import dev.daymark.resources.storage_unavailable
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.ThemePreference
 import dev.daymark.settings.str
 import dev.daymark.ui.theme.DaymarkTheme
-import org.jetbrains.compose.resources.painterResource
 
 internal data class OnboardingActions(
     val advance: () -> Unit,
@@ -276,242 +236,7 @@ private fun SetupStepContent(
                 OpeningBalance(state, actions.updateDraft)
             }
         }
-
         SetupStep.REVIEW -> SetupReview(state, platform, onEdit)
-    }
-}
-
-
-@Composable
-private fun SetupStepActions(state: SetupUiState, actions: OnboardingActions) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        tonalElevation = 3.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            SetupSaveStatus(state, actions.retrySave)
-            if (state.issue != null && !state.issue.isLocationIssue()) {
-                SetupError(state.issue)
-            }
-            if (state.draft.step == SetupStep.REVIEW) {
-                Button(
-                    onClick = { actions.finish(SetupFinish.TODAY) },
-                    enabled = !state.busy,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .testTag("setup-start")
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(str(Res.string.start_tracking))
-                    }
-                }
-                OutlinedButton(
-                    onClick = { actions.finish(SetupFinish.CUSTOMIZE) },
-                    enabled = !state.busy,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .testTag("setup-customize")
-                ) {
-                    Text(str(Res.string.onboarding_finish_customize))
-                }
-                TextButton(
-                    onClick = actions.back,
-                    enabled = !state.busy,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 44.dp)
-                        .testTag("setup-back")
-                ) {
-                    Text(str(Res.string.onboarding_back))
-                }
-            } else if (state.draft.step == SetupStep.WELCOME) {
-                Button(
-                    onClick = actions.advance,
-                    enabled = !state.busy,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .testTag("setup-next")
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(str(Res.string.onboarding_get_started))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedButton(
-                        onClick = actions.back,
-                        enabled = !state.busy,
-                        modifier = Modifier
-                            .weight(0.4f)
-                            .heightIn(min = 48.dp)
-                            .testTag("setup-back")
-                    ) {
-                        Text(str(Res.string.onboarding_back), maxLines = 1)
-                    }
-                    Button(
-                        onClick = actions.advance,
-                        enabled = !state.busy,
-                        modifier = Modifier
-                            .weight(0.6f)
-                            .heightIn(min = 48.dp)
-                            .testTag("setup-next")
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(str(Res.string.onboarding_next), maxLines = 1)
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SetupSaveStatus(state: SetupUiState, onRetry: () -> Unit) {
-    if (state.issue == SetupIssue.LOCAL_SAVE_FAILED) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Warning,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(16.dp)
-            )
-            TextButton(
-                onClick = onRetry,
-                enabled = !state.busy,
-                modifier = Modifier.testTag("setup-save-retry")
-            ) {
-                Text(str(Res.string.retry))
-            }
-        }
-    } else {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (state.draftSaved) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.outline
-                    )
-            )
-            Text(
-                text = str(if (state.draftSaved) Res.string.draft_saved else Res.string.onboarding_unsaved),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag(if (state.draftSaved) "setup-draft-saved" else "setup-draft-unsaved")
-            )
-        }
-    }
-}
-
-@Composable
-private fun SetupRecovery(state: SetupUiState, actions: OnboardingActions) {
-    var confirmReset by rememberSaveable { mutableStateOf(false) }
-    if (state.busy) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(48.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator()
-        }
-    } else {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.errorContainer
-            ),
-            shape = RoundedCornerShape(20.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = str(Res.string.storage_unavailable),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier.testTag("setup-load-error")
-                )
-                Button(
-                    onClick = actions.retryLoad,
-                    modifier = Modifier.testTag("setup-retry")
-                ) {
-                    Text(str(Res.string.retry))
-                }
-                if (state.unreadable) {
-                    TextButton(onClick = { confirmReset = true }) {
-                        Text(str(Res.string.onboarding_reset))
-                    }
-                }
-            }
-        }
-    }
-    if (confirmReset) {
-        AlertDialog(
-            onDismissRequest = { confirmReset = false },
-            title = { Text(str(Res.string.onboarding_reset)) },
-            text = { Text(str(Res.string.onboarding_reset_confirmation)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmReset = false
-                    actions.reset()
-                }) {
-                    Text(str(Res.string.reset))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmReset = false }) {
-                    Text(str(Res.string.cancel))
-                }
-            }
-        )
     }
 }
 
