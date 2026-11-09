@@ -12,6 +12,18 @@ import kotlin.test.assertTrue
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class GoogleAccessTest {
+    @Test
+    fun configuration_failure_is_preserved_and_unknown_native_errors_are_sanitized() = runTest {
+        for (key in listOf("authorization_configuration", "private_native_detail")) {
+            val native = Native()
+            val pending = async { GoogleAccess(native).accessToken(true) }
+            runCurrent()
+            native.completion!!(NativeAuthReply(NativeAuthStatus.FAILED, null, key))
+            val expected = if (key == "authorization_configuration") key else "authorization_failed"
+            assertEquals(expected, assertIs<AccessResult.Failed>(pending.await()).errorKey)
+        }
+    }
+
     private class Native : NativeGoogleAuth {
         var interactive: Boolean? = null
         var completion: ((NativeAuthReply) -> Unit)? = null

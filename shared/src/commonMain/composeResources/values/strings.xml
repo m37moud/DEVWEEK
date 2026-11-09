@@ -232,4 +232,7 @@
     <string name="registered_map_provider">Maps by OpenFreeMap. Loading the map shares the viewed area with the map provider.</string>
     <string name="registered_map_contributors">© OpenStreetMap contributors</string>
     <string name="registered_map_privacy">Map privacy</string>
+    <string name="report_configuration_required">Google authorization is not configured for this app.</string>
+    <string name="report_browser_complete">Daymark received your response. You can close this tab and return to the app.</string>
+    <string name="report_browser_invalid">Daymark could not validate this authorization response. Return to the app and try again.</string>
 </resources>

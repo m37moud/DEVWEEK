@@ -236,4 +236,7 @@
     <string name="registered_map_provider">الخرائط من OpenFreeMap. تحميل الخريطة يشارك المنطقة المعروضة مع مزوّد الخرائط.</string>
     <string name="registered_map_contributors">© المساهمون في OpenStreetMap</string>
     <string name="registered_map_privacy">خصوصية الخرائط</string>
+    <string name="report_configuration_required">لم يتم إعداد تفويض Google لهذا التطبيق.</string>
+    <string name="report_browser_complete">استلم Daymark ردك. يمكنك إغلاق هذه الصفحة والعودة إلى التطبيق.</string>
+    <string name="report_browser_invalid">تعذر على Daymark التحقق من رد التفويض. عُد إلى التطبيق وحاول مرة أخرى.</string>
 </resources>

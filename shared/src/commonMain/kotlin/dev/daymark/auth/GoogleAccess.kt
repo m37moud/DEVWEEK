@@ -37,7 +37,10 @@ class GoogleAccess(private val native: NativeGoogleAuth) {
 
                 NativeAuthStatus.NEEDS_INTERACTION -> AccessResult.NeedsInteraction
                 NativeAuthStatus.CANCELLED -> AccessResult.Cancelled
-                NativeAuthStatus.FAILED -> AccessResult.Failed("authorization_failed")
+                NativeAuthStatus.FAILED -> AccessResult.Failed(
+                    if (result.errorKey == "authorization_configuration") "authorization_configuration"
+                    else "authorization_failed"
+                )
             }
         } catch (cancelled: CancellationException) {
             throw cancelled

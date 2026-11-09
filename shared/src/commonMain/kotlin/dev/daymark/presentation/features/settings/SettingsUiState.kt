@@ -16,6 +16,7 @@ data class SettingsUiState(
     val reminderPermissionGranted: Boolean? = null,
     val report: ReportHealth = ReportHealth(),
     val reportBusy: Boolean = false,
+    val reportActionFailed: Boolean = false,
     val deleting: Boolean = false,
     val deletionFailed: Boolean = false,
     val storageError: Boolean = false

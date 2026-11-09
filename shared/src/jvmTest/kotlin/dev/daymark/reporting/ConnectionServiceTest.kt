@@ -32,11 +32,12 @@ import kotlinx.coroutines.runBlocking
 class ConnectionServiceTest {
     private class Native : NativeGoogleAuth {
         var account = "a"
+        var status = NativeAuthStatus.GRANTED
         val interactive = mutableListOf<Boolean>()
         override fun authorize(interactive: Boolean, completion: (NativeAuthReply) -> Unit) {
             this.interactive += interactive; completion(
                 NativeAuthReply(
-                    NativeAuthStatus.GRANTED,
+                    status,
                     account,
                     null
                 )
@@ -45,6 +46,28 @@ class ConnectionServiceTest {
 
         override fun forget(completion: (Boolean) -> Unit) {
             completion(true)
+        }
+    }
+
+    @Test
+    fun native_failure_is_not_reported_as_a_request_to_reconnect(): Unit = runBlocking {
+        val folder = Files.createTempDirectory("daymark-native-failure-")
+        val db = openJvmDatabase(folder.resolve("test.db").toString())
+        HttpClient(MockEngine { error("No Google API call after native failure") }).use { client ->
+            try {
+                seedDatabase(db)
+                val native = Native().apply { status = NativeAuthStatus.FAILED }
+                val service = ConnectionService(db, GoogleAccess(native), GoogleReportTransport(client),
+                    RoomReportStore(db, TestClock()))
+                assertEquals(ConnectionResult.Failed("authorization_failed"), service.connect())
+                native.status = NativeAuthStatus.NEEDS_INTERACTION
+                assertEquals(ConnectionResult.AuthorizationRequired, service.connect())
+                native.status = NativeAuthStatus.CANCELLED
+                assertEquals(ConnectionResult.Cancelled, service.connect())
+            } finally {
+                db.close()
+                folder.toFile().deleteRecursively()
+            }
         }
     }
 

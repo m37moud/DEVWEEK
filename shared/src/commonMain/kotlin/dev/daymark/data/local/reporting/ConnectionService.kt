@@ -68,7 +68,8 @@ class ConnectionService(
             val token = when (val result = access.accessToken(interactive = true)) {
                 is AccessResult.Granted -> result.token
                 AccessResult.Cancelled -> return@withLock ConnectionResult.Cancelled
-                else -> return@withLock ConnectionResult.AuthorizationRequired
+                AccessResult.NeedsInteraction -> return@withLock ConnectionResult.AuthorizationRequired
+                is AccessResult.Failed -> return@withLock ConnectionResult.Failed(result.errorKey)
             }
             if (!valid(tracker.id, generation)) return@withLock ConnectionResult.Cancelled
             val account = transport.accountReference(token)

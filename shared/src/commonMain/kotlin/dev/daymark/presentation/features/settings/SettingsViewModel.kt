@@ -10,7 +10,6 @@ import dev.daymark.reminders.ReminderPort
 import dev.daymark.repository.Repository
 import dev.daymark.settings.LanguagePreference
 import dev.daymark.settings.ThemePreference
-import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +22,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 class SettingsViewModel(
     private val repository: Repository,
@@ -146,7 +146,7 @@ class SettingsViewModel(
 
     private fun reportAction(action: suspend () -> ConnectionResult?) {
         if (state.value.reportBusy || state.value.deleting) return
-        state.update { it.copy(reportBusy = true) }
+        state.update { it.copy(reportBusy = true, reportActionFailed = false) }
         viewModelScope.launch {
             try {
                 repository.reporting.refreshConnection(action())
@@ -154,7 +154,7 @@ class SettingsViewModel(
                 throw cancelled
             } catch (failure: Exception) {
                 AppLogger.e("SettingsViewModel", "Report action failed", failure)
-                repository.reporting.refreshConnection(ConnectionResult.Failed("connection_failed"))
+                state.update { it.copy(reportActionFailed = true) }
             } finally {
                 state.update { it.copy(reportBusy = false) }
             }

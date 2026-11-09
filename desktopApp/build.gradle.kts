@@ -14,14 +14,18 @@ dependencies {
     implementation(project(":shared"))
     implementation(libs.room.runtime)
     implementation(libs.ktor.java)
+    implementation(libs.serialization.json)
+    implementation(libs.compose.resources)
 
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutinesSwing)
 
+    implementation(libs.compose.uiToolingPreview)
+    implementation(libs.slf4j.nop)
+
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.coroutines.test)
 
-    implementation(libs.compose.uiToolingPreview)
 }
 
 val macLocationResources = layout.buildDirectory.dir("generated/locationResources")
@@ -45,16 +49,27 @@ val compileMacLocation = tasks.register<Exec>("compileMacLocation") {
     )
 }
 
+val compileMacGoogleSession = tasks.register<Exec>("compileMacGoogleSession") {
+    dependsOn(prepareMacLocation)
+    inputs.file("src/main/swift/DaymarkGoogleSession.swift")
+    val executable = macLocationBundle.map { it.file("MacOS/DaymarkGoogleSession") }
+    outputs.file(executable)
+    onlyIf { System.getProperty("os.name").startsWith("Mac") }
+    doFirst { executable.get().asFile.parentFile.mkdirs() }
+    commandLine("xcrun", "swiftc", "-O", "src/main/swift/DaymarkGoogleSession.swift",
+        "-o", executable.get().asFile.absolutePath)
+}
+
 sourceSets.main {
     resources.srcDir(macLocationResources.map { it.dir("macos") })
 }
 
 tasks.named<ProcessResources>("processResources") {
-    dependsOn(compileMacLocation)
+    dependsOn(compileMacLocation, compileMacGoogleSession)
 }
 
 tasks.matching { it.name == "prepareAppResources" }.configureEach {
-    dependsOn(compileMacLocation)
+    dependsOn(compileMacLocation, compileMacGoogleSession)
 }
 
 compose.desktop {
@@ -62,6 +77,7 @@ compose.desktop {
         mainClass = "dev.daymark.shared.MainKt"
 
         nativeDistributions {
+            modules("jdk.httpserver", "java.net.http")
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "dev.daymark.shared"
             packageVersion = "1.0.0"

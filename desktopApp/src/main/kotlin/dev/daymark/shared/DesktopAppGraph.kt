@@ -1,8 +1,6 @@
 package dev.daymark.shared
 
 import dev.daymark.app.AppGraph
-import dev.daymark.auth.NativeAuthReply
-import dev.daymark.auth.NativeAuthStatus
 import dev.daymark.auth.NativeGoogleAuth
 import dev.daymark.data.local.DaymarkDatabase
 import dev.daymark.location.LocationCapabilities
@@ -14,6 +12,7 @@ import dev.daymark.reminders.ReminderPort
 import dev.daymark.widgets.WidgetSink
 import kotlin.time.Duration
 import org.koin.dsl.module
+import org.koin.dsl.onClose
 
 internal fun desktopAppGraph(database: DaymarkDatabase): AppGraph {
     return AppGraph(module {
@@ -25,7 +24,8 @@ internal fun desktopAppGraph(database: DaymarkDatabase): AppGraph {
         single<LocationPermissionPort> {
             if (System.getProperty("os.name").startsWith("Mac")) get<MacLocation>() else DesktopPermissions
         }
-        single<NativeGoogleAuth> { DesktopGoogleAuth }
+        single { DesktopGoogleAuth() } onClose { it?.close() }
+        single<NativeGoogleAuth> { get<DesktopGoogleAuth>() }
         single<ReminderPort> { DesktopReminders }
         single<WidgetSink> { DesktopWidgets }
     })
@@ -42,14 +42,6 @@ private object DesktopPermissions : LocationPermissionPort {
     override suspend fun requestForeground() = current()
     override suspend fun requestBackground() = current()
     override fun openSystemSettings() = Unit
-}
-
-private object DesktopGoogleAuth : NativeGoogleAuth {
-    override fun authorize(interactive: Boolean, completion: (NativeAuthReply) -> Unit) {
-        completion(NativeAuthReply(NativeAuthStatus.FAILED, null, "authorization_failed"))
-    }
-
-    override fun forget(completion: (Boolean) -> Unit) = completion(true)
 }
 
 private object DesktopReminders : ReminderPort {

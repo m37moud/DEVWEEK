@@ -41,6 +41,7 @@ import dev.daymark.resources.report_auth_required
 import dev.daymark.resources.report_choice
 import dev.daymark.resources.report_connect
 import dev.daymark.resources.report_connected
+import dev.daymark.resources.report_configuration_required
 import dev.daymark.resources.report_connection_failed
 import dev.daymark.resources.report_consent_cancelled
 import dev.daymark.resources.report_content_too_long
@@ -186,7 +187,7 @@ internal fun GoogleConnectionSection(
                 modifier = Modifier.testTag("report-content-error")
             )
         }
-        when (val result = health.connectionResult) {
+        when (val result = if (state.reportActionFailed) ConnectionResult.Failed("connection_failed") else health.connectionResult) {
             ConnectionResult.PendingCreation -> Text(str(Res.string.report_creation_pending))
             is ConnectionResult.SelectionRequired -> {
                 Text(str(Res.string.report_select))
@@ -208,7 +209,7 @@ internal fun GoogleConnectionSection(
             ConnectionResult.AuthorizationRequired -> Text(str(Res.string.report_auth_required))
             ConnectionResult.Cancelled -> Text(str(Res.string.report_consent_cancelled))
             is ConnectionResult.Failed -> Text(
-                str(Res.string.report_connection_failed),
+                str(if (result.errorKey == "authorization_configuration") Res.string.report_configuration_required else Res.string.report_connection_failed),
                 color = MaterialTheme.colorScheme.error
             )
 

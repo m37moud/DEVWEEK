@@ -30,6 +30,8 @@ class SettingsReportActionsTest {
     @Test
     fun connection_retry_and_confirmed_deletion_are_owned_by_the_view_model() = runTest {
         val calls = mutableListOf<String>()
+        var refreshFails = false
+        var refreshCalls = 0
         val reports = object : ReportingDataSource {
             override val health = MutableStateFlow(ReportHealth())
             override suspend fun connect(): ConnectionResult {
@@ -57,6 +59,8 @@ class SettingsReportActionsTest {
             }
 
             override suspend fun refreshConnection(result: ConnectionResult?) {
+                refreshCalls++
+                check(!refreshFails) { "Storage unavailable" }
                 health.value = health.value.copy(connectionResult = result)
             }
 
@@ -124,5 +128,12 @@ class SettingsReportActionsTest {
                 "delete"
             ), calls
         )
+        refreshFails = true
+        val previousRefreshCalls = refreshCalls
+        model.connectReport()
+        runCurrent()
+        assertEquals(previousRefreshCalls + 1, refreshCalls)
+        assertTrue(model.uiState.value.reportActionFailed)
+        assertFalse(model.uiState.value.reportBusy)
     }
 }
