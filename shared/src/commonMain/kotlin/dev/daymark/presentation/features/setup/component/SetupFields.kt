@@ -1,16 +1,27 @@
 package dev.daymark.presentation.features.setup.component
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -43,6 +54,7 @@ import dev.daymark.presentation.component.label
 import dev.daymark.presentation.features.setup.SetupIssue
 import dev.daymark.presentation.features.setup.SetupUiState
 import dev.daymark.reporting.REPORT_TEXT_LIMIT
+import dev.daymark.reporting.exceedsReportTextLimit
 import dev.daymark.resources.Res
 import dev.daymark.resources.balance_help
 import dev.daymark.resources.checking_location
@@ -72,30 +84,57 @@ internal data class SetupActions(
 @Composable
 internal fun SetupProfile(state: SetupUiState, onDraftChange: (SetupDraft) -> Unit) {
     val draft = state.draft
-    OutlinedTextField(
-        draft.displayName, { onDraftChange(draft.copy(displayName = it)) },
-        label = { Text(str(Res.string.setup_name)) }, singleLine = true,
-        enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("setup-name")
-    )
-    if (dev.daymark.reporting.exceedsReportTextLimit(draft.displayName)) {
-        Text(
-            str(
-                Res.string.profile_too_long,
-                DisplayFormats.number(
-                    REPORT_TEXT_LIMIT,
-                    LocalAppLanguage.current
-                )
-            ),
-            color = MaterialTheme.colorScheme.error
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        OutlinedTextField(
+            value = draft.displayName,
+            onValueChange = { onDraftChange(draft.copy(displayName = it)) },
+            label = { Text(str(Res.string.setup_name)) },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            enabled = !state.busy,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("setup-name")
         )
-    }
-    Text(str(Res.string.setup_type), style = MaterialTheme.typography.titleSmall)
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        TrackerCategory.entries.forEach { category ->
-            FilterChip(
-                selected = category == draft.category, enabled = !state.busy,
-                onClick = { onDraftChange(draft.copy(category = category)) },
-                label = { Text(str(category.label())) })
+
+        AnimatedVisibility(
+            visible = exceedsReportTextLimit(draft.displayName),
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            Text(
+                text = str(
+                    Res.string.profile_too_long,
+                    DisplayFormats.number(REPORT_TEXT_LIMIT, LocalAppLanguage.current)
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = str(Res.string.setup_type),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TrackerCategory.entries.forEach { category ->
+                    FilterChip(
+                        selected = category == draft.category,
+                        enabled = !state.busy,
+                        onClick = { onDraftChange(draft.copy(category = category)) },
+                        label = { Text(str(category.label())) },
+                        modifier = Modifier.heightIn(min = 40.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -103,61 +142,109 @@ internal fun SetupProfile(state: SetupUiState, onDraftChange: (SetupDraft) -> Un
 @Composable
 internal fun SetupPlace(state: SetupUiState, actions: SetupActions) {
     val draft = state.draft
-    OutlinedTextField(
-        draft.placeName, { actions.updateDraft(draft.copy(placeName = it)) },
-        label = { Text(str(Res.string.setup_place_name)) }, singleLine = true,
-        enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("setup-place-name")
-    )
-    Text(
-        str(Res.string.location_rationale),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-    Button(
-        onClick = actions.registerPlace, enabled = !state.busy,
-        modifier = Modifier.fillMaxWidth().testTag("setup-register-place")
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+        OutlinedTextField(
+            value = draft.placeName,
+            onValueChange = { actions.updateDraft(draft.copy(placeName = it)) },
+            label = { Text(str(Res.string.setup_place_name)) },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            enabled = !state.busy,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("setup-place-name")
+        )
+
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text(
-                text = str(
-                    if (state.busy)
-                        Res.string.checking_location
-                    else
-                        Res.string.register_place
-                )
-            )
-            if (state.busy) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = LocalContentColor.current,
-                    strokeWidth = 2.dp
-                )
-            } else {
+            Row(
+                modifier = Modifier.padding(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
-                    imageVector = Icons.Default.LocationOn,
+                    imageVector = Icons.Default.Info,
                     contentDescription = null,
-                    modifier = Modifier.size(24.dp)
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = str(Res.string.location_rationale),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
-    }
-    state.issue?.takeIf { it.isLocationIssue() }?.let { issue ->
-        SetupError(issue)
-        if (issue == SetupIssue.LOCATION_DENIED || issue == SetupIssue.LOCATION_DISABLED) {
-            TextButton(onClick = actions.openSettings, enabled = !state.busy) {
-                Text(str(Res.string.open_settings))
+
+        Button(
+            onClick = actions.registerPlace,
+            enabled = !state.busy,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .testTag("setup-register-place")
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (state.busy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = LocalContentColor.current,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Text(
+                    text = str(
+                        if (state.busy) Res.string.checking_location
+                        else Res.string.register_place
+                    ),
+                    style = MaterialTheme.typography.labelLarge
+                )
             }
         }
-    }
-    draft.place?.let { place ->
-        PlaceRadius(
-            place,
-            state.busy
-        ) { updated -> actions.updateDraft(draft.copy(place = updated)) }
-        RegisteredPlacePreview(place, state.placeAddress, draft.placeName, Modifier.fillMaxWidth())
+
+        state.issue?.takeIf { it.isLocationIssue() }?.let { issue ->
+            SetupError(issue)
+            if (issue == SetupIssue.LOCATION_DENIED || issue == SetupIssue.LOCATION_DISABLED) {
+                TextButton(
+                    onClick = actions.openSettings,
+                    enabled = !state.busy,
+                    modifier = Modifier.heightIn(min = 44.dp)
+                ) {
+                    Text(str(Res.string.open_settings))
+                }
+            }
+        }
+
+        draft.place?.let { place ->
+            PlaceRadius(
+                place = place,
+                busy = state.busy
+            ) { updated -> actions.updateDraft(draft.copy(place = updated)) }
+
+            RegisteredPlacePreview(
+                place = place,
+                addressState = state.placeAddress,
+                placeName = draft.placeName,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -170,36 +257,83 @@ private fun PlaceRadius(
     val metres = isolated(DisplayFormats.number(place.radiusMetres, LocalAppLanguage.current))
     val label = str(Res.string.radius)
     val radiusDescription = str(Res.string.radius_metres, metres)
-    Text(
-        str(Res.string.place_ready, metres), color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.testTag("setup-place-ready")
-    )
-    Text(label, style = MaterialTheme.typography.titleSmall)
-    Slider(
-        place.radiusMetres.toFloat(), { onPlaceChange(place.copy(radiusMetres = it.roundToInt())) },
-        enabled = !busy, valueRange = 100f..500f, steps = 7,
-        modifier = Modifier.testTag("setup-radius").semantics {
-            contentDescription = label
-            stateDescription = radiusDescription
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = str(Res.string.place_ready, metres),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.testTag("setup-place-ready")
+                )
+                Text(
+                    text = radiusDescription,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(text = label, style = MaterialTheme.typography.labelMedium)
+            Slider(
+                value = place.radiusMetres.toFloat(),
+                onValueChange = { onPlaceChange(place.copy(radiusMetres = it.roundToInt())) },
+                enabled = !busy,
+                valueRange = 100f..500f,
+                steps = 7,
+                modifier = Modifier
+                    .testTag("setup-radius")
+                    .semantics {
+                        contentDescription = label
+                        stateDescription = radiusDescription
+                    }
+            )
         }
-    )
+    }
 }
 
 @Composable
 internal fun OpeningBalance(state: SetupUiState, onDraftChange: (SetupDraft) -> Unit) {
-    OutlinedTextField(
-        state.draft.openingBalanceText,
-        { onDraftChange(state.draft.copy(openingBalanceText = it)) },
-        label = { Text(str(Res.string.opening_balance)) },
-        singleLine = true,
-        enabled = !state.busy,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
-    )
-    Text(
-        str(Res.string.balance_help), style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedTextField(
+                value = state.draft.openingBalanceText,
+                onValueChange = { onDraftChange(state.draft.copy(openingBalanceText = it)) },
+                label = { Text(str(Res.string.opening_balance)) },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                enabled = !state.busy,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = str(Res.string.balance_help),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 @Composable
@@ -209,10 +343,34 @@ internal fun SetupError(issue: SetupIssue) {
         withFrameNanos { }
         errorPosition.bringIntoView()
     }
-    Text(
-        str(issue.label()), color = MaterialTheme.colorScheme.error,
-        modifier = Modifier.testTag("setup-error")
-            .semantics { liveRegion = LiveRegionMode.Assertive }
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        ),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
             .bringIntoViewRequester(errorPosition)
-    )
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = str(issue.label()),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier
+                    .testTag("setup-error")
+                    .semantics { liveRegion = LiveRegionMode.Assertive }
+            )
+        }
+    }
 }
