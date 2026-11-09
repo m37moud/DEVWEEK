@@ -46,6 +46,8 @@
     <string name="google_optional">Google Sheets is optional. You can connect later in Settings.</string>
     <string name="start_tracking">Start tracking</string>
     <string name="checking_location">Checking your location…</string>
+    <string name="language">Language</string>
+    <string name="profile_character_count">%1$s / %2$s</string>
     <string name="language_system">System</string>
     <string name="language_english">English</string>
     <string name="language_arabic">العربية</string>
@@ -145,18 +147,22 @@
     <string name="disable_reminders">Turn off reminders</string>
     <string name="effects_failed">Some scheduled checks, reminders, or widget updates need attention. Your records are saved on this phone.</string>
     <string name="horizon_through">Reminder planning refreshed through %1$s</string>
-    <string name="location_health">Precise foreground location · %1$s</string>
+    <string name="location_health">Precise foreground location</string>
     <string name="enabled">Available</string>
     <string name="disabled">Unavailable</string>
     <string name="choose_zone">Attendance time zone</string>
     <string name="search_zone">Search time zones</string>
     <string name="google_report">Google Sheets report</string>
+    <string name="info">Information</string>
     <string name="report_local_authority">Records save on this phone first. Sheets is an outgoing report; edits in Sheets are not imported and may be replaced.</string>
     <string name="report_disconnected">Google is not connected. Local tracking works normally.</string>
     <string name="report_connected">Report connected · upload status shown below</string>
     <string name="report_pending_count">%1$s projections pending upload</string>
     <string name="report_last_sync">Last observed sync: %1$s · %2$s</string>
     <string name="report_auth_required">Reconnect Google to continue uploading.</string>
+    <string name="report_configuration_required">Google authorization is not configured for this app.</string>
+    <string name="report_browser_complete">Daymark received your response. You can close this tab and return to the app.</string>
+    <string name="report_browser_invalid">Daymark could not validate this authorization response. Return to the app and try again.</string>
     <string name="report_schema_conflict">The report structure changed. Rebuild its managed sections or create a new report.</string>
     <string name="report_unavailable">The report is unavailable. Reconnect or create a new report.</string>
     <string name="report_pending">Saved locally · upload pending</string>
@@ -224,6 +230,14 @@
     <string name="onboarding_extras_help">Start tracking now, or finish and customize optional permissions, Google reporting, and widgets in Settings. You can return to these options at any time.</string>
     <string name="onboarding_widget_title">Home screen widget</string>
     <string name="onboarding_widget_help">Add Daymark from your phone’s home screen widget picker. On Android, touch and hold an empty area and choose Widgets. On iPhone, edit the home screen and choose Add Widget. Tap the widget to open Daymark and check attendance with a fresh location reading; the widget itself never confirms attendance.</string>
+    <string name="widget_help_android">Touch and hold an empty area on your home screen, choose Widgets, and select Daymark. Tap the widget to open Daymark and check attendance with a fresh location reading; the widget itself never confirms attendance.</string>
+    <string name="widget_help_ios">Touch and hold your home screen, tap the + button, and select Daymark to add the widget. Tap the widget to open Daymark and check attendance with a fresh location reading; the widget itself never confirms attendance.</string>
+    <string name="widget_help_desktop">Home screen widgets are supported on Android and iOS devices. Widgets are unavailable on the desktop version.</string>
+    <string name="add_widget_to_home">Add to Home screen</string>
+    <string name="widget_pin_requested">Widget addition requested. Check your home screen or system prompt.</string>
+    <string name="widget_preview_header">Widget preview</string>
+    <string name="widget_sample_place">Workplace</string>
+    <string name="widget_sample_status">Present · On time</string>
     <string name="registered_coordinates">Latitude: %1$s · Longitude: %2$s</string>
     <string name="registered_map_unavailable">Map preview unavailable. Your registered location is saved; you can continue.</string>
     <string name="registered_map_loading">Loading map…</string>
@@ -232,7 +246,4 @@
     <string name="registered_map_provider">Maps by OpenFreeMap. Loading the map shares the viewed area with the map provider.</string>
     <string name="registered_map_contributors">© OpenStreetMap contributors</string>
     <string name="registered_map_privacy">Map privacy</string>
-    <string name="report_configuration_required">Google authorization is not configured for this app.</string>
-    <string name="report_browser_complete">Daymark received your response. You can close this tab and return to the app.</string>
-    <string name="report_browser_invalid">Daymark could not validate this authorization response. Return to the app and try again.</string>
 </resources>

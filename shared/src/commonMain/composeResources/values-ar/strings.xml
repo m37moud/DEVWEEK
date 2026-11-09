@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="startup_loading">جارٍ التحميل</string>
+    <string name="report_configuration_required">لم يتم إعداد تفويض Google لهذا التطبيق.</string>
+    <string name="report_browser_complete">استلم Daymark ردك. يمكنك إغلاق هذه الصفحة والعودة إلى التطبيق.</string>
+    <string name="report_browser_invalid">تعذر على Daymark التحقق من رد التفويض. عُد إلى التطبيق وحاول مرة أخرى.</string>
     <string name="app_name">Daymark</string>
     <string name="setup_title">خطوتك الأولى نحو حضور منتظم</string>
     <string name="setup_description">مكان واحد وجدول أسبوعي وسجل محفوظ على هاتفك.</string>
@@ -46,6 +49,8 @@
     <string name="google_optional">الربط بجداول Google اختياري، ويمكنك تفعيله لاحقًا من الإعدادات.</string>
     <string name="start_tracking">ابدأ المتابعة</string>
     <string name="checking_location">جارٍ تحديد موقعك…</string>
+    <string name="language">اللغة</string>
+    <string name="profile_character_count">%1$s / %2$s</string>
     <string name="language_system">النظام</string>
     <string name="language_english">English</string>
     <string name="language_arabic">العربية</string>
@@ -149,12 +154,14 @@
     <string name="disable_reminders">إيقاف التذكيرات</string>
     <string name="effects_failed">تحتاج بعض عمليات التحقق المجدولة أو التذكيرات أو تحديثات الأداة إلى مراجعة. سجلاتك محفوظة على هذا الهاتف.</string>
     <string name="horizon_through">تم تحديث خطة التذكيرات حتى %1$s</string>
-    <string name="location_health">الموقع الدقيق في المقدمة · %1$s</string>
+    <string name="location_health">الموقع الدقيق في المقدمة</string>
+<!--    <string name="location_health">الموقع الدقيق في المقدمة · %1$s</string>-->
     <string name="enabled">متاح</string>
     <string name="disabled">غير متاح</string>
     <string name="choose_zone">المنطقة الزمنية للحضور</string>
     <string name="search_zone">البحث في المناطق الزمنية</string>
     <string name="google_report">تقرير جداول بيانات Google</string>
+    <string name="info">معلومه</string>
     <string name="report_local_authority">تُحفظ السجلات على هذا الهاتف أولاً. التقرير يُرسل إلى جداول البيانات؛ لا تُستورد التعديلات هناك وقد تُستبدل.</string>
     <string name="report_disconnected">Google غير متصل. يعمل التتبع المحلي كالمعتاد.</string>
     <string name="report_connected">التقرير متصل · حالة الرفع أدناه</string>
@@ -228,6 +235,14 @@
     <string name="onboarding_extras_help">ابدأ التتبع الآن، أو اختر إنهاء وتخصيص لإعداد الأذونات الاختيارية وتقارير Google والويدجت في الإعدادات. يمكنك العودة إلى هذه الخيارات في أي وقت.</string>
     <string name="onboarding_widget_title">ويدجت الشاشة الرئيسية</string>
     <string name="onboarding_widget_help">أضف دايمارك من قائمة الويدجت في الشاشة الرئيسية. على Android، اضغط مطولًا على مساحة فارغة واختر الويدجت. على iPhone، حرّر الشاشة الرئيسية واختر إضافة ويدجت. اضغط على الويدجت لفتح دايمارك والتحقق من الحضور بقراءة موقع حديثة؛ لا يؤكد الويدجت الحضور بنفسه.</string>
+    <string name="widget_help_android">المس مع الاستمرار مساحة فارغة في الشاشة الرئيسية، واختر عناصر الواجهة (Widgets)، ثم حدد دايمارك. اضغط على عنصر الواجهة لفتح دايمارك والتحقق من الحضور بقراءة موقع حديثة؛ لا يؤكد عنصر الواجهة الحضور بنفسه.</string>
+    <string name="widget_help_ios">المس مع الاستمرار في الشاشة الرئيسية، واضغط على زر +، واختر دايمارك لإضافة عنصر الواجهة. اضغط على عنصر الواجهة لفتح دايمارك والتحقق من الحضور بقراءة موقع حديثة؛ لا يؤكد عنصر الواجهة الحضور بنفسه.</string>
+    <string name="widget_help_desktop">عناصر واجهة الشاشة الرئيسية مدعومة على أجهزة Android وiOS. عناصر الواجهة غير متاحة على إصدار سطح المكتب.</string>
+    <string name="add_widget_to_home">إضافة إلى الشاشة الرئيسية</string>
+    <string name="widget_pin_requested">تم طلب إضافة عنصر الواجهة. تحقق من الشاشة الرئيسية أو نافذة النظام.</string>
+    <string name="widget_preview_header">معاينة عنصر الواجهة</string>
+    <string name="widget_sample_place">مكان العمل</string>
+    <string name="widget_sample_status">حاضر · في الموعد</string>
     <string name="registered_coordinates">خط العرض: %1$s · خط الطول: %2$s</string>
     <string name="registered_map_unavailable">معاينة الخريطة غير متاحة. تم حفظ موقع مكانك ويمكنك المتابعة.</string>
     <string name="registered_map_loading">جارٍ تحميل الخريطة…</string>
@@ -236,7 +251,4 @@
     <string name="registered_map_provider">الخرائط من OpenFreeMap. تحميل الخريطة يشارك المنطقة المعروضة مع مزوّد الخرائط.</string>
     <string name="registered_map_contributors">© المساهمون في OpenStreetMap</string>
     <string name="registered_map_privacy">خصوصية الخرائط</string>
-    <string name="report_configuration_required">لم يتم إعداد تفويض Google لهذا التطبيق.</string>
-    <string name="report_browser_complete">استلم Daymark ردك. يمكنك إغلاق هذه الصفحة والعودة إلى التطبيق.</string>
-    <string name="report_browser_invalid">تعذر على Daymark التحقق من رد التفويض. عُد إلى التطبيق وحاول مرة أخرى.</string>
 </resources>

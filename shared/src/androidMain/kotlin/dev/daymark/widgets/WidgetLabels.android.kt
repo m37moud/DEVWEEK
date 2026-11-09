@@ -12,11 +12,11 @@ fun initializeWidgetResources(context: Context) {
     widgetContext = context.applicationContext
 }
 
-private fun context(): Context =
+internal fun widgetContext(): Context =
     requireNotNull(widgetContext) { "Widget resources are not initialized" }
 
 internal actual fun widgetStatusLabel(status: AttendanceStatus?, language: AppLanguage): String {
-    val base = context()
+    val base = widgetContext()
     val localized =
         base.createConfigurationContext(Configuration(base.resources.configuration).apply {
             setLocale(Locale.forLanguageTag(language.tag))
@@ -37,6 +37,6 @@ internal actual fun widgetStatusLabel(status: AttendanceStatus?, language: AppLa
 }
 
 internal actual fun widgetSystemLanguageTags(): List<String> =
-    context().resources.configuration.locales.let { locales ->
+    widgetContext().resources.configuration.locales.let { locales ->
         (0 until locales.size()).map { locales[it].toLanguageTag() }
     }
