@@ -8,6 +8,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import dev.daymark.location.LocationCapabilities
@@ -106,6 +107,7 @@ private class ActivityPermissionActions(private val activity: ComponentActivity)
         launch(foreground, complete) {
             foregroundLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
         }
+    @RequiresApi(Build.VERSION_CODES.Q)
     override fun requestBackground(complete: () -> Unit): () -> Unit =
         launch(background, complete) { backgroundLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION) }
     override fun openBackgroundSettings(complete: () -> Unit): () -> Unit =

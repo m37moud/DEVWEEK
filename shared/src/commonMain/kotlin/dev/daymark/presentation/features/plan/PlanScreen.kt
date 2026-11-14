@@ -88,15 +88,15 @@ fun PlanScreen(model: PlanViewModel, clock: Clock, initialTimeOffDate: LocalDate
     }
     val actions = remember(model) {
         PlanActions(
-            model::edit,
-            model::preview,
-            model::confirm,
-            model::previewTimeOff,
-            model::confirmTimeOff,
-            model::cancelPreview,
-            model::setAvailableBalance,
-            model::registerCurrentPlace,
-            model::openLocationSettings
+            edit = model::edit,
+            preview = model::preview,
+            confirm = model::confirm,
+            previewTimeOff = model::previewTimeOff,
+            confirmTimeOff = model::confirmTimeOff,
+            cancelPreview = model::cancelPreview,
+            setAvailableBalance = model::setAvailableBalance,
+            registerCurrentPlace = model::registerCurrentPlace,
+            openLocationSettings = model::openLocationSettings
         )
     }
     PlanContent(state, clock, initialTimeOffDate, actions)

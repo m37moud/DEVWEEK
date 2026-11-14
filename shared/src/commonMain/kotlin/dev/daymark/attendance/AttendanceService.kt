@@ -37,8 +37,8 @@ class AttendanceService(
         if (!manual.tryLock()) return CheckOutcome.Busy(null)
         return try {
             val day = repository.loadCurrentDay(clock.now()) ?: return CheckOutcome.Rejected(
-                null,
-                CheckRejection.NO_TRACKER
+                currentDay = null,
+                reason = CheckRejection.NO_TRACKER
             )
             if (expectedTrackerId != null && day.plan.key.trackerId != expectedTrackerId)
                 return CheckOutcome.StateChanged(null)

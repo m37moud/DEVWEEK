@@ -7,18 +7,17 @@ import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationPermissionPort
 import dev.daymark.location.LocationResult
 import dev.daymark.location.PlaceAddressRequest
-import dev.daymark.presentation.component.placeAddressStates
-import dev.daymark.settings.AppLanguage
+import dev.daymark.logging.AppLogger
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.plan.PlanChange
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.plan.TimeOffCommand
 import dev.daymark.plan.parseWholeDays
+import dev.daymark.presentation.component.placeAddressStates
 import dev.daymark.presentation.component.registrationIssue
 import dev.daymark.presentation.features.setup.SetupIssue
 import dev.daymark.repository.Repository
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.seconds
+import dev.daymark.settings.AppLanguage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +31,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 
 class PlanViewModel(
     private val repository: Repository,
@@ -40,6 +41,7 @@ class PlanViewModel(
     val clock: Clock,
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 ) : ViewModel(scope) {
+    private val TAG = PlanViewModel::class.simpleName ?: "PlanViewModel"
     private val state = MutableStateFlow(PlanUiState())
     val uiState = state.asStateFlow()
 
@@ -166,7 +168,8 @@ class PlanViewModel(
         if (issue != null) {
             state.update { it.copy(locationIssue = issue) }; return@launchAction
         }
-        val fix = withTimeoutOrNull(30.seconds) { location.requestFix(30.seconds) }
+        val fix: LocationResult? = withTimeoutOrNull(30.seconds) { location.requestFix(30.seconds) }
+        AppLogger.d(tag = TAG, message = "Location fix result: $fix")
         if (fix !is LocationResult.Fix) {
             val reason = (fix as? LocationResult.Failure)?.reason
             state.update {
@@ -180,7 +183,7 @@ class PlanViewModel(
                 )
             }; return@launchAction
         }
-        val failure = registrationIssue(fix, clock.now())
+        val failure = registrationIssue(fix = fix, now = clock.now())
         if (failure != null) state.update { it.copy(locationIssue = failure) }
         else {
             val draft = state.value.draft ?: return@launchAction

@@ -12,6 +12,8 @@ import dev.daymark.models.attendance.FixVerdict
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.plan.TimeOffKind
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -19,8 +21,6 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 
 fun evaluateDay(
     plan: DayPlan,
