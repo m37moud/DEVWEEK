@@ -8,6 +8,7 @@ import Foundation
 try WidgetSnapshotFixtures.roundTrips()
 WidgetSnapshotFixtures.rejectsUntrustedPayloads()
 WidgetSnapshotFixtures.staleSnapshotIsNotTodaysConfirmation()
+WidgetSnapshotFixtures.actionBoundaries()
 let catalog = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))) as! [String: Any]
 let strings = catalog["strings"] as! [String: Any]
 for language in ["en", "ar"] {

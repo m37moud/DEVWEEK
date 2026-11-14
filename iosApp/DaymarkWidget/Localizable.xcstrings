@@ -177,7 +177,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Check attendance"
+            "value": "Check in"
           }
         },
         "ar": {
@@ -269,6 +269,74 @@
           "stringUnit": {
             "state": "translated",
             "value": "سجل حضورك المحفوظ وزر للتحقق من موقعك عند فتح التطبيق."
+          }
+        }
+      }
+    },
+    "widget_refresh": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh needed"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يلزم التحديث"
+          }
+        }
+      }
+    },
+    "widget_not_started_short": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tracking not started"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لم يبدأ التتبع"
+          }
+        }
+      }
+    },
+    "widget_check_disabled": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check-in available at arrival"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يتاح تسجيل الحضور عند موعد الوصول"
+          }
+        }
+      }
+    },
+    "widget_today": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اليوم"
           }
         }
       }

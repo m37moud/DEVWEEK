@@ -2,6 +2,7 @@ import Foundation
 
 /// Display-only data shared through the App Group. No database or authentication access.
 struct NativeWidgetSnapshot: Codable {
+    static let widgetKind = "DaymarkAttendance"
     let schemaVersion: Int
     let trackerId: String
     let generatedAtEpochMillis: Int64
@@ -98,5 +99,18 @@ struct NativeWidgetSnapshot: Codable {
         if let deadlineEpochMillis, now > Double(deadlineEpochMillis) { return "ABSENT" }
         if let arrivalEpochMillis, now >= Double(arrivalEpochMillis) { return "AWAITING_CHECK" }
         return statusCode
+    }
+}
+
+
+/// Presentation hints only; the foreground host validates the live attendance state.
+extension NativeWidgetSnapshot {
+    enum Action { case checkIn, disabled, openApp }
+
+    func action(at date: Date) -> Action {
+        guard let status = resolvedStatus(at: date), isTracked else { return .openApp }
+        if ["PRESENT", "LATE", "DAY_OFF", "HOLIDAY", "VACATION"].contains(status) { return .openApp }
+        if let arrivalEpochMillis, date.timeIntervalSince1970 * 1000 < Double(arrivalEpochMillis) { return .disabled }
+        return ["AWAITING_CHECK", "ABSENT"].contains(status) ? .checkIn : .openApp
     }
 }

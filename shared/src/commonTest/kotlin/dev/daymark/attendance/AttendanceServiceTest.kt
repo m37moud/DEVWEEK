@@ -108,6 +108,70 @@ class AttendanceServiceTest {
     }
 
     @Test
+    fun widget_checks_validate_identity_and_live_time_before_gps() = runTest {
+        val clock = TestClock(at("08:59:00"))
+        val repo = Repository(clock)
+        val gateway = Gateway()
+        val service = AttendanceService(repo, gateway, clock)
+        val trackerId = repo.day!!.plan.key.trackerId
+        assertIs<CheckOutcome.StateChanged>(service.widgetCheck("deleted-tracker"))
+        assertEquals(
+            CheckRejection.BEFORE_WINDOW,
+            assertIs<CheckOutcome.Rejected>(service.widgetCheck(trackerId)).reason
+        )
+        assertEquals(0, gateway.calls)
+        clock.value = at("09:00:00")
+        gateway.answer = { fixtureFix().copy(capturedAt = clock.now(), receivedAt = clock.now()) }
+        assertIs<CheckOutcome.Recorded>(service.widgetCheck(trackerId))
+        assertEquals(1, gateway.calls)
+        assertIs<CheckOutcome.AlreadyRecorded>(service.widgetCheck(trackerId))
+        assertEquals(1, gateway.calls)
+        repo.day = null
+        assertEquals(
+            CheckRejection.NO_TRACKER,
+            assertIs<CheckOutcome.Rejected>(service.widgetCheck(trackerId)).reason
+        )
+    }
+
+    @Test
+    fun widget_and_app_share_acquisition_and_cancellation_releases_lock() = runTest {
+        val clock = TestClock()
+        val repo = Repository(clock)
+        val gateway = Gateway()
+        val started = CompletableDeferred<Unit>()
+        gateway.answer = { started.complete(Unit); awaitCancellation() }
+        val service = AttendanceService(repo, gateway, clock)
+        val pending = async { service.widgetCheck(repo.day!!.plan.key.trackerId) }
+        started.await()
+        assertIs<CheckOutcome.Busy>(service.manualCheck())
+        assertEquals(1, gateway.calls)
+        pending.cancelAndJoin()
+        gateway.answer = { fixtureFix() }
+        assertIs<CheckOutcome.Recorded>(service.manualCheck())
+        assertEquals(2, gateway.calls)
+    }
+
+    @Test
+    fun widget_uses_inclusive_deadline_and_allows_late_user_check() = runTest {
+        for ((time, status) in listOf(
+            "09:05:00" to AttendanceStatus.PRESENT,
+            "09:05:00.001" to AttendanceStatus.LATE
+        )) {
+            val clock = TestClock(at(time))
+            val repo = Repository(clock)
+            val gateway = Gateway()
+            gateway.answer =
+                { fixtureFix().copy(capturedAt = clock.now(), receivedAt = clock.now()) }
+            val service = AttendanceService(repo, gateway, clock)
+            assertEquals(
+                status,
+                service.widgetCheck(repo.day!!.plan.key.trackerId).currentDay?.status
+            )
+            assertEquals(1, gateway.calls)
+        }
+    }
+
+    @Test
     fun correction_wins_during_location_acquisition() = runTest {
         val clock = TestClock();
         val repo = Repository(clock);

@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
+        WidgetCheckState.clearFinished()
         (application as DaymarkApplication).graph.requestRecovery()
     }
 

@@ -22,7 +22,7 @@ final class WidgetSnapshotWriter: NSObject, WidgetSink {
             var values = URLResourceValues(); values.isExcludedFromBackup = true
             var protectedFolder = folder; try protectedFolder.setResourceValues(values)
             try data.write(to: file, options: [.atomic, .completeFileProtection])
-            WidgetCenter.shared.reloadTimelines(ofKind: "DaymarkAttendance")
+            WidgetCenter.shared.reloadTimelines(ofKind: NativeWidgetSnapshot.widgetKind)
             return true
         } catch { return false }
     }
@@ -30,8 +30,26 @@ final class WidgetSnapshotWriter: NSObject, WidgetSink {
         guard let file else { return false }
         do {
             if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
-            WidgetCenter.shared.reloadTimelines(ofKind: "DaymarkAttendance")
+            WidgetCenter.shared.reloadTimelines(ofKind: NativeWidgetSnapshot.widgetKind)
             return true
         } catch { return false }
     }
+}
+
+final class IosWidgetSetupPort: NSObject, WidgetSetupPort {
+    var canRequestPin: Bool { false }
+    func query(completion: @escaping (WidgetSetupStatus) -> Void) {
+        WidgetCenter.shared.getCurrentConfigurations { outcome in
+            DispatchQueue.main.async {
+                switch outcome {
+                case .success(let configurations):
+                    completion(configurations.contains { $0.kind == NativeWidgetSnapshot.widgetKind } ? .added : .notAdded)
+                case .failure:
+                    completion(.unknown)
+                }
+            }
+        }
+    }
+    func requestPin(onConfirmed: @escaping () -> Void) -> Bool { false }
+    func close() { }
 }

@@ -13,4 +13,7 @@
     <string name="widget_updated">آخر تحديث · %1$s</string>
     <string name="widget_stale">افتح التطبيق للاطلاع على سجل اليوم</string>
     <string name="widget_deadline">حاضر حتى · %1$s</string>
+    <string name="widget_refresh">يلزم التحديث</string>
+    <string name="widget_not_started_short">لم يبدأ التتبع</string>
+    <string name="widget_check_disabled">يتاح تسجيل الحضور عند موعد الوصول</string>
 </resources>

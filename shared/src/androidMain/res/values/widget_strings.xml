@@ -9,8 +9,11 @@
     <string name="widget_status_vacation">Vacation</string>
     <string name="widget_not_started">Scheduled tracking has not started. You can still check in manually today.</string>
     <string name="widget_open">Open Daymark</string>
-    <string name="widget_check">Check attendance</string>
+    <string name="widget_check">Check in</string>
     <string name="widget_updated">Updated · %1$s</string>
     <string name="widget_stale">Open Daymark for today’s record</string>
     <string name="widget_deadline">Present through · %1$s</string>
+    <string name="widget_refresh">Refresh needed</string>
+    <string name="widget_not_started_short">Tracking not started</string>
+    <string name="widget_check_disabled">Check-in available at arrival</string>
 </resources>

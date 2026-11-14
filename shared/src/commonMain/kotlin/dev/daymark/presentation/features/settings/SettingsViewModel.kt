@@ -10,6 +10,9 @@ import dev.daymark.reminders.ReminderPort
 import dev.daymark.repository.Repository
 import dev.daymark.settings.LanguagePreference
 import dev.daymark.settings.ThemePreference
+import dev.daymark.widgets.UnsupportedWidgetSetupPort
+import dev.daymark.widgets.WidgetSetupPort
+import dev.daymark.widgets.WidgetSetupStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,7 +31,8 @@ class SettingsViewModel(
     private val repository: Repository,
     private val permissions: LocationPermissionPort,
     private val reminders: ReminderPort,
-    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    private val widgetSetup: WidgetSetupPort = UnsupportedWidgetSetupPort
 ) : ViewModel(scope) {
     private val state = MutableStateFlow(SettingsUiState())
     val uiState = state.asStateFlow()
@@ -61,6 +65,48 @@ class SettingsViewModel(
                 state.update { it.copy(ready = true, storageError = true) }
             }.collect()
         }
+    }
+
+    private var widgetQueryGeneration = 0
+
+    fun refreshWidgetSetup() {
+        val generation = ++widgetQueryGeneration
+        state.update { it.copy(widgetCanPin = widgetSetup.canRequestPin) }
+        widgetSetup.query { status ->
+            viewModelScope.launch {
+                if (generation == widgetQueryGeneration) AppLogger.d(
+                    "SettingsViewModel",
+                    "Widget setup refreshed: ${status.name}"
+                )
+                if (generation == widgetQueryGeneration) state.update {
+                    it.copy(
+                        widgetStatus = status,
+                        widgetPinPending = false
+                    )
+                }
+            }
+        }
+    }
+
+    fun addWidget() {
+        if (state.value.widgetPinPending || state.value.widgetStatus == WidgetSetupStatus.ADDED) return
+        val accepted = widgetSetup.requestPin(::refreshWidgetSetup)
+        state.update {
+            it.copy(
+                widgetPinPending = accepted,
+                widgetStatus = if (accepted) it.widgetStatus else WidgetSetupStatus.UNKNOWN
+            )
+        }
+        AppLogger.i(
+            "SettingsViewModel",
+            if (accepted) "Widget pin request accepted" else "Widget pin request unavailable"
+        )
+    }
+
+    override fun onCleared() {
+        widgetQueryGeneration++
+        widgetSetup.close()
+        super.onCleared()
     }
 
     fun refreshPermissions() {

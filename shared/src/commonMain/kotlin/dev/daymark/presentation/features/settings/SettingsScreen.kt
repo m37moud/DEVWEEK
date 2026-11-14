@@ -49,6 +49,7 @@ import dev.daymark.presentation.features.settings.component.ReportActions
 import dev.daymark.presentation.features.settings.component.SettingsPreferencesCard
 import dev.daymark.presentation.features.settings.component.SettingsProfileCard
 import dev.daymark.presentation.features.settings.component.SettingsTrackingCard
+import dev.daymark.presentation.features.settings.component.WidgetSetupActions
 import dev.daymark.presentation.features.settings.component.SettingsWidgetsCard
 import dev.daymark.resources.Res
 import dev.daymark.resources.local_save_failed
@@ -61,6 +62,8 @@ import dev.daymark.ui.theme.DaymarkTheme
 import dev.daymark.ui.theme.LocalConfigurationHealth
 
 private data class SettingsActions(
+    val addWidget: () -> Unit,
+    val refreshWidget: () -> Unit,
     val setDisplayName: (String) -> Unit,
     val setLanguage: (LanguagePreference) -> Unit,
     val setTheme: (ThemePreference) -> Unit,
@@ -76,10 +79,13 @@ fun SettingsScreen(model: SettingsViewModel, platform: HostPlatform) {
     val state by model.uiState.collectAsStateWithLifecycle()
     LifecycleStartEffect(model) {
         model.refreshPermissions()
+        model.refreshWidgetSetup()
         onStopOrDispose {}
     }
     val actions = remember(model) {
         SettingsActions(
+            addWidget = model::addWidget,
+            refreshWidget = model::refreshWidgetSetup,
             setDisplayName = model::setDisplayName,
             setLanguage = model::setLanguage,
             setTheme = model::setTheme,
@@ -211,7 +217,11 @@ private fun SettingsContent(
                     )
 
                     if (platform != HostPlatform.TEST) {
-                        SettingsWidgetsCard(platform = platform)
+                        SettingsWidgetsCard(
+                            state,
+                            WidgetSetupActions(actions.addWidget, actions.refreshWidget),
+                            platform
+                        )
                     }
                     GoogleConnectionSection(
                         state = state,
@@ -227,6 +237,8 @@ private fun SettingsContent(
 @Composable
 private fun SettingsScreenAndroidPreview() {
     val sampleActions = SettingsActions(
+        addWidget = {},
+        refreshWidget = {},
         setDisplayName = {},
         setLanguage = {},
         setTheme = {},
@@ -240,6 +252,8 @@ private fun SettingsScreenAndroidPreview() {
         SettingsContent(
             state = SettingsUiState(
                 ready = true,
+                widgetStatus = dev.daymark.widgets.WidgetSetupStatus.NOT_ADDED,
+                widgetCanPin = true,
                 settings = AppSettings(displayName = "Alex Lee")
             ),
             platform = HostPlatform.ANDROID,
@@ -252,6 +266,8 @@ private fun SettingsScreenAndroidPreview() {
 @Composable
 private fun SettingsScreenIosDarkPreview() {
     val sampleActions = SettingsActions(
+        addWidget = {},
+        refreshWidget = {},
         setDisplayName = {},
         setLanguage = {},
         setTheme = {},
@@ -265,6 +281,7 @@ private fun SettingsScreenIosDarkPreview() {
         SettingsContent(
             state = SettingsUiState(
                 ready = true,
+                widgetStatus = dev.daymark.widgets.WidgetSetupStatus.ADDED,
                 settings = AppSettings(displayName = "Alex Lee", theme = ThemePreference.DARK),
                 reportBusy = true
             ),

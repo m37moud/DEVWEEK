@@ -28,13 +28,20 @@ class AttendanceService(
     private val clock: Clock
 ) : AttendanceChecks {
     private val manual = Mutex()
-    override suspend fun manualCheck(): CheckOutcome {
+    override suspend fun manualCheck(): CheckOutcome = checkManual(null)
+
+    suspend fun widgetCheck(expectedTrackerId: String): CheckOutcome =
+        checkManual(expectedTrackerId)
+
+    private suspend fun checkManual(expectedTrackerId: String?): CheckOutcome {
         if (!manual.tryLock()) return CheckOutcome.Busy(null)
         return try {
             val day = repository.loadCurrentDay(clock.now()) ?: return CheckOutcome.Rejected(
                 null,
                 CheckRejection.NO_TRACKER
             )
+            if (expectedTrackerId != null && day.plan.key.trackerId != expectedTrackerId)
+                return CheckOutcome.StateChanged(null)
             val now = clock.now()
             val current = day.outcome(now)
             when {

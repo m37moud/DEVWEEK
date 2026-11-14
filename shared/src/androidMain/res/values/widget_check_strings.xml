@@ -1,0 +1,20 @@
+<resources>
+    <string name="widget_check_channel">Widget check-in</string>
+    <string name="widget_checking">Checking location…</string>
+    <string name="widget_check_progress">One check only. You can cancel.</string>
+    <string name="widget_cancel">Cancel</string>
+    <string name="widget_check_saved">Attendance saved</string>
+    <string name="widget_already_recorded">Attendance already recorded</string>
+    <string name="widget_check_busy">Check in progress</string>
+    <string name="widget_check_changed">Review setup in Daymark</string>
+    <string name="widget_check_starts">Check-in starts at %1$s</string>
+    <string name="widget_check_permission">Allow precise location</string>
+    <string name="widget_check_location_off">Enable location</string>
+    <string name="widget_check_outside">Outside your place</string>
+    <string name="widget_check_accuracy">Location unclear</string>
+    <string name="widget_check_save_failed">Could not save</string>
+    <string name="widget_check_off_day">No attendance needed today</string>
+    <string name="widget_check_cancelled">Check cancelled</string>
+    <string name="widget_check_retry">Location unavailable</string>
+    <string name="widget_check_retry_action">Retry check-in</string>
+</resources>

@@ -12,6 +12,7 @@ import dev.daymark.location.PlaceGeocoder
 import dev.daymark.location.IosPlaceGeocoder
 import dev.daymark.reminders.ReminderPort
 import dev.daymark.widgets.WidgetSink
+import dev.daymark.widgets.WidgetSetupPort
 import kotlin.time.Clock
 import org.koin.dsl.module
 import platform.UIKit.UIViewController
@@ -21,7 +22,8 @@ private var applicationGraph: AppGraph? = null
 fun MainViewController(
     auth: NativeGoogleAuth,
     reminders: ReminderPort,
-    widget: WidgetSink
+    widget: WidgetSink,
+    widgetSetup: WidgetSetupPort
 ): UIViewController {
     // One graph per application keeps manual checks and native side effects shared across host recreation.
     val graph = applicationGraph ?: AppGraph(module {
@@ -32,6 +34,7 @@ fun MainViewController(
         single<NativeGoogleAuth> { auth }
         single<ReminderPort> { reminders }
         single<WidgetSink> { widget }
+        factory<WidgetSetupPort> { widgetSetup }
     }).also { applicationGraph = it }
     return ComposeUIViewController { App(graph) }
 }

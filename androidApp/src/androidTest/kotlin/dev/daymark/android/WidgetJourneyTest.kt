@@ -73,6 +73,10 @@ class WidgetJourneyTest {
             compose.waitUntil(15_000) {
                 compose.onAllNodesWithText("متأخر").fetchSemanticsNodes().isNotEmpty()
             }
+            compose.waitUntil(15_000) {
+                runBlocking { fixture.graph.repository.attendance.loadCurrentDay(fixture.clock.now()) }
+                    ?.evidence?.source == AttendanceSource.MANUAL_GPS
+            }
             runBlocking {
                 val current =
                     fixture.graph.repository.attendance.loadCurrentDay(fixture.clock.now())!!

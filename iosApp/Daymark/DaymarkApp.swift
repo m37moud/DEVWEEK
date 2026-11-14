@@ -7,6 +7,7 @@ import DaymarkShared
 struct DaymarkApp: App {
     @State private var showDeveloperProbe = false
     private let widget: WidgetSink
+    private let widgetSetup = IosWidgetSetupPort()
     private let reminders: IosReminderAdapter
     private let notificationDelegate: DaymarkNotificationDelegate
     private let googleDriver: AppAuthDriver
@@ -30,10 +31,10 @@ struct DaymarkApp: App {
                 if showDeveloperProbe {
                     NativeProbeView(googleAuth: googleAuth, reminders: reminders, onClose: { showDeveloperProbe = false })
                 } else {
-                    ContentView(auth: googleAuth, reminders: reminders, widget: widget).ignoresSafeArea()
+                    ContentView(auth: googleAuth, reminders: reminders, widget: widget, widgetSetup: widgetSetup).ignoresSafeArea()
                 }
 #else
-                ContentView(auth: googleAuth, reminders: reminders, widget: widget).ignoresSafeArea()
+                ContentView(auth: googleAuth, reminders: reminders, widget: widget, widgetSetup: widgetSetup).ignoresSafeArea()
 #endif
             }
             .onOpenURL { url in

@@ -6,9 +6,9 @@ private struct AttendanceEntry: TimelineEntry {
     let snapshot: NativeWidgetSnapshot?
 }
 private struct AttendanceProvider: TimelineProvider {
-    func placeholder(in context: Context) -> AttendanceEntry { AttendanceEntry(date: .now, snapshot: nil) }
+    func placeholder(in context: Context) -> AttendanceEntry { previewEntry("AWAITING_CHECK") }
     func getSnapshot(in context: Context, completion: @escaping (AttendanceEntry) -> Void) {
-        completion(AttendanceEntry(date: .now, snapshot: readSnapshot()))
+        completion(context.isPreview ? previewEntry("AWAITING_CHECK") : AttendanceEntry(date: .now, snapshot: readSnapshot()))
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<AttendanceEntry>) -> Void) {
         let snapshot = readSnapshot(); let now = Date()
@@ -36,7 +36,7 @@ private struct AttendanceProvider: TimelineProvider {
 @main
 struct DaymarkWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "DaymarkAttendance", provider: AttendanceProvider()) { entry in
+        StaticConfiguration(kind: NativeWidgetSnapshot.widgetKind, provider: AttendanceProvider()) { entry in
             if #available(iOS 17.0, *) {
                 AttendanceWidgetView(entry: entry).containerBackground(for: .widget) { widgetBackground(entry.snapshot) }
             } else {
@@ -48,12 +48,19 @@ struct DaymarkWidget: Widget {
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
-private func widgetBackground(_ snapshot: NativeWidgetSnapshot?) -> Color {
+private func widgetBackground(_ snapshot: NativeWidgetSnapshot?) -> some View {
+    let fill: Color
     switch snapshot?.themePreference {
-    case "DARK": return Color(red: 0.07, green: 0.11, blue: 0.09)
-    case "LIGHT": return Color(red: 0.97, green: 0.98, blue: 0.96)
-    default: return Color(uiColor: .systemBackground)
+    case "DARK": fill = Color(red: 0.07, green: 0.11, blue: 0.09)
+    case "LIGHT": fill = Color(red: 0.97, green: 0.98, blue: 0.96)
+    default:
+        fill = Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 0.07, green: 0.11, blue: 0.09, alpha: 1)
+                : UIColor(red: 0.97, green: 0.98, blue: 0.96, alpha: 1)
+        })
     }
+    return fill.overlay(ContainerRelativeShape().stroke(Color.gray.opacity(0.3), lineWidth: 1))
 }
 private struct AttendanceWidgetView: View {
     @Environment(\.colorScheme) private var systemScheme
@@ -70,46 +77,66 @@ private struct AttendanceWidgetView: View {
         switch entry.snapshot?.themePreference { case "LIGHT": return .light; case "DARK": return .dark; default: return nil }
     }
 
+    private var action: NativeWidgetSnapshot.Action { entry.snapshot?.action(at: entry.date) ?? .openApp }
+    private var launchURL: URL? {
+        switch action {
+        case .checkIn: return route
+        case .openApp: return URL(string: "daymark://quick-check")
+        case .disabled: return nil
+        }
+    }
+    private var dark: Bool { (scheme ?? systemScheme) == .dark }
+    private var foreground: Color { dark ? Color(red: 0.93, green: 0.95, blue: 0.91) : Color(red: 0.13, green: 0.22, blue: 0.18) }
+    private var primary: Color { dark ? Color(red: 0.76, green: 0.87, blue: 0.62) : Color(red: 0.16, green: 0.40, blue: 0.30) }
+    private var statusLabel: String {
+        guard let snapshot = entry.snapshot else { return text("widget_open") }
+        guard let status = snapshot.resolvedStatus(at: entry.date) else { return text("widget_refresh") }
+        if !snapshot.isTracked { return text("widget_not_started_short") }
+        return text("widget_status_\(status.lowercased())")
+    }
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Label("Daymark", systemImage: "checkmark.circle.fill")
-                .font(.headline)
-
+        VStack(alignment: .leading, spacing: 2) {
+            Text(text("widget_today")).font(.caption2).foregroundStyle(foreground.opacity(0.75))
+            Text(statusLabel)
+                .font(.headline.weight(.bold)).foregroundStyle(foreground)
+                .fixedSize(horizontal: false, vertical: true)
             if let snapshot = entry.snapshot {
-                let status = snapshot.resolvedStatus(at: entry.date)
-                statusBadge(status: status, snapshot: snapshot)
-                snapshotDetails(snapshot)
-            } else {
-                Text(text("widget_open")).font(.subheadline)
+                Text(String(format: text("widget_updated"), "\u{2068}\(updated(snapshot))\u{2069}"))
+                    .font(.caption2).foregroundStyle(foreground.opacity(0.75))
             }
-
             Spacer(minLength: 0)
-
-            actionButton
+            if let launchURL {
+                Link(destination: launchURL) { actionLabel }
+            } else {
+                actionLabel.accessibilityLabel(text("widget_check_disabled"))
+                    .disabled(true)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .tint((scheme ?? systemScheme) == .dark ? Color(red: 0.76, green: 0.87, blue: 0.62) : Color(red: 0.16, green: 0.40, blue: 0.30))
         .environment(\.locale, Locale(identifier: language))
         .environment(\.layoutDirection, language == "ar" ? .rightToLeft : .leftToRight)
         .environment(\.colorScheme, scheme ?? systemScheme)
         .accessibilityIdentifier("daymark-attendance-widget")
         .privacySensitive()
-        .widgetURL(route)
+        .widgetURL(launchURL)
     }
-
-    private func snapshotDetails(_ snapshot: NativeWidgetSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("\u{2068}\(snapshot.placeLabel)\u{2069}")
-                .font(.caption).lineLimit(1)
-            if let deadline = snapshot.deadlineDisplay {
-                Text(String(format: text("widget_deadline"), "\u{2068}\(deadline)\u{2069}"))
-                    .font(.caption2).lineLimit(1)
-            }
-            Text(String(format: text("widget_updated"), "\u{2068}\(updated(snapshot))\u{2069}"))
-                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+    private var actionForeground: Color {
+        switch action {
+        case .checkIn:
+            return dark ? Color(red: 0.13, green: 0.21, blue: 0.12) : Color(red: 0.97, green: 0.98, blue: 0.94)
+        case .openApp: return primary
+        case .disabled: return foreground
         }
     }
-
+    private var actionLabel: some View {
+        Text(text(action == .openApp ? "widget_open" : "widget_check"))
+            .font(.subheadline.weight(.semibold))
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .foregroundStyle(actionForeground)
+            .background(action == .checkIn ? primary : foreground.opacity(0.1))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .opacity(action == .disabled ? 0.5 : 1)
+    }
     private func updated(_ snapshot: NativeWidgetSnapshot) -> String {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
@@ -119,72 +146,37 @@ private struct AttendanceWidgetView: View {
         formatter.timeStyle = .short
         return formatter.string(from: Date(timeIntervalSince1970: Double(snapshot.generatedAtEpochMillis) / 1000))
     }
+}
 
-    private func statusBadge(status: String?, snapshot: NativeWidgetSnapshot) -> some View {
-        let isPresent = status == "PRESENT"
-        let isLate = status == "LATE"
-        let isOff = status == "DAY_OFF" || status == "HOLIDAY" || status == "VACATION"
-        let labelText: String = {
-            if status == nil { return text("widget_stale") }
-            if status == snapshot.statusCode { return snapshot.displayStatus }
-            return text("widget_status_\(status!.lowercased())")
-        }()
-
-        let bg: Color = {
-            if isPresent { return Color(red: 0.86, green: 0.94, blue: 0.85) }
-            if isLate { return Color(red: 0.99, green: 0.91, blue: 0.80) }
-            if isOff { return Color(red: 0.89, green: 0.93, blue: 0.90) }
-            return Color(red: 0.92, green: 0.95, blue: 0.93)
-        }()
-        let fg: Color = {
-            if isPresent { return Color(red: 0.11, green: 0.30, blue: 0.21) }
-            if isLate { return Color(red: 0.48, green: 0.29, blue: 0.00) }
-            if isOff { return Color(red: 0.21, green: 0.33, blue: 0.27) }
-            return Color(red: 0.13, green: 0.22, blue: 0.18)
-        }()
-
-        return HStack(spacing: 6) {
-            if isPresent {
-                Image(systemName: "checkmark")
-                    .font(.caption.bold())
-            } else if isLate {
-                Image(systemName: "exclamationmark.circle")
-                    .font(.caption)
-            } else if isOff {
-                Image(systemName: "moon.fill")
-                    .font(.caption)
-            } else {
-                Circle()
-                    .fill(Color(red: 0.16, green: 0.40, blue: 0.30))
-                    .frame(width: 8, height: 8)
-            }
-            Text(labelText)
-                .font(.subheadline.weight(.medium))
-                .lineLimit(2)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(bg)
-        .foregroundColor(fg)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-
-    private var actionButton: some View {
-        let isConfirmed = entry.snapshot?.resolvedStatus(at: entry.date).map { $0 == "PRESENT" || $0 == "LATE" } ?? false
-        let title: String = {
-            if entry.snapshot == nil { return text("widget_open") }
-            if isConfirmed { return "✓ " + (entry.snapshot?.displayStatus ?? text("widget_open")) }
-            return text("widget_check")
-        }()
-
-        return Link(destination: route) {
-            Text(title)
-                .font(.caption.bold())
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-                .background(isConfirmed ? Color(red: 0.89, green: 0.93, blue: 0.90) : ((scheme ?? systemScheme) == .dark ? Color(red: 0.76, green: 0.87, blue: 0.62) : Color(red: 0.16, green: 0.40, blue: 0.30)))
-                .foregroundColor(isConfirmed ? Color(red: 0.13, green: 0.22, blue: 0.18) : ((scheme ?? systemScheme) == .dark ? Color(red: 0.13, green: 0.21, blue: 0.12) : Color(red: 0.96, green: 0.98, blue: 0.94)))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+struct AttendanceWidgetPreviews: PreviewProvider {
+    static var previews: some View {
+        ForEach(["AWAITING_CHECK", "SCHEDULED", "PRESENT", "DAY_OFF", "STALE"], id: \.self) { status in
+            AttendanceWidgetView(entry: previewEntry(status))
+                .padding().background(widgetBackground(nil))
+                .previewContext(WidgetPreviewContext(family: .systemSmall))
+                .previewDisplayName(status)
         }
     }
 }
+
+private func previewEntry(_ status: String) -> AttendanceEntry {
+        let now = Date()
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = .gmt
+        let id = "f8428c3a-1347-40dc-9667-af38e69c6801"
+        let json: [String: Any] = [
+            "schemaVersion": 1, "trackerId": id,
+            "generatedAtEpochMillis": Int64(now.timeIntervalSince1970 * 1000),
+            "attendanceDate": status == "STALE" ? "2020-01-01" : formatter.string(from: now),
+            "effectiveLocale": Locale.preferredLanguages.first(where: { $0.hasPrefix("ar") || $0.hasPrefix("en") })?.hasPrefix("ar") == true ? "ar" : "en", "displayStatus": status,
+            "statusCode": status == "STALE" ? "PRESENT" : status,
+            "placeLabel": "", "zoneId": "UTC",
+            "arrivalEpochMillis": Int64(now.addingTimeInterval(status == "SCHEDULED" ? 3600 : -3600).timeIntervalSince1970 * 1000),
+            "quickCheckRoute": "daymark://quick-check?v=1&trackerId=\(id)",
+            "themePreference": "SYSTEM", "isTracked": true
+        ]
+        return AttendanceEntry(date: now, snapshot: (try? JSONSerialization.data(withJSONObject: json)).flatMap(NativeWidgetSnapshot.decode))
+    }

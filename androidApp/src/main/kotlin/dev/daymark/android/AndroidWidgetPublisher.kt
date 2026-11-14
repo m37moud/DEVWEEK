@@ -47,6 +47,7 @@ class AndroidWidgetPublisher(context: Context,private val file: File = snapshotF
         fun readFile(file: File): WidgetSnapshot? = synchronized(fileLock) { try {
             if (file.length() > 262_144) null else AtomicFile(file).openRead().bufferedReader(Charsets.UTF_8).use { decodeWidgetSnapshot(it.readText()) }
         } catch (_: Exception) { null } }
+        fun read(context: Context): WidgetSnapshot? = readFile(snapshotFile(context))
         fun observe(context: Context): Flow<WidgetSnapshot?> = changes.map { readFile(snapshotFile(context)) }.flowOn(Dispatchers.IO)
     }
 }

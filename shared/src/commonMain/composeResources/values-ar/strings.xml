@@ -240,7 +240,6 @@
     <string name="widget_help_desktop">عناصر واجهة الشاشة الرئيسية مدعومة على أجهزة Android وiOS. عناصر الواجهة غير متاحة على إصدار سطح المكتب.</string>
     <string name="add_widget_to_home">إضافة إلى الشاشة الرئيسية</string>
     <string name="widget_pin_requested">تم طلب إضافة عنصر الواجهة. تحقق من الشاشة الرئيسية أو نافذة النظام.</string>
-    <string name="widget_preview_header">معاينة عنصر الواجهة</string>
     <string name="widget_sample_place">مكان العمل</string>
     <string name="widget_sample_status">حاضر · في الموعد</string>
     <string name="registered_coordinates">خط العرض: %1$s · خط الطول: %2$s</string>
@@ -255,4 +254,8 @@
     <string name="registered_map_privacy">خصوصية الخرائط</string>
     <string name="onboarding_preferences">التفضيلات</string>
     <string name="onboarding_preferences_failed">تعذّر حفظ تفضيلاتك. حاول مرة أخرى.</string>
+    <string name="widget_added">تمت إضافة الأداة</string>
+    <string name="widget_checking">جارٍ التحقق من حالة الأداة…</string>
+    <string name="widget_setup_unknown">تعذّر التحقق من حالة الأداة</string>
+    <string name="widget_refresh_status">التحقق من حالة الأداة</string>
 </resources>

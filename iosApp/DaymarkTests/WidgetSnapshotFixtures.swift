@@ -35,4 +35,17 @@ enum WidgetSnapshotFixtures {
         let now = ISO8601DateFormatter().date(from: "2026-10-28T09:18:00Z")!
         precondition(snapshot.resolvedStatus(at: now) == nil)
     }
+    static func actionBoundaries() {
+        let formatter = ISO8601DateFormatter()
+        let raw = arabic.replacingOccurrences(of: "\"statusCode\":\"PRESENT\"", with: "\"statusCode\":\"SCHEDULED\"")
+        let snapshot = NativeWidgetSnapshot.decode(Data(raw.utf8))!
+        precondition(snapshot.action(at: formatter.date(from: "2026-10-27T08:59:59Z")!) == .disabled)
+        precondition(snapshot.action(at: formatter.date(from: "2026-10-27T09:00:00Z")!) == .checkIn)
+        precondition(snapshot.resolvedStatus(at: formatter.date(from: "2026-10-27T09:05:00Z")!) == "AWAITING_CHECK")
+        precondition(snapshot.resolvedStatus(at: formatter.date(from: "2026-10-27T09:05:01Z")!) == "ABSENT")
+        precondition(snapshot.action(at: formatter.date(from: "2026-10-28T09:00:00Z")!) == .openApp)
+        let untracked = NativeWidgetSnapshot.decode(Data(raw.replacingOccurrences(of: "\"isTracked\":true", with: "\"isTracked\":false").utf8))!
+        precondition(untracked.action(at: formatter.date(from: "2026-10-27T09:10:00Z")!) == .openApp)
+    }
+
 }

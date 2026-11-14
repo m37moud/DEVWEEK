@@ -26,6 +26,8 @@ import dev.daymark.plan.PlanReader
 import dev.daymark.presentation.features.app.AppViewModel
 import dev.daymark.presentation.features.history.HistoryViewModel
 import dev.daymark.presentation.features.plan.PlanViewModel
+import dev.daymark.widgets.WidgetSetupPort
+import dev.daymark.widgets.createWidgetSetupPort
 import dev.daymark.presentation.features.settings.SettingsViewModel
 import dev.daymark.presentation.features.setup.SetupViewModel
 import dev.daymark.presentation.features.today.TodayViewModel
@@ -160,7 +162,8 @@ internal fun viewModelModule() = module {
     viewModel { SetupViewModel(get(), get(), get(), get()) }
     viewModel { TodayViewModel(get(), get(), get(), initiallyActive = false) }
     viewModel { PlanViewModel(get(), get(), get(), get()) }
-    viewModel { SettingsViewModel(get(), get(), get()) }
+    factory<WidgetSetupPort> { createWidgetSetupPort() }
+    viewModel { SettingsViewModel(get(), get(), get(), widgetSetup = get()) }
     viewModel { (initialDate: LocalDate) ->
         val repository = get<Repository>()
         val clock = get<Clock>()

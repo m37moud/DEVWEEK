@@ -1,0 +1,20 @@
+<resources>
+    <string name="widget_check_channel">تسجيل الحضور من الأداة</string>
+    <string name="widget_checking">جارٍ تحديد الموقع…</string>
+    <string name="widget_check_progress">تحقق واحد فقط. يمكنك الإلغاء.</string>
+    <string name="widget_cancel">إلغاء</string>
+    <string name="widget_check_saved">تم حفظ الحضور</string>
+    <string name="widget_already_recorded">الحضور مسجّل بالفعل</string>
+    <string name="widget_check_busy">يوجد تحقق جارٍ</string>
+    <string name="widget_check_changed">راجع إعداد التطبيق</string>
+    <string name="widget_check_starts">يبدأ تسجيل الحضور في %1$s</string>
+    <string name="widget_check_permission">اسمح بالموقع الدقيق</string>
+    <string name="widget_check_location_off">فعّل الموقع</string>
+    <string name="widget_check_outside">خارج المكان</string>
+    <string name="widget_check_accuracy">الموقع غير دقيق</string>
+    <string name="widget_check_save_failed">تعذّر الحفظ</string>
+    <string name="widget_check_off_day">لا يلزم تسجيل الحضور اليوم</string>
+    <string name="widget_check_cancelled">تم إلغاء التحقق</string>
+    <string name="widget_check_retry">الموقع غير متاح</string>
+    <string name="widget_check_retry_action">أعد تسجيل الحضور</string>
+</resources>

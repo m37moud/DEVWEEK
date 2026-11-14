@@ -68,6 +68,7 @@ class AndroidAppGraph(context: Context) {
         refreshSchedule = { recoverSafely(publishWidget = false) },
         stopExternalWork = { stopExternal() }
     )
+    internal val isDeleting get() = dependencies.dataLifecycle.deleting.value
     val clock: Clock by dependencies.koin.inject()
     val database: DaymarkDatabase by dependencies.koin.inject()
     val attendanceRepository: AttendanceRepository by dependencies.koin.inject()
@@ -104,8 +105,12 @@ class AndroidAppGraph(context: Context) {
         catch (_: Exception) { failed.value = true; false }
     private val recoveryMutex = Mutex()
     private suspend fun stopExternal() {
+        WidgetCheckService.cancelAndJoin()
+        app.stopService(android.content.Intent(app, WidgetCheckService::class.java))
         database.dao().tracker()?.let { scheduler.cancelTrackerAwait(it.id) }
-        withContext(Dispatchers.IO) { WorkManager.getInstance(app).cancelUniqueWork(REPORT_WORK).result.get() }
+        withContext(Dispatchers.IO) {
+            WorkManager.getInstance(app).cancelUniqueWork(REPORT_WORK).result.get()
+        }
         recoveryMutex.withLock { /* Wait for any older native recovery before the final widget clear. */ }
     }
     private fun permitted(): Boolean = androidLocationCapabilities(app).let { it.foregroundGranted && it.preciseGranted && it.backgroundGranted }
