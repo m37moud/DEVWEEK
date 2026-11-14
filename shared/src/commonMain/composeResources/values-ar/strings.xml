@@ -143,8 +143,8 @@
     <string name="invalid_name">أدخل اسمًا.</string>
     <string name="automation">التحقق التلقائي من الحضور</string>
     <string name="automation_help">محاولة واحدة عند وقت الحضور. قد يؤخرها أندرويد أو يمنعها. يلزم السماح بالموقع الدقيق في المقدمة والخلفية. يُسجّل اليوم غيابًا إذا لم يُؤكّد بعد فترة السماح، ويمكنك تسجيل الحضور يدويًا لاحقًا.</string>
-    <string name="automation_on">التحقق التلقائي مفعّل</string>
-    <string name="automation_off">التحقق التلقائي غير مفعّل</string>
+    <string name="automation_on">مفعّل</string>
+    <string name="automation_off">غير مفعّل</string>
     <string name="automation_denied">يبقى التحقق التلقائي متوقفًا حتى تتوفر أذونات الموقع وخدماته. يمكنك تسجيل الحضور يدويًا.</string>
     <string name="enable_automation">تفعيل التحقق التلقائي</string>
     <string name="disable_automation">إيقاف التحقق التلقائي</string>

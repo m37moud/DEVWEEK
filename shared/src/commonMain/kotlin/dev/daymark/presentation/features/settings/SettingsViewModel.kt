@@ -34,6 +34,7 @@ class SettingsViewModel(
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
     private val widgetSetup: WidgetSetupPort = UnsupportedWidgetSetupPort
 ) : ViewModel(scope) {
+    private val TAG = SettingsViewModel::class.simpleName
     private val state = MutableStateFlow(SettingsUiState())
     val uiState = state.asStateFlow()
 
@@ -153,6 +154,7 @@ class SettingsViewModel(
 
     fun setAutomation(enabled: Boolean) = save {
         val expectedTracker = repository.settings.trackerIdentity() ?: return@save
+        AppLogger.d(TAG ?: "SettingsViewModel", "Setting automation to $enabled")
         if (enabled) {
             var capability = permissions.current()
             if (!capability.foregroundGranted || !capability.preciseGranted) capability =

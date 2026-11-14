@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -25,15 +26,20 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.daymark.app.HostPlatform
 import dev.daymark.location.LocationCapabilities
@@ -50,6 +56,7 @@ import dev.daymark.resources.effects_failed
 import dev.daymark.resources.enable_automation
 import dev.daymark.resources.enabled
 import dev.daymark.resources.horizon_through
+import dev.daymark.resources.info
 import dev.daymark.resources.ios_manual_help
 import dev.daymark.resources.location_health
 import dev.daymark.resources.open_settings
@@ -214,30 +221,81 @@ private fun AndroidAutomationSection(
     busy: Boolean,
     onToggleAutomation: (Boolean) -> Unit
 ) {
+    val badgeBg by animateColorAsState(
+        targetValue = if (automaticEnabled) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.errorContainer
+        }
+    )
+    val badgeContentColor by animateColorAsState(
+        targetValue = if (automaticEnabled) {
+            MaterialTheme.colorScheme.onPrimaryContainer
+        } else {
+            MaterialTheme.colorScheme.onErrorContainer
+        }
+    )
+    var isInfoShow by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
+
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = str(Res.string.automation),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                IconButton(
+                    onClick = { isInfoShow = !isInfoShow }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = str(Res.string.info),
+                        //                    tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Text(
+                    text = str(Res.string.automation),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
 
-            Text(
-                text = str(if (automaticEnabled) Res.string.automation_on else Res.string.automation_off),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+
+            }
+            Surface(
+                color = badgeBg,
+                contentColor = badgeContentColor,
+                shape = MaterialTheme.shapes.small
+            ) {
+                Text(
+                    text = str(if (automaticEnabled) Res.string.automation_on else Res.string.automation_off),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
         }
+        AnimatedVisibility(visible = isInfoShow, label = str(Res.string.automation)) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.fillMaxWidth()
+            ) {
 
-        Text(
-            text = str(Res.string.automation_help),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+                Text(
+                    text = str(Res.string.automation_help),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(12.dp)
+
+                )
+            }
+        }
 
         Button(
             enabled = !busy,
