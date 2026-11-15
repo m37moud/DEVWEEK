@@ -61,6 +61,7 @@ internal class BoundedLocationGateway(
     }
 
     private fun sanitized(sample: LocationResult): LocationResult {
+        AppLogger.d(TAG, "Sanitizing location sample: $sample")
         if (sample !is LocationResult.Fix) return sample
         val valid = sample.latitude.isFinite() && sample.latitude in -90.0..90.0 &&
                 sample.longitude.isFinite() && sample.longitude in -180.0..180.0 &&

@@ -4,10 +4,6 @@ plugins {
     alias(libs.plugins.kotlinJvm)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlin.compose)
-//
-//    alias(libs.plugins.kotlin.multiplatform)
-//    alias(libs.plugins.android.kmp)
-//    alias(libs.plugins.android.lint)
 }
 
 dependencies {

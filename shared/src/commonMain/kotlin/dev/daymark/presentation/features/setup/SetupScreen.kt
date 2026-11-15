@@ -310,6 +310,7 @@ private fun SetupScreenDarkPreview() {
 }
 
 @Preview(name = "Narrow large text", widthDp = 320, fontScale = 2f)
+@Preview(name = "Profile reduced height", widthDp = 360, heightDp = 400)
 @Composable
 private fun SetupScreenNarrowLargeTextPreview() {
     val state = SetupUiState(

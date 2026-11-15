@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -16,7 +19,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -28,7 +30,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
@@ -38,7 +39,6 @@ import dev.daymark.app.StartupSplash
 import dev.daymark.models.BootstrapSnapshot
 import dev.daymark.models.settings.AppSettings
 import dev.daymark.navigation.AppNavigation
-import dev.daymark.presentation.features.app.AppViewModel
 import dev.daymark.reminders.ReminderCopy
 import dev.daymark.resources.Res
 import dev.daymark.resources.app_name
@@ -48,7 +48,6 @@ import dev.daymark.resources.retry
 import dev.daymark.resources.storage_unavailable
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.LocalAppLanguage
-import dev.daymark.settings.ThemePreference
 import dev.daymark.settings.WithPlatformLocale
 import dev.daymark.settings.applyAppLocale
 import dev.daymark.settings.effectiveLanguage
