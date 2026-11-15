@@ -10,6 +10,7 @@ internal fun interface LocationCancellation {
     fun cancel()
 }
 
-internal fun interface OneShotLocationSource {
-    fun request(callback: (LocationResult) -> Unit): LocationCancellation
+/** Emits sensor samples until cancellation; failures terminate the session. */
+internal fun interface LocationUpdateSource {
+    fun request(budget: Duration, callback: (LocationResult) -> Unit): LocationCancellation
 }

@@ -4,14 +4,22 @@ import kotlin.test.Test
 
 class AndroidLocationGatewayTest {
     @Test
-    fun timeout_cancels_once_and_ignores_late_fix() = timeoutContract { AndroidLocationGateway(it) }
+    fun timeout_cancels_once_and_ignores_late_fix() =
+        timeoutContract { AndroidLocationGateway(it, sampleClock) }
+
     @Test
-    fun caller_cancellation_never_retries() = cancellationContract { AndroidLocationGateway(it) }
+    fun caller_cancellation_never_retries() =
+        cancellationContract { AndroidLocationGateway(it, sampleClock) }
+
     @Test
-    fun invalid_fix_is_not_success() = invalidDataContract { AndroidLocationGateway(it) }
+    fun invalid_fix_is_not_success() =
+        invalidDataContract { AndroidLocationGateway(it, sampleClock) }
+
     @Test
-    fun denial_is_final_for_this_attempt() = denialContract { AndroidLocationGateway(it) }
+    fun denial_is_final_for_this_attempt() =
+        denialContract { AndroidLocationGateway(it, sampleClock) }
+
     @Test
     fun successful_fix_cleans_up_the_native_request() =
-        successContract { AndroidLocationGateway(it) }
+        successContract { AndroidLocationGateway(it, sampleClock) }
 }

@@ -18,6 +18,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Duration
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
@@ -113,8 +114,13 @@ class AttendanceService(
     }
 
     private suspend fun acquire(day: StoredDay, mode: CheckMode, attemptId: String?): CheckOutcome {
+        val budget = if (mode == CheckMode.AUTOMATIC)
+            (day.plan.deadline - clock.now()).coerceAtMost(30.seconds) else 30.seconds
+        if (budget <= Duration.ZERO) return repository.completeCheck(
+            commit(day, FixVerdict.Rejected(CheckRejection.AFTER_AUTOMATIC_WINDOW), mode, attemptId)
+        )
         val result = try {
-            location.requestFix(30.seconds)
+            location.requestFix(budget)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {

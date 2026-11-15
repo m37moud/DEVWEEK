@@ -14,11 +14,14 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
-internal class ControlledLocationSource : OneShotLocationSource {
+internal class ControlledLocationSource : LocationUpdateSource {
     var requests = 0
     var cancellations = 0
     private var callback: ((LocationResult) -> Unit)? = null
-    override fun request(callback: (LocationResult) -> Unit): LocationCancellation {
+    override fun request(
+        budget: kotlin.time.Duration,
+        callback: (LocationResult) -> Unit
+    ): LocationCancellation {
         requests++
         this.callback = callback
         return LocationCancellation { cancellations++ }
@@ -41,7 +44,7 @@ internal fun sampleFix(
 )
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-internal fun timeoutContract(factory: (OneShotLocationSource) -> LocationGateway) = runTest {
+internal fun timeoutContract(factory: (LocationUpdateSource) -> LocationGateway) = runTest {
     val source = ControlledLocationSource()
     val request = async { factory(source).requestFix(10.minutes) }
     runCurrent()
@@ -58,7 +61,7 @@ internal fun timeoutContract(factory: (OneShotLocationSource) -> LocationGateway
 }
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-internal fun cancellationContract(factory: (OneShotLocationSource) -> LocationGateway) = runTest {
+internal fun cancellationContract(factory: (LocationUpdateSource) -> LocationGateway) = runTest {
     val source = ControlledLocationSource()
     val request = async { factory(source).requestFix(30.seconds) }
     runCurrent()
@@ -71,7 +74,7 @@ internal fun cancellationContract(factory: (OneShotLocationSource) -> LocationGa
 }
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-internal fun invalidDataContract(factory: (OneShotLocationSource) -> LocationGateway) = runTest {
+internal fun invalidDataContract(factory: (LocationUpdateSource) -> LocationGateway) = runTest {
     val cases = listOf(
         sampleFix(latitude = Double.NaN), sampleFix(longitude = Double.POSITIVE_INFINITY),
         sampleFix(latitude = 90.1), sampleFix(longitude = -180.1),
@@ -94,7 +97,7 @@ internal fun invalidDataContract(factory: (OneShotLocationSource) -> LocationGat
 }
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-internal fun denialContract(factory: (OneShotLocationSource) -> LocationGateway) = runTest {
+internal fun denialContract(factory: (LocationUpdateSource) -> LocationGateway) = runTest {
     val source = ControlledLocationSource()
     val request = async { factory(source).requestFix(30.seconds) }
     runCurrent()
@@ -109,7 +112,7 @@ internal fun denialContract(factory: (OneShotLocationSource) -> LocationGateway)
 }
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-internal fun successContract(factory: (OneShotLocationSource) -> LocationGateway) = runTest {
+internal fun successContract(factory: (LocationUpdateSource) -> LocationGateway) = runTest {
     val source = ControlledLocationSource()
     val request = async { factory(source).requestFix(30.seconds) }
     runCurrent()
@@ -128,4 +131,8 @@ class LocationPrivacyTest {
         assertFalse(text.contains("25.123456"))
         assertFalse(text.contains("30.654321"))
     }
+}
+
+internal val sampleClock = object : kotlin.time.Clock {
+    override fun now() = sampleFix().receivedAt
 }

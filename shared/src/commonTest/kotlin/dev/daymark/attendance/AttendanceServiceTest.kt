@@ -3,6 +3,7 @@ package dev.daymark.attendance
 import dev.daymark.at
 import dev.daymark.fixtureFix
 import dev.daymark.fixturePlan
+import dev.daymark.fixtureSchedule
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationResult
 import dev.daymark.models.attendance.AttendanceEvidence
@@ -28,6 +29,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -101,9 +103,10 @@ class AttendanceServiceTest {
 
     private class Gateway : LocationGateway {
         var calls = 0
+        var lastBudget: Duration? = null
         var answer: suspend () -> LocationResult = { fixtureFix() }
         override suspend fun requestFix(budget: Duration): LocationResult {
-            calls++; return answer()
+            calls++; lastBudget = budget; return answer()
         }
     }
 
@@ -248,6 +251,46 @@ class AttendanceServiceTest {
         assertIs<CheckOutcome.Rejected>(result)
         assertEquals(CheckRejection.AFTER_AUTOMATIC_WINDOW, result.reason)
         assertNotEquals(AutomaticState.UNCLAIMED, repo.day!!.automaticState)
+    }
+
+    @Test
+    fun automatic_acquisition_budget_stops_at_deadline() = runTest {
+        val clock = TestClock(at("09:04:50"))
+        val repo = Repository(clock)
+        val gateway = Gateway()
+        AttendanceService(repo, gateway, clock).runAutomatic(repo.day!!.plan.key)
+        assertEquals(10.seconds, gateway.lastBudget)
+    }
+
+    @Test
+    fun zero_grace_has_no_positive_automatic_acquisition_window() = runTest {
+        val clock = TestClock(at("09:00:00"))
+        val repo = Repository(clock)
+        repo.day = repo.day!!.copy(plan = fixturePlan(fixtureSchedule(graceMinutes = 0)))
+        val gateway = Gateway()
+        val outcome = AttendanceService(repo, gateway, clock).runAutomatic(repo.day!!.plan.key)
+        assertEquals(0, gateway.calls)
+        assertEquals(
+            CheckRejection.AFTER_AUTOMATIC_WINDOW,
+            assertIs<CheckOutcome.Rejected>(outcome).reason
+        )
+    }
+
+    @Test
+    fun exhausted_automatic_window_consumes_claim_without_starting_gps() = runTest {
+        val clock = TestClock(at("09:05:00"))
+        val repo = Repository(clock)
+        val gateway = Gateway()
+        val service = AttendanceService(repo, gateway, clock)
+        val outcome = service.runAutomatic(repo.day!!.plan.key)
+        assertEquals(0, gateway.calls)
+        assertEquals(
+            CheckRejection.AFTER_AUTOMATIC_WINDOW,
+            assertIs<CheckOutcome.Rejected>(outcome).reason
+        )
+        assertNotEquals(AutomaticState.UNCLAIMED, repo.day!!.automaticState)
+        service.runAutomatic(repo.day!!.plan.key)
+        assertEquals(0, gateway.calls)
     }
 
     @Test

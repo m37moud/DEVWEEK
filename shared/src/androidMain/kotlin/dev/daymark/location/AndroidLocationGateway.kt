@@ -3,25 +3,33 @@ package dev.daymark.location
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Location
 import android.location.LocationManager
 import android.os.Build
 import android.os.SystemClock
-import com.google.android.gms.location.CurrentLocationRequest
+import android.os.Looper
+import dev.daymark.logging.AppLogger
+import java.util.concurrent.atomic.AtomicBoolean
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult as NativeLocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
+import com.google.android.gms.tasks.Task
+import java.util.concurrent.Executor
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Instant
 
-class AndroidLocationGateway internal constructor(source: OneShotLocationSource) : LocationGateway {
+class AndroidLocationGateway internal constructor(source: LocationUpdateSource, clock: Clock) :
+    LocationGateway {
     constructor(
         context: Context,
         clock: Clock = Clock.System
-    ) : this(FusedLocationSource(context.applicationContext, clock))
+    ) : this(fusedLocationSource(context.applicationContext, clock), clock)
 
-    private val bounded = BoundedLocationGateway(source)
+    private val bounded = BoundedLocationGateway(source, clock)
     override suspend fun requestFix(budget: Duration): LocationResult = bounded.requestFix(budget)
 }
 
@@ -57,61 +65,109 @@ internal fun androidLocationFix(
     )
 }
 
-private class FusedLocationSource(private val context: Context, private val clock: Clock) :
-    OneShotLocationSource {
-    override fun request(callback: (LocationResult) -> Unit): LocationCancellation {
-        locationGateFailure(androidLocationCapabilities(context))?.let {
+private fun fusedLocationSource(context: Context, clock: Clock): FusedLocationSource {
+    val client = LocationServices.getFusedLocationProviderClient(context)
+    return FusedLocationSource(
+        clock,
+        { androidLocationCapabilities(context) },
+        { request, callback ->
+            client.requestLocationUpdates(
+                request,
+                callback,
+                Looper.getMainLooper()
+            )
+        },
+        { callback -> client.removeLocationUpdates(callback) }
+    )
+}
+
+internal class FusedLocationSource(
+    private val clock: Clock,
+    private val capabilities: () -> LocationCapabilities,
+    private val subscribe: (LocationRequest, LocationCallback) -> Task<Void>,
+    private val unsubscribe: (LocationCallback) -> Task<Void>,
+) : LocationUpdateSource {
+    override fun request(
+        budget: Duration,
+        callback: (LocationResult) -> Unit
+    ): LocationCancellation {
+        locationGateFailure(capabilities())?.let {
             callback(LocationResult.Failure(it))
             return LocationCancellation { }
         }
-        val token = CancellationTokenSource()
-        val request = CurrentLocationRequest.Builder()
-            .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
-            .setMaxUpdateAgeMillis(0)
-            .setDurationMillis(30_000)
-            .build()
+        val session = FusedLocationSession(clock, capabilities, callback, unsubscribe)
         try {
-            LocationServices.getFusedLocationProviderClient(context)
-                .getCurrentLocation(request, token.token)
-                .addOnCompleteListener { task ->
-                    val capabilityFailure =
-                        locationGateFailure(androidLocationCapabilities(context))
-                    when {
-                        capabilityFailure != null -> callback(
-                            LocationResult.Failure(
-                                capabilityFailure
-                            )
-                        )
-
-                        task.isCanceled -> callback(LocationResult.Failure(LocationFailure.CANCELLED))
-                        !task.isSuccessful -> callback(
-                            LocationResult.Failure(
-                                if (task.exception is SecurityException) LocationFailure.PERMISSION_DENIED else LocationFailure.UNAVAILABLE
-                            )
-                        )
-
-                        else -> {
-                            val location = task.result
-                            if (location == null) callback(LocationResult.Failure(LocationFailure.TIMEOUT))
-                            else callback(
-                                androidLocationFix(
-                                    location.latitude,
-                                    location.longitude,
-                                    if (location.hasAccuracy()) location.accuracy.toDouble() else Double.NaN,
-                                    location.time,
-                                    location.elapsedRealtimeNanos,
-                                    SystemClock.elapsedRealtimeNanos(),
-                                    clock.now()
-                                )
-                            )
-                        }
-                    }
-                }
+            subscribe(locationUpdateRequest(budget), session)
+                .addOnCompleteListener(DIRECT_EXECUTOR, session::registered)
         } catch (_: SecurityException) {
             callback(LocationResult.Failure(LocationFailure.PERMISSION_DENIED))
-        } catch (_: RuntimeException) {
+        } catch (failure: RuntimeException) {
+            AppLogger.e("FusedLocationSource", "Location registration failed", failure)
             callback(LocationResult.Failure(LocationFailure.UNAVAILABLE))
         }
-        return LocationCancellation { token.cancel() }
+        return session
     }
 }
+
+private fun locationUpdateRequest(budget: Duration): LocationRequest =
+    LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1_000L)
+        .setMinUpdateIntervalMillis(1_000L)
+        .setWaitForAccurateLocation(true)
+        .setMaxUpdateAgeMillis(0)
+        .setMaxUpdateDelayMillis(0)
+        .setDurationMillis(budget.inWholeMilliseconds.coerceAtLeast(1))
+        .build()
+
+private class FusedLocationSession(
+    private val clock: Clock,
+    private val capabilities: () -> LocationCapabilities,
+    private val callback: (LocationResult) -> Unit,
+    private val unsubscribe: (LocationCallback) -> Task<Void>,
+) : LocationCallback(), LocationCancellation {
+    private val closed = AtomicBoolean(false)
+
+    override fun onLocationResult(locations: NativeLocationResult) {
+        if (closed.get()) return
+        locationGateFailure(capabilities())?.let {
+            callback(LocationResult.Failure(it))
+            return
+        }
+        for (location in locations.locations.sortedBy { it.elapsedRealtimeNanos }) {
+            if (closed.get()) return
+            callback(androidLocationFix(location, clock))
+        }
+    }
+
+    fun registered(registration: Task<Void>) {
+        // Cancellation may precede the asynchronous registration acknowledgement.
+        if (closed.get()) removeUpdates()
+        else if (!registration.isSuccessful) callback(
+            LocationResult.Failure(
+                if (registration.exception is SecurityException) LocationFailure.PERMISSION_DENIED
+                else LocationFailure.UNAVAILABLE
+            )
+        )
+    }
+
+    override fun cancel() {
+        if (closed.compareAndSet(false, true)) removeUpdates()
+    }
+
+    private fun removeUpdates() {
+        try {
+            unsubscribe(this).addOnFailureListener(DIRECT_EXECUTOR) { failure ->
+                AppLogger.e("FusedLocationSource", "Location update removal failed", failure)
+            }
+        } catch (failure: SecurityException) {
+            AppLogger.e("FusedLocationSource", "Location update removal denied", failure)
+        }
+    }
+}
+
+private fun androidLocationFix(location: Location, clock: Clock) = androidLocationFix(
+    location.latitude, location.longitude,
+    if (location.hasAccuracy()) location.accuracy.toDouble() else Double.NaN,
+    location.time, location.elapsedRealtimeNanos, SystemClock.elapsedRealtimeNanos(), clock.now()
+)
+
+private val DIRECT_EXECUTOR = Executor { it.run() }

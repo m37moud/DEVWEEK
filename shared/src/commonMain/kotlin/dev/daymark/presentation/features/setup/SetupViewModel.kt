@@ -42,7 +42,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
@@ -355,8 +354,7 @@ class SetupViewModel(
                     state.update { it.copy(issue = SetupIssue.LOCATION_DISABLED) }; return@launch
                 }
                 AppLogger.d("SetupViewModel", "Requesting current location fix")
-                val result = withTimeoutOrNull(30.seconds) { location.requestFix(30.seconds) }
-                    ?: LocationResult.Failure(LocationFailure.TIMEOUT)
+                val result = location.requestFix(30.seconds)
                 when (result) {
                     is LocationResult.Failure -> {
                         AppLogger.i(

@@ -30,7 +30,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 
@@ -168,16 +167,15 @@ class PlanViewModel(
         if (issue != null) {
             state.update { it.copy(locationIssue = issue) }; return@launchAction
         }
-        val fix: LocationResult? = withTimeoutOrNull(30.seconds) { location.requestFix(30.seconds) }
-        AppLogger.d(tag = TAG, message = "Location fix result: $fix")
+        val fix = location.requestFix(30.seconds)
         if (fix !is LocationResult.Fix) {
-            val reason = (fix as? LocationResult.Failure)?.reason
+            val reason = (fix as LocationResult.Failure).reason
             state.update {
                 it.copy(
                     locationIssue = when (reason) {
                         LocationFailure.PERMISSION_DENIED -> SetupIssue.LOCATION_DENIED
                         LocationFailure.SERVICES_DISABLED -> SetupIssue.LOCATION_DISABLED
-                        LocationFailure.TIMEOUT, null -> SetupIssue.LOCATION_TIMEOUT
+                        LocationFailure.TIMEOUT -> SetupIssue.LOCATION_TIMEOUT
                         else -> SetupIssue.LOCATION_UNAVAILABLE
                     }
                 )
