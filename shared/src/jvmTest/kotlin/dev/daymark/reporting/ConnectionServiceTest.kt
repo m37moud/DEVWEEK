@@ -1,5 +1,7 @@
 package dev.daymark.reporting
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import dev.daymark.attendance.TestClock
 import dev.daymark.auth.GoogleAccess
 import dev.daymark.auth.NativeAuthReply
@@ -57,8 +59,25 @@ class ConnectionServiceTest {
             try {
                 seedDatabase(db)
                 val native = Native().apply { status = NativeAuthStatus.FAILED }
-                val service = ConnectionService(db, GoogleAccess(native), GoogleReportTransport(client),
-                    RoomReportStore(db, TestClock()))
+                val service = ConnectionService(
+                    db.profileDao(),
+                    RoomDatabaseTransactions(db),
+                    GoogleAccess(native),
+                    GoogleReportTransport(client),
+                    RoomReportStore(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.dirtyProjectionDao(),
+                        db.reportDao(),
+                        dev.daymark.data.local.plan.PlanningSnapshotReader(
+                            db.profileDao(),
+                            db.attendanceDao(),
+                            db.planningDao()
+                        ),
+                        RoomDatabaseTransactions(db),
+                        TestClock()
+                    )
+                )
                 assertEquals(ConnectionResult.Failed("authorization_failed"), service.connect())
                 native.status = NativeAuthStatus.NEEDS_INTERACTION
                 assertEquals(ConnectionResult.AuthorizationRequired, service.connect())
@@ -89,9 +108,21 @@ class ConnectionServiceTest {
             try {
                 seedDatabase(db);
                 val native = Native();
-                val store = RoomReportStore(db, TestClock())
+                val store = RoomReportStore(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.dirtyProjectionDao(),
+                    db.reportDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    TestClock()
+                )
                 val service = ConnectionService(
-                    db,
+                    db.profileDao(), RoomDatabaseTransactions(db),
                     GoogleAccess(native),
                     GoogleReportTransport(client),
                     store
@@ -137,18 +168,42 @@ class ConnectionServiceTest {
             try {
                 seedDatabase(db)
                 var service = ConnectionService(
-                    db,
+                    db.profileDao(), RoomDatabaseTransactions(db),
                     GoogleAccess(Native()),
                     GoogleReportTransport(client),
-                    RoomReportStore(db, TestClock())
+                    RoomReportStore(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.dirtyProjectionDao(),
+                        db.reportDao(),
+                        dev.daymark.data.local.plan.PlanningSnapshotReader(
+                            db.profileDao(),
+                            db.attendanceDao(),
+                            db.planningDao()
+                        ),
+                        RoomDatabaseTransactions(db),
+                        TestClock()
+                    )
                 )
                 assertIs<ConnectionResult.PendingCreation>(service.connect())
                 db.close(); db = openJvmDatabase(folder.resolve("test.db").toString())
                 service = ConnectionService(
-                    db,
+                    db.profileDao(), RoomDatabaseTransactions(db),
                     GoogleAccess(Native()),
                     GoogleReportTransport(client),
-                    RoomReportStore(db, TestClock())
+                    RoomReportStore(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.dirtyProjectionDao(),
+                        db.reportDao(),
+                        dev.daymark.data.local.plan.PlanningSnapshotReader(
+                            db.profileDao(),
+                            db.attendanceDao(),
+                            db.planningDao()
+                        ),
+                        RoomDatabaseTransactions(db),
+                        TestClock()
+                    )
                 )
                 assertIs<ConnectionResult.PendingCreation>(service.connect())
                 assertEquals(1, creates)
@@ -181,9 +236,21 @@ class ConnectionServiceTest {
             HttpClient(MockEngine { apiCalls++; error("No API call after disconnected consent") }).use { client ->
                 try {
                     seedDatabase(db);
-                    val store = RoomReportStore(db, TestClock())
+                    val store = RoomReportStore(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.dirtyProjectionDao(),
+                        db.reportDao(),
+                        dev.daymark.data.local.plan.PlanningSnapshotReader(
+                            db.profileDao(),
+                            db.attendanceDao(),
+                            db.planningDao()
+                        ),
+                        RoomDatabaseTransactions(db),
+                        TestClock()
+                    )
                     val service = ConnectionService(
-                        db,
+                        db.profileDao(), RoomDatabaseTransactions(db),
                         GoogleAccess(native),
                         GoogleReportTransport(client),
                         store

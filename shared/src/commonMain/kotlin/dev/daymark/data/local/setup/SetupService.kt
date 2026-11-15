@@ -1,17 +1,16 @@
 package dev.daymark.data.local.setup
 
-import androidx.room3.withWriteTransaction
 import androidx.sqlite.SQLiteException
-import dev.daymark.repository.SetupStorageException
-import dev.daymark.repository.SettingsStorageException
-import kotlinx.coroutines.flow.catch
 import dev.daymark.app.SetupDraftLoad
 import dev.daymark.app.SetupStep
 import dev.daymark.app.firstSetupArrival
-import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.DatabaseTransactions
 import dev.daymark.data.local.PlanVersionEntity
 import dev.daymark.data.local.SettingEntity
 import dev.daymark.data.local.TrackerEntity
+import dev.daymark.data.local.dao.DirtyProjectionDao
+import dev.daymark.data.local.dao.PlanningDao
+import dev.daymark.data.local.dao.ProfileDao
 import dev.daymark.data.local.decodeSchedule
 import dev.daymark.data.local.encodeSchedule
 import dev.daymark.data.local.markDirty
@@ -21,11 +20,14 @@ import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.setup.SetupCommand
 import dev.daymark.models.setup.SetupDraft
 import dev.daymark.models.setup.SetupResult
+import dev.daymark.repository.SettingsStorageException
 import dev.daymark.repository.SetupDataSource
+import dev.daymark.repository.SetupStorageException
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -39,13 +41,17 @@ import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
+// clean-code exception: constructor arity keeps cross-DAO transaction ownership explicit; revisit when responsibilities can split without changing atomicity.
 class SetupService(
-    private val db: DaymarkDatabase, private val clock: Clock,
-    private val settings: SettingsRepository = SettingsRepository(db)
+    private val profileDao: ProfileDao,
+    private val planningDao: PlanningDao,
+    private val dirtyProjectionDao: DirtyProjectionDao,
+    private val transactions: DatabaseTransactions,
+    private val clock: Clock,
+    private val settings: SettingsRepository
 ) : SetupDataSource {
-    private val dao get() = db.dao()
     override fun observeDraft(): Flow<SetupDraftLoad> =
-        dao.observeSetting("setup-draft").map { row ->
+        profileDao.observeSetting("setup-draft").map { row ->
             if (row == null) SetupDraftLoad.Absent else readDraft(row.value)
         }.catch { failure ->
             if (failure is SQLiteException) throw SetupStorageException(failure)
@@ -54,29 +60,34 @@ class SetupService(
 
     override suspend fun startDraftSession(): String = draftTransaction {
         val session = Uuid.random().toString()
-        if (dao.tracker() == null) dao.putSetting(SettingEntity("setup-session", session))
+        if (profileDao.tracker() == null) profileDao.putSetting(
+            SettingEntity(
+                "setup-session",
+                session
+            )
+        )
         session
     }
 
     override suspend fun resetDraft(session: String) = draftTransaction {
-        if (dao.tracker() == null && dao.setting("setup-session")?.value == session) {
-            dao.deleteSetting("setup-draft")
+        if (profileDao.tracker() == null && profileDao.setting("setup-session")?.value == session) {
+            profileDao.deleteSetting("setup-draft")
         }
     }
 
     override suspend fun saveDraft(draft: SetupDraft, session: String): Boolean =
         draftTransaction {
             // Deletion and a newer setup session invalidate queued writes from an older screen.
-            if (dao.tracker() != null || dao.setting("setup-session")?.value != session) false
+            if (profileDao.tracker() != null || profileDao.setting("setup-session")?.value != session) false
             else {
-                dao.putSetting(SettingEntity("setup-draft", encodeDraft(draft)))
+                profileDao.putSetting(SettingEntity("setup-draft", encodeDraft(draft)))
                 true
             }
         }
 
     private suspend fun <T> draftTransaction(write: suspend () -> T): T =
         try {
-            db.withWriteTransaction { write() }
+            transactions.withWriteTransaction { write() }
         } catch (failure: SQLiteException) {
             throw SetupStorageException(failure)
         }
@@ -89,9 +100,9 @@ class SetupService(
             ?: return SetupResult.Invalid
         val date = now.toLocalDateTime(TimeZone.of(command.schedule.zoneId)).date
         return try {
-            db.withWriteTransaction {
-                if (dao.tracker() != null) return@withWriteTransaction SetupResult.Invalid
-                dao.insertTracker(
+            transactions.withWriteTransaction {
+                if (profileDao.tracker() != null) return@withWriteTransaction SetupResult.Invalid
+                profileDao.insertTracker(
                     TrackerEntity(
                         id,
                         command.displayName,
@@ -101,17 +112,17 @@ class SetupService(
                         automaticEnabled = false
                     )
                 )
-                dao.putVersion(
+                planningDao.putVersion(
                     PlanVersionEntity.fromSnapshot(
                         id, 1, date, now, command.category, command.schedule,
                         command.place.copy(version = 1), command.placeName
                     )
                 )
                 settings.update(displayName = command.displayName)
-                dao.deleteSetting("setup-draft")
-                dao.deleteSetting("setup-session")
-                dao.markDirty(id, "OVERVIEW")
-                dao.markDirty(id, "TIME_OFF")
+                profileDao.deleteSetting("setup-draft")
+                profileDao.deleteSetting("setup-session")
+                dirtyProjectionDao.markDirty(id, "OVERVIEW")
+                dirtyProjectionDao.markDirty(id, "TIME_OFF")
                 SetupResult.Completed
             }
         } catch (cancelled: CancellationException) {

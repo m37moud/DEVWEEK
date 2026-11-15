@@ -1,5 +1,7 @@
 package dev.daymark.reporting
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import dev.daymark.at
 import dev.daymark.attendance.TestClock
 import dev.daymark.data.local.PlanVersionEntity
@@ -39,10 +41,17 @@ class SetupDayReportTest {
         val db = openJvmDatabase(folder.resolve("test.db").toString())
         try {
             seedDatabase(db)
-            val tracker = db.dao().tracker()!!
-            db.dao().putTracker(tracker.copy(displayName = "=1+2"))
+            val tracker = db.profileDao().tracker()!!
+            db.profileDao().putTracker(tracker.copy(displayName = "=1+2"))
             val clock = TestClock(at("09:20:00"));
-            val repo = RoomAttendanceRepository(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             repo.correct(
                 Correction(
                     fixturePlan().key,
@@ -51,7 +60,19 @@ class SetupDayReportTest {
                     null
                 )
             )
-            val store = RoomReportStore(db, clock)
+            val store = RoomReportStore(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.dirtyProjectionDao(),
+                db.reportDao(),
+                dev.daymark.data.local.plan.PlanningSnapshotReader(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao()
+                ),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             val binding = ReportBinding(
                 tracker.id,
                 store.beginConnection()!!,
@@ -67,8 +88,8 @@ class SetupDayReportTest {
             assertEquals(JsonPrimitive(0), overview.getValue("absent"))
             assertEquals(JsonPrimitive(10), overview.getValue("vacationBalance"))
             assertEquals(JsonPrimitive("=1+2"), overview.getValue("name"))
-            val version = db.dao().versions(tracker.id).single()
-            db.dao().putVersion(version.copy(category = "SCHOOL"))
+            val version = db.planningDao().versions(tracker.id).single()
+            db.planningDao().putVersion(version.copy(category = "SCHOOL"))
             val school = store.localProjections(binding)
                 .single { it.key == ProjectionKey.Overview }.ranges.single().cells.associate { it[0].content to it[2] }
             assertEquals(JsonPrimitive(""), school.getValue("vacationBalance"))
@@ -89,9 +110,28 @@ class SetupDayReportTest {
                     trackingStartsAt = kotlin.time.Instant.parse("2026-10-28T09:00:00Z")
                 )
                 val clock = TestClock(at("09:20:00"));
-                val repo = RoomAttendanceRepository(db, clock);
-                val store = RoomReportStore(db, clock)
-                val tracker = db.dao().tracker()!!.id
+                val repo = RoomAttendanceRepository(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                );
+                val store = RoomReportStore(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.dirtyProjectionDao(),
+                    db.reportDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
+                val tracker = db.profileDao().tracker()!!.id
                 val binding = ReportBinding(
                     tracker,
                     store.beginConnection()!!,
@@ -144,9 +184,9 @@ class SetupDayReportTest {
                     createdAt = begins - kotlin.time.Duration.parse("1h"),
                     trackingStartsAt = begins
                 )
-                val tracker = db.dao().tracker()!!.id
+                val tracker = db.profileDao().tracker()!!.id
                 val schedule = fixtureSchedule(zoneId = "Pacific/Kiritimati")
-                db.dao().putVersion(
+                db.planningDao().putVersion(
                     PlanVersionEntity.fromSnapshot(
                         tracker,
                         1,
@@ -159,7 +199,14 @@ class SetupDayReportTest {
                     )
                 )
                 val clock = TestClock(at("09:00:00"));
-                val repo = RoomAttendanceRepository(db, clock)
+                val repo = RoomAttendanceRepository(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 repo.reconcile(clock.now())
                 repo.correct(
                     Correction(
@@ -169,7 +216,26 @@ class SetupDayReportTest {
                         null
                     )
                 )
-                val plans = PlanService(db, clock)
+                val plans = PlanService(
+                    db.profileDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock,
+                    attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db),
+                        clock
+                    )
+                )
                 val change = PlanChange(
                     schedule.copy(zoneId = "Etc/GMT+12"),
                     TrackerCategory.WORK,
@@ -181,7 +247,19 @@ class SetupDayReportTest {
                     plans.applyChange(change, preview.expectedRevision)
                 )
                 clock.value = at("10:00:01"); repo.reconcile(clock.now())
-                val store = RoomReportStore(db, clock)
+                val store = RoomReportStore(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.dirtyProjectionDao(),
+                    db.reportDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 val binding = ReportBinding(
                     tracker,
                     store.beginConnection()!!,
@@ -195,7 +273,16 @@ class SetupDayReportTest {
                     .single { it.key == ProjectionKey.Overview }.ranges.single().cells.associate { it[0].content to it[2].content }
                 assertEquals(1, overview.getValue("present").toInt())
                 val dashboard =
-                    dev.daymark.data.local.dashboard.TodayDashboardReader(db, clock).observe()
+                    dev.daymark.data.local.dashboard.TodayDashboardReader(
+                        db.profileDao(),
+                        dev.daymark.data.local.plan.PlanningSnapshotReader(
+                            db.profileDao(),
+                            db.attendanceDao(),
+                            db.planningDao()
+                        ),
+                        RoomDatabaseTransactions(db),
+                        clock
+                    ).observe()
                         .first { it.ready }
                 assertEquals(1, dashboard.present)
                 assertFalse(dashboard.week.single { it.date == fixtureDate }.planned)

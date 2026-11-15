@@ -1,5 +1,7 @@
 package dev.daymark.data
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import dev.daymark.attendance.TestClock
@@ -30,9 +32,13 @@ class MigrationSafetyTest {
             try {
                 seedDatabase(db)
                 val clock = TestClock();
-                val repo = RoomAttendanceRepository(db, clock); repo.completeCheck(testCommit())
-                val tracker = db.dao().tracker()!!.id
-                db.dao().putTimeOff(
+                val repo = RoomAttendanceRepository(
+                    db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                ); repo.completeCheck(testCommit())
+                val tracker = db.profileDao().tracker()!!.id
+                db.planningDao().putTimeOff(
                     TimeOffEntity(
                         "holiday",
                         tracker,
@@ -43,7 +49,7 @@ class MigrationSafetyTest {
                         clock.now().toString()
                     )
                 )
-                db.dao().insertBalanceAdjustment(
+                db.planningDao().insertBalanceAdjustment(
                     BalanceAdjustmentEntity(
                         "adjustment",
                         tracker,
@@ -51,7 +57,19 @@ class MigrationSafetyTest {
                         clock.now().toString()
                     )
                 )
-                val store = RoomReportStore(db, clock)
+                val store = RoomReportStore(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.dirtyProjectionDao(),
+                    db.reportDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 val binding = ReportBinding(
                     tracker,
                     store.beginConnection()!!,
@@ -64,10 +82,10 @@ class MigrationSafetyTest {
                     binding,
                     100
                 )!!; store.journalBeforeDispatch(batch); store.markDispatched(batch)
-                val records = db.dao().days(tracker);
-                val leave = db.dao().timeOff(tracker);
-                val pending = db.dao().dirtyProjections(tracker)
-                val journal = db.dao().batches(tracker)
+                val records = db.attendanceDao().days(tracker);
+                val leave = db.planningDao().timeOff(tracker);
+                val pending = db.dirtyProjectionDao().dirtyProjections(tracker)
+                val journal = db.reportDao().batches(tracker)
                 db.close()
                 val schemaPath = listOf(
                     Path.of("schemas/dev.daymark.data.local.DaymarkDatabase/1.json"),
@@ -84,34 +102,37 @@ class MigrationSafetyTest {
                     connection.execSQL("PRAGMA user_version=1")
                 }
                 db = openJvmDatabase(path)
-                assertEquals(records, db.dao().days(tracker)); assertEquals(
+                assertEquals(records, db.attendanceDao().days(tracker)); assertEquals(
                     leave,
-                    db.dao().timeOff(tracker)
+                    db.planningDao().timeOff(tracker)
                 )
-                assertEquals(pending, db.dao().dirtyProjections(tracker)); assertEquals(
+                assertEquals(
+                    pending,
+                    db.dirtyProjectionDao().dirtyProjections(tracker)
+                ); assertEquals(
                     journal,
-                    db.dao().batches(tracker)
+                    db.reportDao().batches(tracker)
                 )
-                assertEquals(10, db.dao().tracker()!!.openingBalance); assertEquals(
+                assertEquals(10, db.profileDao().tracker()!!.openingBalance); assertEquals(
                     -2,
-                    db.dao().balanceAdjustments(tracker).single().delta
+                    db.planningDao().balanceAdjustments(tracker).single().delta
                 )
                 db.close()
                 BundledSQLiteDriver().open(path).use { it.execSQL("PRAGMA user_version=4") }
                 val attempted = openJvmDatabase(path)
                 try {
-                    assertFailsWith<Exception> { attempted.dao().tracker() }
+                    assertFailsWith<Exception> { attempted.profileDao().tracker() }
                 } finally {
                     attempted.close()
                 }
                 // Restore only the synthetic version marker after the refusal; the current schema/data were never changed.
                 BundledSQLiteDriver().open(path).use { it.execSQL("PRAGMA user_version=3") }
                 db = openJvmDatabase(path)
-                assertEquals(records, db.dao().days(tracker)); assertEquals(
+                assertEquals(records, db.attendanceDao().days(tracker)); assertEquals(
                     leave,
-                    db.dao().timeOff(tracker)
+                    db.planningDao().timeOff(tracker)
                 )
-                assertEquals(journal, db.dao().batches(tracker))
+                assertEquals(journal, db.reportDao().batches(tracker))
             } finally {
                 db.close(); folder.toFile().deleteRecursively()
             }

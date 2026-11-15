@@ -1,5 +1,7 @@
 package dev.daymark.app
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import dev.daymark.at
@@ -39,7 +41,11 @@ class SetupViewModelTest {
         runTest {
             val folder = Files.createTempDirectory("daymark-setup-preferences-")
             val db = openJvmDatabase(folder.resolve("app.db").toString())
-            val stored = SettingsRepository(db)
+            val stored = SettingsRepository(
+                db.profileDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db)
+            )
             val releaseWrite = CompletableDeferred<Unit>()
             var failWrite = false
             val settings = object : SettingsDataSource by stored {
@@ -65,7 +71,15 @@ class SetupViewModelTest {
                     error("No GPS expected")
             }
             val repository = dev.daymark.testRepository(
-                setupSource = SetupService(db, TestClock()), settingsSource = settings
+                setupSource = SetupService(
+                    db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    TestClock(),
+                    settings = dev.daymark.data.local.settings.SettingsRepository(
+                        db.profileDao(), db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db)
+                    )
+                ), settingsSource = settings
             )
             try {
                 val model =
@@ -102,7 +116,7 @@ class SetupViewModelTest {
                 reopened.uiState.first { it.draft.step == SetupStep.PROFILE && !it.busy }
                 reopened.back()
                 reopened.uiState.first { it.draft.step == SetupStep.PREFERENCE && !it.busy }
-                assertNull(db.dao().tracker())
+                assertNull(db.profileDao().tracker())
             } finally {
                 db.close()
                 folder.toFile().deleteRecursively()
@@ -115,7 +129,15 @@ class SetupViewModelTest {
         val folder = Files.createTempDirectory("daymark-midnight-step-")
         val db = openJvmDatabase(folder.resolve("app.db").toString())
         val clock = TestClock(at("08:00:00"))
-        val service = SetupService(db, clock)
+        val service = SetupService(
+            db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+            RoomDatabaseTransactions(db),
+            clock,
+            settings = dev.daymark.data.local.settings.SettingsRepository(
+                db.profileDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db)
+            )
+        )
         val draft = SetupDraft(
             "Person", TrackerCategory.WORK, "Office", fixturePlace(),
             fixtureSchedule(arrival = kotlinx.datetime.LocalTime(23, 59)), "0", SetupStep.SCHEDULE
@@ -134,7 +156,11 @@ class SetupViewModelTest {
             val model = SetupViewModel(
                 repository = dev.daymark.testRepository(
                     setupSource = service,
-                    settingsSource = SettingsRepository(db)
+                    settingsSource = SettingsRepository(
+                        db.profileDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db)
+                    )
                 ),
                 location = gateway,
                 permissions = permissions,
@@ -145,7 +171,7 @@ class SetupViewModelTest {
             model.advance()
             assertEquals(SetupStep.SCHEDULE, model.uiState.value.draft.step)
             assertEquals(SetupIssue.INVALID_INPUT, model.uiState.value.issue)
-            assertNull(db.dao().tracker())
+            assertNull(db.profileDao().tracker())
         } finally {
             db.close()
             folder.toFile().deleteRecursively()
@@ -157,7 +183,15 @@ class SetupViewModelTest {
         val folder = Files.createTempDirectory("daymark-step-failure-")
         val path = folder.resolve("app.db").toString()
         val db = openJvmDatabase(path)
-        val service = SetupService(db, TestClock())
+        val service = SetupService(
+            db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+            RoomDatabaseTransactions(db),
+            TestClock(),
+            settings = dev.daymark.data.local.settings.SettingsRepository(
+                db.profileDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db)
+            )
+        )
         val permissions = object : LocationPermissionPort {
             override fun current() = LocationCapabilities(false, false, false, true)
             override suspend fun requestForeground() = current()
@@ -173,7 +207,11 @@ class SetupViewModelTest {
             val model = SetupViewModel(
                 repository = dev.daymark.testRepository(
                     setupSource = service,
-                    settingsSource = SettingsRepository(db)
+                    settingsSource = SettingsRepository(
+                        db.profileDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db)
+                    )
                 ),
                 location = gateway,
                 permissions = permissions,
@@ -207,7 +245,15 @@ class SetupViewModelTest {
     fun invalid_restored_review_returns_to_first_incomplete_step_without_gps() = runTest {
         val folder = Files.createTempDirectory("daymark-invalid-resume-")
         val db = openJvmDatabase(folder.resolve("app.db").toString())
-        val service = SetupService(db, TestClock())
+        val service = SetupService(
+            db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+            RoomDatabaseTransactions(db),
+            TestClock(),
+            settings = dev.daymark.data.local.settings.SettingsRepository(
+                db.profileDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db)
+            )
+        )
         service.saveDraft(
             SetupDraft(
                 displayName = "Saved", category = TrackerCategory.WORK,
@@ -228,7 +274,11 @@ class SetupViewModelTest {
             val model = SetupViewModel(
                 repository = dev.daymark.testRepository(
                     setupSource = service,
-                    settingsSource = SettingsRepository(db)
+                    settingsSource = SettingsRepository(
+                        db.profileDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db)
+                    )
                 ),
                 location = gateway,
                 permissions = permissions,
@@ -238,7 +288,7 @@ class SetupViewModelTest {
             val restored = model.uiState.first { it.ready && it.preferencesReady && it.draftSaved }
             assertEquals(SetupStep.PLACE, restored.draft.step)
             assertEquals("Saved", restored.draft.displayName)
-            assertNull(db.dao().tracker())
+            assertNull(db.profileDao().tracker())
         } finally {
             db.close()
             folder.toFile().deleteRecursively()
@@ -249,7 +299,15 @@ class SetupViewModelTest {
     fun guided_steps_acknowledge_storage_and_review_edits_keep_the_balance() = runTest {
         val folder = Files.createTempDirectory("daymark-guided-")
         val db = openJvmDatabase(folder.resolve("app.db").toString())
-        val service = SetupService(db, TestClock())
+        val service = SetupService(
+            db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+            RoomDatabaseTransactions(db),
+            TestClock(),
+            settings = dev.daymark.data.local.settings.SettingsRepository(
+                db.profileDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db)
+            )
+        )
         val permissions = object : LocationPermissionPort {
             override fun current() = LocationCapabilities(true, false, true, true)
             override suspend fun requestForeground() = current()
@@ -264,7 +322,11 @@ class SetupViewModelTest {
             val model = SetupViewModel(
                 repository = dev.daymark.testRepository(
                     setupSource = service,
-                    settingsSource = SettingsRepository(db)
+                    settingsSource = SettingsRepository(
+                        db.profileDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db)
+                    )
                 ),
                 location = gateway,
                 permissions = permissions,
@@ -312,7 +374,7 @@ class SetupViewModelTest {
             model.submit()
             model.submit()
             model.uiState.first { it.completed }
-            assertEquals(0, db.dao().tracker()?.openingBalance)
+            assertEquals(0, db.profileDao().tracker()?.openingBalance)
         } finally {
             db.close()
             folder.toFile().deleteRecursively()
@@ -323,7 +385,15 @@ class SetupViewModelTest {
     fun failed_initial_load_does_not_expose_an_unusable_form() = runTest {
         val folder = Files.createTempDirectory("daymark-setup-load-")
         val db = openJvmDatabase(folder.resolve("app.db").toString())
-        val service = SetupService(db, TestClock())
+        val service = SetupService(
+            db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+            RoomDatabaseTransactions(db),
+            TestClock(),
+            settings = dev.daymark.data.local.settings.SettingsRepository(
+                db.profileDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db)
+            )
+        )
         service.saveDraft(
             SetupDraft(displayName = "Saved before failure"),
             service.startDraftSession()
@@ -345,7 +415,11 @@ class SetupViewModelTest {
             val model = SetupViewModel(
                 repository = dev.daymark.testRepository(
                     setupSource = service,
-                    settingsSource = SettingsRepository(db)
+                    settingsSource = SettingsRepository(
+                        db.profileDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db)
+                    )
                 ),
                 location = gateway,
                 permissions = permissions,
@@ -377,7 +451,15 @@ class SetupViewModelTest {
         runTest {
             val folder = Files.createTempDirectory("daymark-setup-vm-")
             val db = openJvmDatabase(folder.resolve("app.db").toString())
-            val service = SetupService(db, TestClock())
+            val service = SetupService(
+                db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                TestClock(),
+                settings = dev.daymark.data.local.settings.SettingsRepository(
+                    db.profileDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db)
+                )
+            )
             var requests = 0
             val gateway = object : LocationGateway {
                 override suspend fun requestFix(budget: Duration): LocationResult {
@@ -396,7 +478,11 @@ class SetupViewModelTest {
                 val vm = SetupViewModel(
                     repository = dev.daymark.testRepository(
                         setupSource = service,
-                        settingsSource = SettingsRepository(db)
+                        settingsSource = SettingsRepository(
+                            db.profileDao(),
+                            db.dirtyProjectionDao(),
+                            RoomDatabaseTransactions(db)
+                        )
                     ),
                     location = gateway,
                     permissions = permissions,
@@ -423,7 +509,7 @@ class SetupViewModelTest {
                 assertEquals("أحمد / Ahmed", denied.draft.displayName)
                 vm.submit()
                 vm.uiState.first { it.issue == SetupIssue.INVALID_INPUT && !it.busy }
-                assertNull(db.dao().tracker())
+                assertNull(db.profileDao().tracker())
                 assertEquals(0, requests)
                 assertEquals(
                     "أحمد / Ahmed",
@@ -455,10 +541,19 @@ class SetupViewModelTest {
                 val vm = SetupViewModel(
                     repository = dev.daymark.testRepository(
                         setupSource = SetupService(
-                            db,
-                            clock
+                            db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+                            RoomDatabaseTransactions(db),
+                            clock,
+                            settings = dev.daymark.data.local.settings.SettingsRepository(
+                                db.profileDao(), db.dirtyProjectionDao(),
+                                RoomDatabaseTransactions(db)
+                            )
                         ),
-                        settingsSource = SettingsRepository(db)
+                        settingsSource = SettingsRepository(
+                            db.profileDao(),
+                            db.dirtyProjectionDao(),
+                            RoomDatabaseTransactions(db)
+                        )
                     ),
                     location = gateway,
                     permissions = permissions,
@@ -487,8 +582,8 @@ class SetupViewModelTest {
                 vm.uiState.first { it.placeRegistrationRevision == 2L && !it.busy }
                 vm.submit()
                 vm.uiState.first { it.completed }
-                val tracker = requireNotNull(db.dao().tracker())
-                assertNull(db.dao().binding(tracker.id))
+                val tracker = requireNotNull(db.profileDao().tracker())
+                assertNull(db.reportDao().binding(tracker.id))
                 assertFalse(tracker.automaticEnabled)
             } finally {
                 db.close(); folder.toFile().deleteRecursively()

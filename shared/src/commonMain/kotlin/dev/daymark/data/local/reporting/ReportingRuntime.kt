@@ -1,12 +1,15 @@
 package dev.daymark.data.local.reporting
 
-import androidx.room3.withWriteTransaction
 import dev.daymark.app.AppLifecycleCoordinator
 import dev.daymark.attendance.AttendanceRepository
 import dev.daymark.auth.AccessResult
 import dev.daymark.auth.GoogleAccess
-import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.DatabaseTransactions
 import dev.daymark.data.local.SettingEntity
+import dev.daymark.data.local.dao.DirtyProjectionDao
+import dev.daymark.data.local.dao.PlanningDao
+import dev.daymark.data.local.dao.ProfileDao
+import dev.daymark.data.local.dao.ReportDao
 import dev.daymark.data.remote.data_source.data.ktor.GoogleReportTransport
 import dev.daymark.data.remote.data_source.domain.ReportConnectionTransport
 import dev.daymark.logging.AppLogger
@@ -38,8 +41,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalCoroutinesApi::class)
+// clean-code exception: constructor arity keeps cross-DAO transaction ownership explicit; revisit when responsibilities can split without changing atomicity.
 class ReportingRuntime(
-    private val db: DaymarkDatabase,
+    private val profileDao: ProfileDao,
+    private val planningDao: PlanningDao,
+    private val dirtyProjectionDao: DirtyProjectionDao,
+    private val reportDao: ReportDao, private val transactions: DatabaseTransactions,
     private val auth: GoogleAccess,
     private val clock: Clock,
     private val repository: AttendanceRepository,
@@ -47,7 +54,7 @@ class ReportingRuntime(
     enqueueNetwork: () -> Unit = {},
     observeConnectivity: ((() -> Unit) -> (() -> Unit)) = ::observeReportConnectivity,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
-    val store: RoomReportStore = RoomReportStore(db, clock),
+    val store: RoomReportStore,
     reportTransport: ReportConnectionTransport? = null
 ) : ReportingDataSource {
     private val clientDelegate = lazy {
@@ -73,7 +80,8 @@ class ReportingRuntime(
             ) result.token else null
         },
         zoneId = {
-            db.dao().tracker()?.let { db.dao().versions(it.id).lastOrNull()?.schedule()?.zoneId }
+            profileDao.tracker()
+                ?.let { planningDao.versions(it.id).lastOrNull()?.schedule()?.zoneId }
                 ?: "UTC"
         })
     private val state = MutableStateFlow(ReportHealth())
@@ -81,7 +89,8 @@ class ReportingRuntime(
     val lifecycle =
         AppLifecycleCoordinator(scope, ::runPass, ::nextDelay, enqueueNetwork, observeConnectivity)
     val connection = ConnectionService(
-        db,
+        profileDao,
+        transactions,
         auth,
         transport,
         store,
@@ -95,9 +104,10 @@ class ReportingRuntime(
 
     init {
         scope.launch {
-            db.dao().observeTracker().flatMapLatest { tracker ->
-                if (tracker == null) flowOf(emptyList()) else db.dao()
-                    .observeDirtyProjections(tracker.id)
+            profileDao.observeTracker().flatMapLatest { tracker ->
+                if (tracker == null) flowOf(emptyList()) else dirtyProjectionDao.observeDirtyProjections(
+                    tracker.id
+                )
             }.distinctUntilChangedBy { rows -> rows.map { it.projectionKey to it.revision } }
                 .onEach {
                     if (store.activeBinding() != null) lifecycle.onLocalChange()
@@ -119,11 +129,12 @@ class ReportingRuntime(
             val result = sync.runPass(trigger)
             if (result == SyncPassResult.Synced) {
                 val binding = store.activeBinding()
-                db.withWriteTransaction {
-                    if (binding != null && binding.connectionGeneration == requestedGeneration && db.dao()
-                            .binding(binding.trackerId)?.connectionGeneration == requestedGeneration
+                transactions.withWriteTransaction {
+                    if (binding != null && binding.connectionGeneration == requestedGeneration && reportDao.binding(
+                            binding.trackerId
+                        )?.connectionGeneration == requestedGeneration
                     )
-                        db.dao().putSetting(
+                        profileDao.putSetting(
                             SettingEntity(
                                 "report-last-sync:${binding.trackerId}:${binding.connectionGeneration}",
                                 clock.now().toString()
@@ -152,12 +163,12 @@ class ReportingRuntime(
     ) {
         val binding = store.activeBinding()
         val dirty = binding?.let {
-            db.dao().dirtyProjections(it.trackerId)
+            dirtyProjectionDao.dirtyProjections(it.trackerId)
                 .count { row -> row.revision > row.acknowledgedRevision }
         } ?: 0
         val issues = binding?.let { store.projectionIssues(it) }.orEmpty()
         val last = binding?.let {
-            db.dao().setting("report-last-sync:${it.trackerId}:${it.connectionGeneration}")?.value
+            profileDao.setting("report-last-sync:${it.trackerId}:${it.connectionGeneration}")?.value
         }
         state.update { old ->
             old.copy(

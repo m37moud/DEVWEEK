@@ -1,5 +1,7 @@
 package dev.daymark.reporting
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import dev.daymark.attendance.TestClock
 import dev.daymark.auth.GoogleAccess
 import dev.daymark.auth.NativeAuthReply
@@ -32,9 +34,21 @@ class ReportingHealthTest {
             try {
                 seedDatabase(db);
                 val clock = TestClock();
-                val store = RoomReportStore(db, clock)
+                val store = RoomReportStore(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.dirtyProjectionDao(),
+                    db.reportDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 val a = ReportBinding(
-                    db.dao().tracker()!!.id,
+                    db.profileDao().tracker()!!.id,
                     store.beginConnection()!!,
                     "a",
                     "report-a",
@@ -52,15 +66,26 @@ class ReportingHealthTest {
                     }
                 })
                 runtime = ReportingRuntime(
-                    db,
+                    db.profileDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    db.reportDao(),
+                    RoomDatabaseTransactions(db),
                     auth,
                     clock,
-                    RoomAttendanceRepository(db, clock),
+                    RoomAttendanceRepository(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db),
+                        clock
+                    ),
                     httpClient = client,
                     store = store,
                     reportTransport = GoogleReportTransport(client)
                 )
-                db.dao().putSetting(
+                db.profileDao().putSetting(
                     SettingEntity(
                         "report-last-sync:${a.trackerId}:${a.connectionGeneration}",
                         clock.now().toString()

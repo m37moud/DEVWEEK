@@ -1,5 +1,7 @@
 package dev.daymark.ui
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import dev.daymark.app.HostPlatform
 import dev.daymark.at
 import dev.daymark.attendance.TestClock
@@ -31,9 +33,17 @@ class ConfigurationRefreshTest {
             val db = openJvmDatabase(folder.resolve("test.db").toString())
             try {
                 seedDatabase(db)
-                val repo = RoomAttendanceRepository(db, TestClock()); repo.reconcile(at("09:02:00"))
+                val repo = RoomAttendanceRepository(
+                    db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    TestClock()
+                ); repo.reconcile(at("09:02:00"))
                 val before = repo.loadCurrentDay(at("09:02:00"))!!
-                val preferences = SettingsRepository(db)
+                val preferences = SettingsRepository(
+                    db.profileDao(),
+                    db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db)
+                )
                 preferences.update(language = LanguagePreference.AR, remindersEnabled = true)
                 var payload: String? = null
                 val widgets = mutableListOf<AppLanguage>()
@@ -50,11 +60,21 @@ class ConfigurationRefreshTest {
                     }
                 }
                 val coordinator = ConfigurationCoordinator(
-                    db,
+                    db.profileDao(),
                     TestClock(),
                     reminders,
                     onScheduleRefresh = { error("No Android automation on iOS") },
-                    onWidgetRefresh = { widgets += it; true })
+                    onWidgetRefresh = { widgets += it; true },
+                    reader = dev.daymark.data.local.plan.RoomPlanReader(
+                        dev.daymark.data.local.plan.PlanningSnapshotReader(
+                            db.profileDao(),
+                            db.attendanceDao(),
+                            db.planningDao()
+                        ),
+                        RoomDatabaseTransactions(db),
+                        TestClock()
+                    )
+                )
                 val result = coordinator.refresh(
                     preferences.observe().first(),
                     AppLanguage.AR,

@@ -1,5 +1,7 @@
 package dev.daymark.android
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import android.content.Context
 import dev.daymark.app.*
 import dev.daymark.app.AppGraph
@@ -46,11 +48,38 @@ internal class AttendanceTestApp(context: Context, name: String, private val wid
         override suspend fun requestBackground() = current()
         override fun openSystemSettings() = Unit
     }
-    init { runBlocking {
-        SetupService(db,object : Clock { override fun now() = Instant.parse("2026-10-27T08:00:00Z") }).complete(
-            SetupCommand("أحمد / Ahmed",TrackerCategory.WORK,"Office",RegisteredPlace(0.0,0.0,100,1),
-                WeeklySchedule(DayOfWeek.entries.toSet(),LocalTime(9,0),emptyMap(),5,"UTC"),10))
-    } }
+
+    init {
+        runBlocking {
+            SetupService(
+                db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                object : Clock {
+                    override fun now() = Instant.parse("2026-10-27T08:00:00Z")
+                },
+                settings = dev.daymark.data.local.settings.SettingsRepository(
+                    db.profileDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db)
+                )
+            ).complete(
+                SetupCommand(
+                    "أحمد / Ahmed",
+                    TrackerCategory.WORK,
+                    "Office",
+                    RegisteredPlace(0.0, 0.0, 100, 1),
+                    WeeklySchedule(
+                        DayOfWeek.entries.toSet(),
+                        LocalTime(9, 0),
+                        emptyMap(),
+                        5,
+                        "UTC"
+                    ),
+                    10
+                )
+            )
+        }
+    }
+
     val graph: AppGraph by lazy {
         AppGraph(module {
             single<DaymarkDatabase> { db }

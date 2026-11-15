@@ -28,7 +28,7 @@ class WidgetCheckServiceTest {
         val context = instrumentation.targetContext
         val snapshot = widgetPreviewSnapshot("SCHEDULED")
         val app = context.applicationContext as DaymarkApplication
-        assertNotEquals(snapshot.trackerId, app.graph.database.dao().tracker()?.id)
+        assertNotEquals(snapshot.trackerId, app.graph.profileDao.tracker()?.id)
         val intent = widgetCheckIntent(context, snapshot)
         val service = context.packageManager.getServiceInfo(requireNotNull(intent.component), 0)
         assertFalse(service.exported)

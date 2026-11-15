@@ -1,5 +1,7 @@
 package dev.daymark.widgets
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import androidx.room3.executeSQL
 import androidx.room3.useWriterConnection
 import dev.daymark.attendance.TestClock
@@ -43,20 +45,38 @@ class WidgetPublisherTest {
             try {
                 seedDatabase(db)
                 val clock = TestClock();
-                val repo = RoomAttendanceRepository(db, clock)
+                val repo = RoomAttendanceRepository(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 repo.completeCheck(testCommit())
-                val settings = SettingsRepository(db); settings.update(
+                val settings =
+                    SettingsRepository(
+                        db.profileDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db)
+                    ); settings.update(
                     language = LanguagePreference.AR,
                     theme = ThemePreference.DARK
                 )
                 val sink = Sink()
                 val publisher = WidgetPublisher(
-                    db,
+                    db.profileDao(), db.planningDao(),
+                    RoomDatabaseTransactions(db),
                     repo,
                     sink,
                     clock,
                     systemTags = { listOf("en") },
-                    statusLabel = { _, language -> if (language == AppLanguage.AR) "حاضر" else "Present" })
+                    statusLabel = { _, language -> if (language == AppLanguage.AR) "حاضر" else "Present" },
+                    settings = dev.daymark.data.local.settings.SettingsRepository(
+                        db.profileDao(), db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db)
+                    )
+                )
                 val before = repo.loadCurrentDay(clock.now())!!
                 publisher.refresh()
                 val snapshot = decodeWidgetSnapshot(sink.json!!)!!
@@ -92,16 +112,26 @@ class WidgetPublisherTest {
         try {
             seedDatabase(db)
             val clock = TestClock();
-            val repo = RoomAttendanceRepository(db, clock); repo.completeCheck(testCommit())
+            val repo = RoomAttendanceRepository(
+                db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            ); repo.completeCheck(testCommit())
             val before = repo.loadCurrentDay(clock.now())
             val sink = Sink().apply { succeeds = false }
             val publisher = WidgetPublisher(
-                db,
+                db.profileDao(), db.planningDao(),
+                RoomDatabaseTransactions(db),
                 repo,
                 sink,
                 clock,
                 systemTags = { listOf("en") },
-                statusLabel = { _, _ -> "Present" })
+                statusLabel = { _, _ -> "Present" },
+                settings = dev.daymark.data.local.settings.SettingsRepository(
+                    db.profileDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db)
+                )
+            )
             assertFailsWith<WidgetPublicationException> { publisher.refresh() }
             assertEquals(before, repo.loadCurrentDay(clock.now()))
         } finally {

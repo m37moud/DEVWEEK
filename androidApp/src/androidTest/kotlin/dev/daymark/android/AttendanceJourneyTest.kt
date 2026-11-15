@@ -1,5 +1,7 @@
 package dev.daymark.android
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -83,9 +85,18 @@ class AttendanceJourneyTest {
             val schedule =
                 WeeklySchedule(DayOfWeek.entries.toSet(), LocalTime(9, 0), emptyMap(), 5, "UTC")
             Assert.assertEquals(
-                SetupResult.Completed, SetupService(db, object : Clock {
-                    override fun now() = Instant.parse("2026-10-27T08:00:00Z")
-                }).complete(
+                SetupResult.Completed,
+                SetupService(
+                    db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    object : Clock {
+                        override fun now() = Instant.parse("2026-10-27T08:00:00Z")
+                    },
+                    settings = dev.daymark.data.local.settings.SettingsRepository(
+                        db.profileDao(), db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db)
+                    )
+                ).complete(
                     SetupCommand(
                         "أحمد / Ahmed",
                         TrackerCategory.WORK,
@@ -97,7 +108,14 @@ class AttendanceJourneyTest {
                 )
             )
         }
-        val repo = RoomAttendanceRepository(db, clock)
+        val repo = RoomAttendanceRepository(
+            db.profileDao(),
+            db.attendanceDao(),
+            db.planningDao(),
+            db.dirtyProjectionDao(),
+            RoomDatabaseTransactions(db),
+            clock
+        )
         val container = AppGraph(org.koin.dsl.module {
             single<DaymarkDatabase> { db }
             single<Clock> { clock }
@@ -172,7 +190,11 @@ class AttendanceJourneyTest {
         compose.waitForIdle()
         db.close(); db = openAndroidDatabase(context, name)
         runBlocking {
-            val outcome = RoomAttendanceRepository(db, clock).loadCurrentDay(clock.now())!!
+            val outcome = RoomAttendanceRepository(
+                db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            ).loadCurrentDay(clock.now())!!
             Assert.assertEquals(AttendanceStatus.LATE, outcome.evidence?.status)
             Assert.assertEquals("اجتماع / Meeting =1+2", outcome.evidence?.note)
             Assert.assertEquals(AttendanceSource.MANUAL_CORRECTION, outcome.evidence?.source)

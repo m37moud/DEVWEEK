@@ -1,5 +1,7 @@
 package dev.daymark.app
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import dev.daymark.at
 import dev.daymark.attendance.TestClock
 import dev.daymark.data.local.SettingEntity
@@ -31,12 +33,20 @@ class SetupPersistenceTest {
     fun cleared_data_and_new_sessions_reject_old_queued_drafts() = runTest {
         val folder = Files.createTempDirectory("daymark-draft-session-")
         val db = openJvmDatabase(folder.resolve("app.db").toString())
-        val service = SetupService(db, TestClock())
+        val service = SetupService(
+            db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+            RoomDatabaseTransactions(db),
+            TestClock(),
+            settings = dev.daymark.data.local.settings.SettingsRepository(
+                db.profileDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db)
+            )
+        )
         try {
             val oldSession = service.startDraftSession()
             val oldDraft = SetupDraft(displayName = "Old draft")
             assertTrue(service.saveDraft(oldDraft, oldSession))
-            db.dao().deleteAllLocalRows()
+            db.localDataDeletionDao().deleteAllLocalRows()
             assertEquals(false, service.saveDraft(oldDraft, oldSession))
             assertIs<SetupDraftLoad.Absent>(service.observeDraft().first())
             val newSession = service.startDraftSession()
@@ -54,28 +64,63 @@ class SetupPersistenceTest {
     fun draft_loading_distinguishes_new_legacy_unknown_and_corrupt_content() = runTest {
         val folder = Files.createTempDirectory("daymark-draft-upgrade-")
         val db = openJvmDatabase(folder.resolve("app.db").toString())
-        val service = SetupService(db, TestClock())
+        val service = SetupService(
+            db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+            RoomDatabaseTransactions(db),
+            TestClock(),
+            settings = dev.daymark.data.local.settings.SettingsRepository(
+                db.profileDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db)
+            )
+        )
         try {
             assertIs<SetupDraftLoad.Absent>(service.observeDraft().first())
-            db.dao().putSetting(SettingEntity("setup-draft", """{"displayName":"Saved","openingBalanceText":"١٢"}"""))
+            db.profileDao().putSetting(
+                SettingEntity(
+                    "setup-draft",
+                    """{"displayName":"Saved","openingBalanceText":"١٢"}"""
+                )
+            )
             val legacy = assertIs<SetupDraftLoad.Loaded>(service.observeDraft().first()).draft
             assertEquals(SetupStep.PROFILE, legacy.step)
             assertEquals("Saved", legacy.displayName)
             assertEquals("١٢", legacy.openingBalanceText)
-            db.dao().putSetting(SettingEntity("setup-draft", """{"displayName":"Saved","step":"FUTURE"}"""))
-            assertEquals(SetupStep.PROFILE, assertIs<SetupDraftLoad.Loaded>(service.observeDraft().first()).draft.step)
-            db.dao().putSetting(SettingEntity("setup-draft", "{unreadable"))
+            db.profileDao().putSetting(
+                SettingEntity(
+                    "setup-draft",
+                    """{"displayName":"Saved","step":"FUTURE"}"""
+                )
+            )
+            assertEquals(
+                SetupStep.PROFILE,
+                assertIs<SetupDraftLoad.Loaded>(service.observeDraft().first()).draft.step
+            )
+            db.profileDao().putSetting(SettingEntity("setup-draft", "{unreadable"))
             assertIs<SetupDraftLoad.Unreadable>(service.observeDraft().first())
-            assertEquals("{unreadable", db.dao().observeSetting("setup-draft").first()?.value)
-            SettingsRepository(db).update(language = LanguagePreference.AR)
+            assertEquals(
+                "{unreadable",
+                db.profileDao().observeSetting("setup-draft").first()?.value
+            )
+            SettingsRepository(
+                db.profileDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db)
+            ).update(language = LanguagePreference.AR)
             for (broken in listOf("""{"place":{}}""", """{"schedule":"{}"}""")) {
-                db.dao().putSetting(SettingEntity("setup-draft", broken))
+                db.profileDao().putSetting(SettingEntity("setup-draft", broken))
                 assertIs<SetupDraftLoad.Unreadable>(service.observeDraft().first())
-                assertEquals(broken, db.dao().observeSetting("setup-draft").first()?.value)
+                assertEquals(broken, db.profileDao().observeSetting("setup-draft").first()?.value)
             }
             service.resetDraft(service.startDraftSession())
             assertIs<SetupDraftLoad.Absent>(service.observeDraft().first())
-            assertEquals(LanguagePreference.AR, SettingsRepository(db).observe().first().language)
+            assertEquals(
+                LanguagePreference.AR,
+                SettingsRepository(
+                    db.profileDao(),
+                    db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db)
+                ).observe()
+                    .first().language
+            )
         } finally {
             db.close()
             folder.toFile().deleteRecursively()
@@ -98,11 +143,30 @@ class SetupPersistenceTest {
             SetupStep.REVIEW
         )
         try {
-            SetupService(db, clock).let { it.saveDraft(draft, it.startDraftSession()) }
+            SetupService(
+                db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock,
+                settings = dev.daymark.data.local.settings.SettingsRepository(
+                    db.profileDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db)
+                )
+            ).let { it.saveDraft(draft, it.startDraftSession()) }
             db.close()
             db = openJvmDatabase(path)
-            val service = SetupService(db, clock)
-            assertEquals(draft, assertIs<SetupDraftLoad.Loaded>(service.observeDraft().first()).draft)
+            val service = SetupService(
+                db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock,
+                settings = dev.daymark.data.local.settings.SettingsRepository(
+                    db.profileDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db)
+                )
+            )
+            assertEquals(
+                draft,
+                assertIs<SetupDraftLoad.Loaded>(service.observeDraft().first()).draft
+            )
             assertIs<SetupResult.Completed>(
                 service.complete(
                     SetupCommand(
@@ -138,17 +202,47 @@ class SetupPersistenceTest {
                 fixtureSchedule(),
                 "١٢"
             )
-            SetupService(db, clock).let { it.saveDraft(draft, it.startDraftSession()) }
-            SettingsRepository(db).update(
+            SetupService(
+                db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock,
+                settings = dev.daymark.data.local.settings.SettingsRepository(
+                    db.profileDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db)
+                )
+            ).let { it.saveDraft(draft, it.startDraftSession()) }
+            SettingsRepository(
+                db.profileDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db)
+            ).update(
                 language = LanguagePreference.AR,
                 theme = ThemePreference.DARK
             )
             db.close(); db = openJvmDatabase(path)
-            assertEquals(draft, assertIs<SetupDraftLoad.Loaded>(SetupService(db, clock).observeDraft().first()).draft)
-            val settings = SettingsRepository(db).observe().first()
+            assertEquals(
+                draft,
+                assertIs<SetupDraftLoad.Loaded>(
+                    SetupService(
+                        db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db),
+                        clock,
+                        settings = dev.daymark.data.local.settings.SettingsRepository(
+                            db.profileDao(), db.dirtyProjectionDao(),
+                            RoomDatabaseTransactions(db)
+                        )
+                    ).observeDraft().first()
+                ).draft
+            )
+            val settings =
+                SettingsRepository(
+                    db.profileDao(),
+                    db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db)
+                ).observe().first()
             assertEquals(LanguagePreference.AR, settings.language)
             assertEquals(ThemePreference.DARK, settings.theme)
-            assertNull(db.dao().tracker())
+            assertNull(db.profileDao().tracker())
         } finally {
             db.close(); folder.toFile().deleteRecursively()
         }
@@ -160,7 +254,15 @@ class SetupPersistenceTest {
         val db = openJvmDatabase(folder.resolve("app.db").toString())
         val clock = TestClock(at("09:02:00"))
         try {
-            val service = SetupService(db, clock)
+            val service = SetupService(
+                db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock,
+                settings = dev.daymark.data.local.settings.SettingsRepository(
+                    db.profileDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db)
+                )
+            )
             val command = SetupCommand(
                 "  أحمد / Ahmed  ",
                 TrackerCategory.WORK,
@@ -170,16 +272,23 @@ class SetupPersistenceTest {
                 12
             )
             assertIs<SetupResult.Completed>(service.complete(command))
-            val tracker = requireNotNull(db.dao().tracker())
+            val tracker = requireNotNull(db.profileDao().tracker())
             assertEquals("  أحمد / Ahmed  ", tracker.displayName)
             assertEquals("2026-10-28T09:00:00Z", tracker.trackingStartsAt)
-            assertEquals("UTC", db.dao().versions(tracker.id).single().schedule().zoneId)
-            val repository = RoomAttendanceRepository(db, clock)
+            assertEquals("UTC", db.planningDao().versions(tracker.id).single().schedule().zoneId)
+            val repository = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             repository.reconcile(clock.now())
-            assertTrue(db.dao().days(tracker.id).isEmpty())
+            assertTrue(db.attendanceDao().days(tracker.id).isEmpty())
             assertIs<SetupResult.Invalid>(service.complete(command))
-            assertEquals(tracker.id, db.dao().tracker()?.id)
-            assertEquals(1, db.dao().versions(tracker.id).size)
+            assertEquals(tracker.id, db.profileDao().tracker()?.id)
+            assertEquals(1, db.planningDao().versions(tracker.id).size)
         } finally {
             db.close(); folder.toFile().deleteRecursively()
         }
@@ -191,7 +300,15 @@ class SetupPersistenceTest {
         val db = openJvmDatabase(folder.resolve("app.db").toString())
         val clock = TestClock(at("08:00:00"))
         try {
-            val service = SetupService(db, clock)
+            val service = SetupService(
+                db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock,
+                settings = dev.daymark.data.local.settings.SettingsRepository(
+                    db.profileDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db)
+                )
+            )
             val command = SetupCommand(
                 "Person",
                 TrackerCategory.WORK,
@@ -211,11 +328,11 @@ class SetupPersistenceTest {
                     )
                 )
             )
-            assertNull(db.dao().tracker())
+            assertNull(db.profileDao().tracker())
             assertIs<SetupResult.Completed>(service.complete(command))
-            val tracker = requireNotNull(db.dao().tracker())
+            val tracker = requireNotNull(db.profileDao().tracker())
             assertEquals("2026-10-27T09:00:00Z", tracker.trackingStartsAt)
-            assertNull(db.dao().binding(tracker.id))
+            assertNull(db.reportDao().binding(tracker.id))
         } finally {
             db.close(); folder.toFile().deleteRecursively()
         }

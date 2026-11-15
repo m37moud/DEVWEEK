@@ -1,5 +1,7 @@
 package dev.daymark.ui
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import dev.daymark.at
 import dev.daymark.attendance.TestClock
 import dev.daymark.data.local.attendance.RoomAttendanceRepository
@@ -35,11 +37,24 @@ class TodayDashboardTest {
             val folder = Files.createTempDirectory("daymark-today-dashboard-");
             val db = openJvmDatabase(folder.resolve("test.db").toString())
             try {
-                seedDatabase(db); db.dao()
-                    .putTracker(db.dao().tracker()!!.copy(automaticEnabled = false))
+                seedDatabase(db); db.profileDao()
+                    .putTracker(db.profileDao().tracker()!!.copy(automaticEnabled = false))
                 val clock = TestClock();
-                val repo = RoomAttendanceRepository(db, clock); repo.completeCheck(testCommit())
-                val reader = TodayDashboardReader(db, clock)
+                val repo = RoomAttendanceRepository(
+                    db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                ); repo.completeCheck(testCommit())
+                val reader = TodayDashboardReader(
+                    db.profileDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 val first = reader.observe().first { it.ready }
                 assertEquals("Registered place", first.placeName)
                 assertEquals(1, first.present); assertEquals(0, first.late); assertEquals(
@@ -57,7 +72,27 @@ class TodayDashboardTest {
                         DateTimeUnit.DAY
                     )
                 }.planned)
-                val service = TimeOffService(db, clock)
+                val service = TimeOffService(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock,
+                    attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db),
+                        clock
+                    )
+                )
                 val command = TimeOffCommand.Add(TimeOffKind.HOLIDAY, fixtureDate, fixtureDate)
                 assertEquals(
                     PlanMutationResult.Applied,
@@ -93,7 +128,14 @@ class TodayDashboardTest {
             try {
                 seedDatabase(db);
                 val clock = TestClock(at("23:59:59.750"));
-                val repo = RoomAttendanceRepository(db, clock)
+                val repo = RoomAttendanceRepository(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 repo.reconcile(clock.now())
                 val model = HistoryViewModel(
                     repository = dev.daymark.testRepository(attendanceSource = repo),

@@ -1,8 +1,7 @@
 package dev.daymark.data.local.application
 
 import dev.daymark.app.HostPlatform
-import dev.daymark.data.local.DaymarkDatabase
-import dev.daymark.data.local.plan.RoomPlanReader
+import dev.daymark.data.local.dao.ProfileDao
 import dev.daymark.models.ConfigurationHealth
 import dev.daymark.models.settings.AppSettings
 import dev.daymark.plan.PlanReader
@@ -25,11 +24,14 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 
 /** Rebuild derived native configuration after local commits. Never requests permissions or GPS. */
+// clean-code exception: constructor arity keeps native refresh ordering explicit; revisit when platform refresh responsibilities can split.
 class ConfigurationCoordinator(
-    private val db: DaymarkDatabase, private val clock: Clock, private val reminders: ReminderPort,
+    private val profileDao: ProfileDao,
+    private val clock: Clock,
+    private val reminders: ReminderPort,
     private val onScheduleRefresh: suspend () -> Boolean = { false },
     private val onWidgetRefresh: suspend (AppLanguage) -> Boolean? = { null },
-    private val reader: PlanReader = RoomPlanReader(db, clock)
+    private val reader: PlanReader
 ) {
     private val mutex = Mutex()
     suspend fun refresh(
@@ -38,7 +40,7 @@ class ConfigurationCoordinator(
         copy: ReminderCopy,
         platform: HostPlatform
     ): ConfigurationHealth = mutex.withLock {
-        val tracker = db.dao().tracker() ?: return@withLock ConfigurationHealth()
+        val tracker = profileDao.tracker() ?: return@withLock ConfigurationHealth()
         val scheduleOk = if (platform == HostPlatform.ANDROID) onScheduleRefresh() else null
         var reminderThrough: LocalDate? = null
         val remindersOk =
@@ -48,7 +50,7 @@ class ConfigurationCoordinator(
                 val context =
                     reader.context() ?: return@withLock ConfigurationHealth(remindersOk = false)
                 val payload = planReminders(clock.now(), reader, copy)
-                val latest = db.dao().tracker()
+                val latest = profileDao.tracker()
                 if (latest?.id != tracker.id || latest.changeRevision != tracker.changeRevision) return@withLock ConfigurationHealth(
                     remindersOk = false
                 )

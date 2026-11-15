@@ -1,8 +1,8 @@
 package dev.daymark.data.local.dashboard
 
-import androidx.room3.withReadTransaction
-import dev.daymark.data.local.DaymarkDatabase
-import dev.daymark.data.local.plan.planning
+import dev.daymark.data.local.DatabaseTransactions
+import dev.daymark.data.local.dao.ProfileDao
+import dev.daymark.data.local.plan.PlanningSnapshotReader
 import dev.daymark.models.TodayDashboard
 import dev.daymark.models.WeekDaySummary
 import dev.daymark.models.attendance.AttendanceStatus
@@ -21,11 +21,16 @@ import kotlinx.datetime.plus
 
 /** Read-only projection; it neither requests GPS nor changes scheduling/attendance. */
 @OptIn(ExperimentalCoroutinesApi::class)
-class TodayDashboardReader(private val db: DaymarkDatabase, private val clock: Clock) :
+class TodayDashboardReader(
+    private val profileDao: ProfileDao,
+    private val snapshots: PlanningSnapshotReader,
+    private val transactions: DatabaseTransactions,
+    private val clock: Clock
+) :
     DashboardDataSource {
-    override fun observe(): Flow<TodayDashboard> = db.dao().observeTracker().mapLatest {
-        db.withReadTransaction {
-            val state = db.dao().planning(clock.now()) ?: return@withReadTransaction TodayDashboard(
+    override fun observe(): Flow<TodayDashboard> = profileDao.observeTracker().mapLatest {
+        transactions.withReadTransaction {
+            val state = snapshots.load(clock.now()) ?: return@withReadTransaction TodayDashboard(
                 ready = true
             )
             val start = Instant.parse(state.tracker.trackingStartsAt)

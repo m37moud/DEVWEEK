@@ -32,6 +32,8 @@ Room implementations, database factories, DAOs, and entities live under `data/lo
 
 Koin bindings under `di/ktor` connect interfaces to existing implementations. Native modules load last. ViewModels remain lifecycle scoped, Android workers share the application container, and `ReportingRuntime` still owns connection/sync/lifecycle coordinators and HTTP client teardown. The repository itself does not resolve dependencies.
 
+Local consumers receive focused Room DAOs through constructor injection: `ProfileDao` (tracker/settings), `AttendanceDao`, `PlanningDao` (schedule/time off/balance), `DirtyProjectionDao`, `ReportDao` (bindings/journal), and `PlaceAddressDao`. Installation-wide clearing queries belong only to `LocalDataDeletionDao`, used by confirmed local deletion. `PlanningSnapshotReader` assembles existing planning snapshots from profile, attendance, and planning DAOs inside the caller-owned transaction. Koin derives all DAO singleton bindings from the same graph database; there is no aggregate DAO facade. Operations that own transaction boundaries also receive `DatabaseTransactions`; `RoomDatabaseTransactions` delegates directly to Room, preserving nesting, rollback, and coroutine cancellation. Database dependencies remain in factories, DI, transaction infrastructure, and resource owners. Storage collaborators are explicit constructor dependencies.
+
 ## Compatibility
 
 - The saved database filename, SQL schema version 2, identity hashes, and 1→2 migration are unchanged. The moved database type exports schemas under `dev.daymark.data.local.DaymarkDatabase`; historical exports remain preserved.

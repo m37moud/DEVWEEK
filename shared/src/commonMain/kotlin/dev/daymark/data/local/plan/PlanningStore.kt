@@ -3,7 +3,6 @@ package dev.daymark.data.local.plan
 import dev.daymark.attendance.evaluateDay
 import dev.daymark.data.local.AttendanceEntity
 import dev.daymark.data.local.BalanceAdjustmentEntity
-import dev.daymark.data.local.DaymarkDao
 import dev.daymark.data.local.PlanVersionEntity
 import dev.daymark.data.local.TimeOffEntity
 import dev.daymark.data.local.TrackerEntity
@@ -105,19 +104,6 @@ internal data class PlanningStore(
         evaluateDay(plan(date, expectations), rows[date]?.evidence(), timeOffOn(off, date), now)
 }
 
-internal suspend fun DaymarkDao.planning(now: Instant): PlanningStore? {
-    val tracker = tracker() ?: return null
-    val versions = versions(tracker.id)
-    if (versions.isEmpty()) return null
-    return PlanningStore(
-        tracker,
-        versions,
-        days(tracker.id).associateBy { LocalDate.parse(it.date) },
-        timeOff(tracker.id).map { it.entry() },
-        balanceAdjustments(tracker.id),
-        now
-    )
-}
 
 internal fun invalidPreview(reason: PlanRejection) =
     TimeOffPreview(0, emptyList(), emptyList(), 0, 0, reason)

@@ -1,5 +1,7 @@
 package dev.daymark.android
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import android.animation.ValueAnimator
 import android.os.ParcelFileDescriptor
 import androidx.compose.ui.unit.dp
@@ -87,7 +89,15 @@ class SetupJourneyTest {
             single<DaymarkDatabase> { db }
             single<Clock> { clock }
             single<SetupDataSource> {
-                val storage = SetupService(db, clock)
+                val storage = SetupService(
+                    db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock,
+                    settings = dev.daymark.data.local.settings.SettingsRepository(
+                        db.profileDao(), db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db)
+                    )
+                )
                 object : SetupDataSource by storage {
                     override suspend fun saveDraft(draft: SetupDraft, session: String): Boolean {
                         draftWriteGate?.await()
@@ -229,7 +239,15 @@ class SetupJourneyTest {
         }
         compose.onNodeWithText("اسمح بالموقع الدقيق لتسجيل المكان.").assertIsDisplayed()
         runBlocking {
-            dev.daymark.data.local.setup.SetupService(db, clock).observeDraft()
+            dev.daymark.data.local.setup.SetupService(
+                db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock,
+                settings = dev.daymark.data.local.settings.SettingsRepository(
+                    db.profileDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db)
+                )
+            ).observeDraft()
                 .first { it is SetupDraftLoad.Loaded && it.draft.displayName == "أحمد / Ahmed" }
         }
         compose.runOnIdle { shown = false }
@@ -245,7 +263,7 @@ class SetupJourneyTest {
             compose.onAllNodesWithTag("setup-name").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("setup-name").performScrollTo().assertTextContains("أحمد / Ahmed")
-        runBlocking { Assert.assertNull(db.dao().tracker()) }
+        runBlocking { Assert.assertNull(db.profileDao().tracker()) }
         Assert.assertEquals(0, googleCalls)
     }
 
@@ -440,10 +458,10 @@ class SetupJourneyTest {
             compose.onAllNodesWithTag("today-root").fetchSemanticsNodes().isNotEmpty()
         }
         runBlocking {
-            val tracker = requireNotNull(db.dao().tracker())
+            val tracker = requireNotNull(db.profileDao().tracker())
             Assert.assertEquals("Local test", tracker.displayName)
-            Assert.assertNull(db.dao().binding(tracker.id))
-            Assert.assertTrue(db.dao().days(tracker.id).isEmpty())
+            Assert.assertNull(db.reportDao().binding(tracker.id))
+            Assert.assertTrue(db.attendanceDao().days(tracker.id).isEmpty())
         }
         Assert.assertEquals(0, googleCalls)
     }
@@ -533,7 +551,7 @@ class SetupJourneyTest {
         runBlocking {
             Assert.assertEquals(LanguagePreference.AR, graph!!.settings.observe().first().language)
             Assert.assertEquals(ThemePreference.DARK, graph!!.settings.observe().first().theme)
-            Assert.assertNull(db.dao().tracker())
+            Assert.assertNull(db.profileDao().tracker())
         }
     }
 

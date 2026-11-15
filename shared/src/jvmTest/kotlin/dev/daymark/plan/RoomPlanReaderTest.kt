@@ -1,5 +1,7 @@
 package dev.daymark.plan
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import dev.daymark.attendance.TestClock
 import dev.daymark.data.local.attendance.RoomAttendanceRepository
 import dev.daymark.data.local.openJvmDatabase
@@ -34,14 +36,49 @@ class RoomPlanReaderTest {
             val clock = TestClock()
             try {
                 seedDatabase(db)
-                val repo = RoomAttendanceRepository(db, clock)
+                val repo = RoomAttendanceRepository(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 repo.reconcile(clock.now())
-                val reader = RoomPlanReader(db, clock)
+                val reader = RoomPlanReader(
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ), RoomDatabaseTransactions(db), clock
+                )
                 reader.context()
                 val tomorrow = fixtureDate.plus(1, DateTimeUnit.DAY)
                 assertEquals(1L, reader.day(tomorrow).plan.scheduleVersion)
-                assertEquals(0, db.dao().countDay(fixturePlan().key.trackerId, tomorrow.toString()))
-                val plans = PlanService(db, clock)
+                assertEquals(
+                    0,
+                    db.attendanceDao().countDay(fixturePlan().key.trackerId, tomorrow.toString())
+                )
+                val plans = PlanService(
+                    db.profileDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock,
+                    attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db),
+                        clock
+                    )
+                )
                 val change = PlanChange(
                     fixtureSchedule(arrival = LocalTime(10, 0)),
                     TrackerCategory.COURSE,
@@ -61,7 +98,10 @@ class RoomPlanReaderTest {
                     reader.day(tomorrow).plan.arrival.toLocalDateTime(TimeZone.UTC).time
                 )
                 assertEquals(1L, reader.day(fixtureDate).plan.scheduleVersion)
-                assertEquals(0, db.dao().countDay(fixturePlan().key.trackerId, tomorrow.toString()))
+                assertEquals(
+                    0,
+                    db.attendanceDao().countDay(fixturePlan().key.trackerId, tomorrow.toString())
+                )
             } finally {
                 db.close(); folder.toFile().deleteRecursively()
             }

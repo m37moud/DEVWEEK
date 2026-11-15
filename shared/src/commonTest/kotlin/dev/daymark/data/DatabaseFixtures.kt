@@ -23,7 +23,7 @@ suspend fun seedDatabase(
 ) {
     val key = fixturePlan().key
     db.withWriteTransaction {
-        db.dao().insertTracker(
+        db.profileDao().insertTracker(
             TrackerEntity(
                 key.trackerId,
                 "Test person",
@@ -33,7 +33,7 @@ suspend fun seedDatabase(
                 true
             )
         )
-        db.dao().putVersion(
+        db.planningDao().putVersion(
             PlanVersionEntity.fromSnapshot(
                 key.trackerId, 1, fixtureDate, createdAt,
                 TrackerCategory.WORK, fixtureSchedule(), fixturePlace(), "Registered place"

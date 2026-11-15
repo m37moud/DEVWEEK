@@ -1,5 +1,7 @@
 package dev.daymark.android
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -56,10 +58,15 @@ class WidgetJourneyTest {
             runBlocking {
                 fixture.graph.settings.update(language = LanguagePreference.AR)
                 WidgetPublisher(
-                    fixture.db,
+                    fixture.db.profileDao(), fixture.db.planningDao(),
+                    RoomDatabaseTransactions(fixture.db),
                     fixture.graph.repository.attendance,
                     sink,
-                    fixture.clock
+                    fixture.clock,
+                    settings = dev.daymark.data.local.settings.SettingsRepository(
+                        fixture.db.profileDao(), fixture.db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(fixture.db)
+                    )
                 ).refresh()
             }
             val yesterday = AndroidWidgetPublisher.readFile(file)!!
@@ -98,7 +105,7 @@ class WidgetJourneyTest {
                 throw AssertionError(
                     "Widget cache status=${AndroidWidgetPublisher.readFile(file)?.statusCode}; publications=$publications; trackerRevision=${
                         runBlocking {
-                            fixture.db.dao().tracker()?.changeRevision
+                            fixture.db.profileDao().tracker()?.changeRevision
                         }
                     }", failure
                 )

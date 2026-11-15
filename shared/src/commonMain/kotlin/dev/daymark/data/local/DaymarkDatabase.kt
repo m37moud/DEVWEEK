@@ -9,6 +9,13 @@ import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import dev.daymark.data.local.address.PlaceAddressEntity
+import dev.daymark.data.local.dao.AttendanceDao
+import dev.daymark.data.local.dao.DirtyProjectionDao
+import dev.daymark.data.local.dao.LocalDataDeletionDao
+import dev.daymark.data.local.dao.PlaceAddressDao
+import dev.daymark.data.local.dao.PlanningDao
+import dev.daymark.data.local.dao.ProfileDao
+import dev.daymark.data.local.dao.ReportDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 
@@ -19,7 +26,13 @@ import kotlinx.coroutines.IO
 )
 @ConstructedBy(DaymarkDatabaseConstructor::class)
 abstract class DaymarkDatabase : RoomDatabase() {
-    abstract fun dao(): DaymarkDao
+    abstract fun profileDao(): ProfileDao
+    abstract fun attendanceDao(): AttendanceDao
+    abstract fun planningDao(): PlanningDao
+    abstract fun dirtyProjectionDao(): DirtyProjectionDao
+    abstract fun reportDao(): ReportDao
+    abstract fun placeAddressDao(): PlaceAddressDao
+    abstract fun localDataDeletionDao(): LocalDataDeletionDao
 }
 
 expect object DaymarkDatabaseConstructor : RoomDatabaseConstructor<DaymarkDatabase> {

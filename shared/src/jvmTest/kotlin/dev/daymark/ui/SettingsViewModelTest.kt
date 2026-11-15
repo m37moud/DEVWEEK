@@ -1,5 +1,7 @@
 package dev.daymark.ui
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import dev.daymark.at
 import dev.daymark.attendance.TestClock
 import dev.daymark.data.local.attendance.RoomAttendanceRepository
@@ -28,14 +30,14 @@ class SettingsViewModelTest {
         val db = openJvmDatabase(folder.resolve("app.db").toString())
         try {
             seedDatabase(db)
-            val original = db.dao().tracker()!!.copy(automaticEnabled = false)
-            db.dao().putTracker(original)
+            val original = db.profileDao().tracker()!!.copy(automaticEnabled = false)
+            db.profileDao().putTracker(original)
             val replacement = original.copy(id = "00000000-0000-0000-0000-000000000002")
             val permissions = object : LocationPermissionPort {
                 override fun current() = LocationCapabilities(false, false, false, true)
                 override suspend fun requestForeground(): LocationCapabilities {
-                    db.dao().deleteAllLocalRows()
-                    db.dao().putTracker(replacement)
+                    db.localDataDeletionDao().deleteAllLocalRows()
+                    db.profileDao().putTracker(replacement)
                     return LocationCapabilities(true, true, true, true)
                 }
 
@@ -43,17 +45,22 @@ class SettingsViewModelTest {
                 override fun openSystemSettings() = Unit
             }
             val model = SettingsViewModel(
-                dev.daymark.testRepository(settingsSource = SettingsRepository(db)), permissions,
+                dev.daymark.testRepository(
+                    settingsSource = SettingsRepository(
+                        db.profileDao(), db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db)
+                    )
+                ), permissions,
                 dev.daymark.TestReminders, backgroundScope
             )
             model.uiState.first { it.ready }
             model.setAutomation(true)
             model.uiState.first { !it.busy }
-            val stored = db.dao().tracker()!!
+            val stored = db.profileDao().tracker()!!
             assertEquals(replacement.id, stored.id)
             assertFalse(stored.automaticEnabled)
             assertEquals(replacement.changeRevision, stored.changeRevision)
-            assertTrue(db.dao().dirtyProjections(replacement.id).isEmpty())
+            assertTrue(db.dirtyProjectionDao().dirtyProjections(replacement.id).isEmpty())
         } finally {
             db.close()
             folder.toFile().deleteRecursively()
@@ -85,7 +92,11 @@ class SettingsViewModelTest {
         try {
             val model = SettingsViewModel(
                 repository = dev.daymark.testRepository(
-                    settingsSource = SettingsRepository(db)
+                    settingsSource = SettingsRepository(
+                        db.profileDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db)
+                    )
                 ), permissions = permissions, scope = backgroundScope, reminders = reminders
             )
             model.uiState.first { it.ready }
@@ -97,7 +108,14 @@ class SettingsViewModelTest {
             permissionReply(true)
             model.uiState.first { !it.busy && it.settings.remindersEnabled }
             assertTrue(replies.tryReceive().isFailure)
-            assertTrue(SettingsRepository(db).observe().first().remindersEnabled)
+            assertTrue(
+                SettingsRepository(
+                    db.profileDao(),
+                    db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db)
+                ).observe()
+                    .first().remindersEnabled
+            )
             db.close()
             model.requestReminders()
             replies.receive()(true)
@@ -118,8 +136,13 @@ class SettingsViewModelTest {
             val db = openJvmDatabase(folder.resolve("test.db").toString())
             try {
                 seedDatabase(db)
-                db.dao().putTracker(db.dao().tracker()!!.copy(automaticEnabled = false))
-                val repo = RoomAttendanceRepository(db, TestClock()); repo.reconcile(at("09:02:00"))
+                db.profileDao()
+                    .putTracker(db.profileDao().tracker()!!.copy(automaticEnabled = false))
+                val repo = RoomAttendanceRepository(
+                    db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    TestClock()
+                ); repo.reconcile(at("09:02:00"))
                 val before = repo.loadCurrentDay(at("09:02:00"))!!
                 var requests = 0
                 val permissions = object : LocationPermissionPort {
@@ -137,7 +160,9 @@ class SettingsViewModelTest {
                     SettingsViewModel(
                         repository = dev.daymark.testRepository(
                             settingsSource = SettingsRepository(
-                                db
+                                db.profileDao(),
+                                db.dirtyProjectionDao(),
+                                RoomDatabaseTransactions(db)
                             )
                         ),
                         permissions = permissions,
@@ -156,12 +181,17 @@ class SettingsViewModelTest {
                 model.setAutomation(true)
                 model.uiState.first { !it.busy && it.permissionDenied }
                 assertEquals(1, requests)
-                assertFalse(db.dao().tracker()!!.automaticEnabled)
+                assertFalse(db.profileDao().tracker()!!.automaticEnabled)
                 assertEquals(before.plan.key, repo.loadCurrentDay(at("09:02:00"))!!.plan.key)
                 assertEquals(before.evidence, repo.loadCurrentDay(at("09:02:00"))!!.evidence)
                 assertEquals(
                     LanguagePreference.AR,
-                    SettingsRepository(db).observe().first().language
+                    SettingsRepository(
+                        db.profileDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db)
+                    ).observe()
+                        .first().language
                 )
             } finally {
                 db.close(); folder.toFile().deleteRecursively()

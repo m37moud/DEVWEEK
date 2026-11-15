@@ -1,5 +1,7 @@
 package dev.daymark.ui
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import dev.daymark.at
 import dev.daymark.attendance.TestClock
 import dev.daymark.data.local.attendance.RoomAttendanceRepository
@@ -50,14 +52,54 @@ class PlanViewModelTest {
         try {
             seedDatabase(db)
             val clock = TestClock();
-            val repo = RoomAttendanceRepository(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             repo.reconcile(clock.now())
-            val off = TimeOffService(db, clock)
+            val off = TimeOffService(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                dev.daymark.data.local.plan.PlanningSnapshotReader(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao()
+                ),
+                RoomDatabaseTransactions(db),
+                clock,
+                attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                    db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
+            )
             val model = PlanViewModel(
                 repository = dev.daymark.testRepository(
                     plansSource = PlanService(
-                        db,
-                        clock
+                        db.profileDao(),
+                        db.planningDao(),
+                        db.dirtyProjectionDao(),
+                        dev.daymark.data.local.plan.PlanningSnapshotReader(
+                            db.profileDao(),
+                            db.attendanceDao(),
+                            db.planningDao()
+                        ),
+                        RoomDatabaseTransactions(db),
+                        clock,
+                        attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                            db.profileDao(),
+                            db.attendanceDao(),
+                            db.planningDao(),
+                            db.dirtyProjectionDao(),
+                            RoomDatabaseTransactions(db),
+                            clock
+                        )
                     ), timeOffSource = off
                 ),
                 location = location,
@@ -94,7 +136,14 @@ class PlanViewModelTest {
             model.confirm(preview.expectedRevision)
             model.uiState.first { !it.busy && it.result == PlanMutationResult.Applied }
             assertEquals(at("09:00:00"), repo.loadCurrentDay(clock.now())!!.plan.arrival)
-            val reader = RoomPlanReader(db, clock); reader.context()
+            val reader =
+                RoomPlanReader(
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ), RoomDatabaseTransactions(db), clock
+                ); reader.context()
             assertEquals(
                 LocalTime(9, 30),
                 reader.day(LocalDate(2026, 10, 28)).plan.arrival.toLocalDateTime(TimeZone.UTC).time
@@ -102,10 +151,10 @@ class PlanViewModelTest {
             model.preview(draft)
             val stale = model.uiState.first { !it.busy && it.preview != null }.preview!!
             off.setAvailableBalance(11, null)
-            val before = db.dao().tracker()!!.changeRevision
+            val before = db.profileDao().tracker()!!.changeRevision
             model.confirm(stale.expectedRevision)
             model.uiState.first { !it.busy && it.result == PlanMutationResult.StalePreview }
-            assertEquals(before, db.dao().tracker()!!.changeRevision)
+            assertEquals(before, db.profileDao().tracker()!!.changeRevision)
             model.edit { it.copy(schedule = it.schedule.copy(days = emptySet())) }
             assertTrue(model.uiState.value.invalidInput)
             model.edit { it.copy(place = it.place.copy(radiusMetres = 99)) }
@@ -125,9 +174,46 @@ class PlanViewModelTest {
             val model = PlanViewModel(
                 repository = dev.daymark.testRepository(
                     plansSource = PlanService(
-                        db,
-                        clock
-                    ), timeOffSource = TimeOffService(db, clock)
+                        db.profileDao(),
+                        db.planningDao(),
+                        db.dirtyProjectionDao(),
+                        dev.daymark.data.local.plan.PlanningSnapshotReader(
+                            db.profileDao(),
+                            db.attendanceDao(),
+                            db.planningDao()
+                        ),
+                        RoomDatabaseTransactions(db),
+                        clock,
+                        attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                            db.profileDao(),
+                            db.attendanceDao(),
+                            db.planningDao(),
+                            db.dirtyProjectionDao(),
+                            RoomDatabaseTransactions(db),
+                            clock
+                        )
+                    ),
+                    timeOffSource = TimeOffService(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao(),
+                        db.dirtyProjectionDao(),
+                        dev.daymark.data.local.plan.PlanningSnapshotReader(
+                            db.profileDao(),
+                            db.attendanceDao(),
+                            db.planningDao()
+                        ),
+                        RoomDatabaseTransactions(db),
+                        clock,
+                        attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                            db.profileDao(),
+                            db.attendanceDao(),
+                            db.planningDao(),
+                            db.dirtyProjectionDao(),
+                            RoomDatabaseTransactions(db),
+                            clock
+                        )
+                    )
                 ),
                 location = location,
                 permissions = permissions,
@@ -166,7 +252,30 @@ class PlanViewModelTest {
             assertEquals(1, removed.balanceDelta); assertEquals(10, removed.availableAfter)
             model.confirmTimeOff(removed.expectedRevision)
             model.uiState.first { !it.busy && it.entries.isEmpty() }
-            assertEquals(10, TimeOffService(db, clock).observeAvailableBalance().first())
+            assertEquals(
+                10,
+                TimeOffService(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock,
+                    attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db),
+                        clock
+                    )
+                ).observeAvailableBalance().first()
+            )
         } finally {
             db.close(); folder.toFile().deleteRecursively()
         }

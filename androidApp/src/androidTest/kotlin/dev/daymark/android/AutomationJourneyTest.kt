@@ -1,5 +1,7 @@
 package dev.daymark.android
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -47,10 +49,34 @@ class AutomationJourneyTest {
         val db = openAndroidDatabase(context, name)
         val key = DayKey(UUID.randomUUID().toString(), LocalDate(2026, 10, 27))
         try {
-            db.dao().insertTracker(TrackerEntity(key.trackerId, "Test tracker", "2026-10-27T08:00:00Z", arrival.toString(), 12, true))
-            db.dao().putVersion(PlanVersionEntity.fromSnapshot(key.trackerId, 1, key.date, arrival,
-                TrackerCategory.WORK, WeeklySchedule(DayOfWeek.entries.toSet(), LocalTime(9, 0), emptyMap(), 5, "UTC"),
-                RegisteredPlace(0.0, 0.0, 100, 1), "Test place"))
+            db.profileDao().insertTracker(
+                TrackerEntity(
+                    key.trackerId,
+                    "Test tracker",
+                    "2026-10-27T08:00:00Z",
+                    arrival.toString(),
+                    12,
+                    true
+                )
+            )
+            db.planningDao().putVersion(
+                PlanVersionEntity.fromSnapshot(
+                    key.trackerId,
+                    1,
+                    key.date,
+                    arrival,
+                    TrackerCategory.WORK,
+                    WeeklySchedule(
+                        DayOfWeek.entries.toSet(),
+                        LocalTime(9, 0),
+                        emptyMap(),
+                        5,
+                        "UTC"
+                    ),
+                    RegisteredPlace(0.0, 0.0, 100, 1),
+                    "Test place"
+                )
+            )
             block(db, key)
         } finally { db.close(); context.deleteDatabase(name) }
     }
@@ -67,10 +93,34 @@ class AutomationJourneyTest {
             var calls = 0
             var next: ScheduledCheck? = null
             val gateway = object : LocationGateway {
-                override suspend fun requestFix(budget: Duration): LocationResult { calls++; return LocationResult.Failure(LocationFailure.TIMEOUT) }
+                override suspend fun requestFix(budget: Duration): LocationResult {
+                    calls++; return LocationResult.Failure(LocationFailure.TIMEOUT)
+                }
             }
-            fun job() = AndroidAttendanceJob(AttendanceService(RoomAttendanceRepository(db, clock), gateway, clock), { true }, {},
-                { next = nextAttendance(clock.now(), RoomPlanReader(db, clock)) })
+
+            fun job() = AndroidAttendanceJob(
+                AttendanceService(
+                    RoomAttendanceRepository(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db),
+                        clock
+                    ), gateway, clock
+                ), { true }, {},
+                {
+                    next = nextAttendance(
+                        clock.now(),
+                        RoomPlanReader(
+                            dev.daymark.data.local.plan.PlanningSnapshotReader(
+                                db.profileDao(),
+                                db.attendanceDao(),
+                                db.planningDao()
+                            ), RoomDatabaseTransactions(db), clock
+                        )
+                    )
+                })
             assertEquals(ListenableWorker.Result.success(), worker(key, job()).doWork())
             assertEquals(1, calls)
             assertEquals(key.date.plus(1, DateTimeUnit.DAY), next?.key?.date)
@@ -80,22 +130,49 @@ class AutomationJourneyTest {
             val nextKey = key.copy(date = key.date.plus(1, DateTimeUnit.DAY))
             assertEquals(ListenableWorker.Result.success(), worker(nextKey, job()).doWork())
             assertEquals(1, calls)
-            assertEquals(AttendanceStatus.ABSENT, RoomAttendanceRepository(db, clock).loadDay(nextKey)?.let {
-                evaluateDay(it.plan, it.evidence, it.off, clock.now()).status })
+            assertEquals(
+                AttendanceStatus.ABSENT,
+                RoomAttendanceRepository(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                ).loadDay(
+                    nextKey
+                )?.let {
+                    evaluateDay(it.plan, it.evidence, it.off, clock.now()).status
+                })
         }
     }
     @Test fun denied_worker_keeps_records_and_disables_automation() = runBlocking {
         withDatabase { db, key ->
             val clock = MutableClock(arrival)
-            val repo = RoomAttendanceRepository(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             repo.reconcile(clock.now())
             var calls = 0
-            val gateway = object : LocationGateway { override suspend fun requestFix(budget: Duration): LocationResult { calls++; error("Denied GPS") } }
+            val gateway = object : LocationGateway {
+                override suspend fun requestFix(budget: Duration): LocationResult {
+                    calls++; error("Denied GPS")
+                }
+            }
             val job = AndroidAttendanceJob(AttendanceService(repo, gateway, clock), { false }, {
-                db.dao().putTracker(requireNotNull(db.dao().tracker()).copy(automaticEnabled = false))
+                db.profileDao().putTracker(
+                    requireNotNull(
+                        db.profileDao().tracker()
+                    ).copy(automaticEnabled = false)
+                )
             }, {})
             assertEquals(ListenableWorker.Result.success(), worker(key, job).doWork())
-            assertFalse(requireNotNull(db.dao().tracker()).automaticEnabled)
+            assertFalse(requireNotNull(db.profileDao().tracker()).automaticEnabled)
             assertNotNull(repo.loadDay(key))
             assertEquals(0, calls)
         }

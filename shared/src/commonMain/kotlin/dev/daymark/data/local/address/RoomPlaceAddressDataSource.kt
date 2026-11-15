@@ -1,8 +1,9 @@
 package dev.daymark.data.local.address
 
-import androidx.room3.withWriteTransaction
 import androidx.sqlite.SQLiteException
-import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.DatabaseTransactions
+import dev.daymark.data.local.dao.PlaceAddressDao
+import dev.daymark.data.local.dao.ProfileDao
 import dev.daymark.location.PlaceAddressRequest
 import dev.daymark.location.PlaceGeocoder
 import dev.daymark.logging.AppLogger
@@ -13,10 +14,10 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withTimeoutOrNull
 
 class RoomPlaceAddressDataSource(
-    private val db: DaymarkDatabase,
+    private val profileDao: ProfileDao,
+    private val placeAddressDao: PlaceAddressDao, private val transactions: DatabaseTransactions,
     private val geocoder: PlaceGeocoder
 ) : PlaceAddressDataSource {
-    private val dao get() = db.dao()
 
     override suspend fun resolve(request: PlaceAddressRequest): String? = try {
         resolveForSession(request)
@@ -26,8 +27,9 @@ class RoomPlaceAddressDataSource(
     }
 
     private suspend fun resolveForSession(request: PlaceAddressRequest): String? {
-        val owner = db.withWriteTransaction<String?> { localOwner() } ?: return null
-        val cached = dao.placeAddress(request.latitude, request.longitude, request.language.tag)
+        val owner = transactions.withWriteTransaction<String?> { localOwner() } ?: return null
+        val cached =
+            placeAddressDao.placeAddress(request.latitude, request.longitude, request.language.tag)
         if (cached != null) {
             AppLogger.d("PlaceAddress", "Using cached address")
             return cached.address.takeIf { localOwner() == owner }
@@ -46,11 +48,11 @@ class RoomPlaceAddressDataSource(
         request: PlaceAddressRequest,
         address: String,
         owner: String
-    ): String? = db.withWriteTransaction {
+    ): String? = transactions.withWriteTransaction {
         currentCoroutineContext().ensureActive()
         // A deleted installation or replaced setup session must not accept an old native callback.
         if (localOwner() != owner) return@withWriteTransaction null
-        dao.putPlaceAddress(
+        placeAddressDao.putPlaceAddress(
             PlaceAddressEntity(request.latitude, request.longitude, request.language.tag, address)
         )
         address
@@ -59,5 +61,5 @@ class RoomPlaceAddressDataSource(
     }
 
     private suspend fun localOwner(): String? =
-        dao.tracker()?.id ?: dao.setting("setup-session")?.value
+        profileDao.tracker()?.id ?: profileDao.setting("setup-session")?.value
 }

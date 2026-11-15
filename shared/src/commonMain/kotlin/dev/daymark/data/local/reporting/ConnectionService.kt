@@ -1,10 +1,10 @@
 package dev.daymark.data.local.reporting
 
-import androidx.room3.withWriteTransaction
 import dev.daymark.auth.AccessResult
 import dev.daymark.auth.GoogleAccess
-import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.DatabaseTransactions
 import dev.daymark.data.local.SettingEntity
+import dev.daymark.data.local.dao.ProfileDao
 import dev.daymark.data.remote.data_source.domain.ReportConnectionTransport
 import dev.daymark.models.reporting.ConnectionResult
 import dev.daymark.models.reporting.ReportAccessException
@@ -17,8 +17,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** All interactive authorization comes from these explicit UI actions. No remote deletion API is exposed. */
+// clean-code exception: constructor arity keeps authorization callbacks and generation fencing explicit; revisit when connection orchestration can split without weakening fencing.
 class ConnectionService(
-    private val db: DaymarkDatabase,
+    private val profileDao: ProfileDao, private val transactions: DatabaseTransactions,
     private val access: GoogleAccess,
     private val transport: ReportConnectionTransport,
     private val store: ReportStore,
@@ -51,8 +52,8 @@ class ConnectionService(
     }
 
     private suspend fun valid(tracker: String, generation: String): Boolean =
-        db.dao().tracker()?.id == tracker &&
-                db.dao().setting("report-generation:$tracker")?.value == generation
+        profileDao.tracker()?.id == tracker &&
+                profileDao.setting("report-generation:$tracker")?.value == generation
 
     private suspend fun connectInternal(
         selected: String? = null,
@@ -61,7 +62,7 @@ class ConnectionService(
     ): ConnectionResult = actions.withLock {
         try {
             val tracker =
-                db.dao().tracker() ?: return@withLock ConnectionResult.Failed("no_tracker")
+                profileDao.tracker() ?: return@withLock ConnectionResult.Failed("no_tracker")
             val previous = store.activeBinding()
             val generation =
                 store.beginConnection() ?: return@withLock ConnectionResult.Failed("no_tracker")
@@ -100,13 +101,12 @@ class ConnectionService(
 
                 !replacement && choices.size == 1 -> choices.single()
                 else -> {
-                    if (!replacement && db.dao()
-                            .setting(creationKey) != null
+                    if (!replacement && profileDao.setting(creationKey) != null
                     ) return@withLock ConnectionResult.PendingCreation
                     // Persist uncertainty before POST. Even a killed process must search rather than blindly create again.
-                    db.withWriteTransaction {
+                    transactions.withWriteTransaction {
                         check(valid(tracker.id, generation)) { "stale_connection" }
-                        db.dao().putSetting(SettingEntity(creationKey, generation))
+                        profileDao.putSetting(SettingEntity(creationKey, generation))
                     }
                     when (val created =
                         transport.create("Daymark attendance / سجل الحضور", tracker.id, token)) {
@@ -129,8 +129,8 @@ class ConnectionService(
             )
             store.bind(binding)
             if (store.activeBinding() != binding) return@withLock ConnectionResult.Cancelled
-            db.withWriteTransaction {
-                if (valid(tracker.id, generation)) db.dao().deleteSetting(creationKey)
+            transactions.withWriteTransaction {
+                if (valid(tracker.id, generation)) profileDao.deleteSetting(creationKey)
             }
             onConnected()
             ConnectionResult.Connected(binding)

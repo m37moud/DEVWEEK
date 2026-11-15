@@ -1,5 +1,7 @@
 package dev.daymark.app
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import androidx.room3.executeSQL
 import androidx.room3.useWriterConnection
 import dev.daymark.attendance.TestClock
@@ -27,9 +29,21 @@ class DataLifecycleTest {
             val db = openJvmDatabase(folder.resolve("test.db").toString())
             try {
                 seedDatabase(db);
-                val store = RoomReportStore(db, TestClock())
+                val store = RoomReportStore(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.dirtyProjectionDao(),
+                    db.reportDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    TestClock()
+                )
                 val binding = ReportBinding(
-                    db.dao().tracker()!!.id,
+                    db.profileDao().tracker()!!.id,
                     store.beginConnection()!!,
                     "a",
                     "r",
@@ -38,17 +52,23 @@ class DataLifecycleTest {
                 store.bind(binding)
                 val events = mutableListOf<String>()
                 val service = DataLifecycleService(
-                    db,
+                    db.profileDao(), db.localDataDeletionDao(),
+                    RoomDatabaseTransactions(db),
                     store,
                     stopExternal = {
                         assertNull(store.activeBinding()); events += "stopped"
                     },
                     forgetCredentials = { events += "forgot" },
-                    clearWidget = { events += "widget"; true })
+                    clearWidget = { events += "widget"; true },
+                    settings = dev.daymark.data.local.settings.SettingsRepository(
+                        db.profileDao(), db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db)
+                    )
+                )
                 assertEquals(DeletionResult.Deleted, service.deleteLocalData())
                 assertEquals(setOf("stopped", "forgot", "widget"), events.toSet())
-                assertNull(db.dao().tracker())
-                assertTrue(db.dao().dirtyProjections(binding.trackerId).isEmpty())
+                assertNull(db.profileDao().tracker())
+                assertTrue(db.dirtyProjectionDao().dirtyProjections(binding.trackerId).isEmpty())
                 store.bind(binding)
                 assertNull(store.activeBinding())
             } finally {
@@ -62,15 +82,33 @@ class DataLifecycleTest {
         val db = openJvmDatabase(folder.resolve("test.db").toString())
         try {
             seedDatabase(db);
-            val store = RoomReportStore(db, TestClock())
+            val store = RoomReportStore(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.dirtyProjectionDao(),
+                db.reportDao(),
+                dev.daymark.data.local.plan.PlanningSnapshotReader(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao()
+                ),
+                RoomDatabaseTransactions(db),
+                TestClock()
+            )
             val service = DataLifecycleService(
-                db,
+                db.profileDao(), db.localDataDeletionDao(),
+                RoomDatabaseTransactions(db),
                 store,
                 stopExternal = {},
                 forgetCredentials = { error("native_failed") },
-                clearWidget = { true })
+                clearWidget = { true },
+                settings = dev.daymark.data.local.settings.SettingsRepository(
+                    db.profileDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db)
+                )
+            )
             assertEquals(DeletionResult.Failed, service.deleteLocalData())
-            assertNotNull(db.dao().tracker())
+            assertNotNull(db.profileDao().tracker())
         } finally {
             db.close(); folder.toFile().deleteRecursively()
         }
@@ -84,18 +122,43 @@ class DataLifecycleTest {
             try {
                 seedDatabase(db);
                 val clock = TestClock();
-                val repo = RoomAttendanceRepository(db, clock)
+                val repo = RoomAttendanceRepository(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 repo.completeCheck(testCommit())
                 val before = repo.loadDay(dev.daymark.fixturePlan().key)
                 db.useWriterConnection { connection -> connection.executeSQL("CREATE TRIGGER reject_clear BEFORE DELETE ON attendance BEGIN SELECT RAISE(ABORT, 'test clear fault'); END") }
                 val service = DataLifecycleService(
-                    db,
-                    RoomReportStore(db, clock),
+                    db.profileDao(), db.localDataDeletionDao(),
+                    RoomDatabaseTransactions(db),
+                    RoomReportStore(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.dirtyProjectionDao(),
+                        db.reportDao(),
+                        dev.daymark.data.local.plan.PlanningSnapshotReader(
+                            db.profileDao(),
+                            db.attendanceDao(),
+                            db.planningDao()
+                        ),
+                        RoomDatabaseTransactions(db),
+                        clock
+                    ),
                     stopExternal = {},
                     forgetCredentials = {},
-                    clearWidget = { true })
+                    clearWidget = { true },
+                    settings = dev.daymark.data.local.settings.SettingsRepository(
+                        db.profileDao(), db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db)
+                    )
+                )
                 assertEquals(DeletionResult.Failed, service.deleteLocalData())
-                assertNotNull(db.dao().tracker())
+                assertNotNull(db.profileDao().tracker())
                 assertEquals(before, repo.loadDay(dev.daymark.fixturePlan().key))
             } finally {
                 db.close(); folder.toFile().deleteRecursively()

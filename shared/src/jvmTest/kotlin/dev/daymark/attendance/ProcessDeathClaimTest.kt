@@ -1,5 +1,7 @@
 package dev.daymark.attendance
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import dev.daymark.data.local.attendance.RoomAttendanceRepository
 import dev.daymark.data.local.openJvmDatabase
 import dev.daymark.fixturePlan
@@ -49,7 +51,14 @@ class ProcessDeathClaimTest {
             val db = openJvmDatabase(dbPath.toString())
             try {
                 val clock = TestClock();
-                val repo = RoomAttendanceRepository(db, clock)
+                val repo = RoomAttendanceRepository(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 val key = fixturePlan().key
                 assertIs<ClaimResult.AlreadyConsumed>(
                     repo.claimAutomatic(
@@ -61,7 +70,7 @@ class ProcessDeathClaimTest {
                 repo.reconcile(clock.now())
                 assertEquals(AutomaticState.INTERRUPTED, repo.loadDay(key)?.automaticState)
                 assertNull(repo.loadDay(key)?.evidence)
-                assertEquals(1, db.dao().countDay(key.trackerId, key.date.toString()))
+                assertEquals(1, db.attendanceDao().countDay(key.trackerId, key.date.toString()))
             } finally {
                 db.close()
             }

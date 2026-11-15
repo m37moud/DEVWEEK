@@ -1,5 +1,7 @@
 package dev.daymark.reporting
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import androidx.room3.withWriteTransaction
 import dev.daymark.at
 import dev.daymark.attendance.TestClock
@@ -63,10 +65,22 @@ class SyncCoordinatorTest {
             try {
                 seedDatabase(db);
                 val clock = TestClock();
-                val store = RoomReportStore(db, clock)
+                val store = RoomReportStore(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.dirtyProjectionDao(),
+                    db.reportDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 store.bind(
                     ReportBinding(
-                        db.dao().tracker()!!.id,
+                        db.profileDao().tracker()!!.id,
                         store.beginConnection()!!,
                         "a",
                         "r",
@@ -183,10 +197,26 @@ class SyncCoordinatorTest {
         try {
             seedDatabase(db);
             val clock = TestClock();
-            val repo = RoomAttendanceRepository(db, clock); repo.completeCheck(testCommit())
-            var store = RoomReportStore(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            ); repo.completeCheck(testCommit())
+            var store = RoomReportStore(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.dirtyProjectionDao(),
+                db.reportDao(),
+                dev.daymark.data.local.plan.PlanningSnapshotReader(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao()
+                ),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             val binding = ReportBinding(
-                db.dao().tracker()!!.id,
+                db.profileDao().tracker()!!.id,
                 store.beginConnection()!!,
                 "a",
                 "r",
@@ -204,7 +234,19 @@ class SyncCoordinatorTest {
             server.ambiguous = true
             assertEquals(SyncPassResult.Pending, sync.runPass(SyncTrigger.LAUNCH))
             db.close(); db = openJvmDatabase(folder.resolve("test.db").toString())
-            store = RoomReportStore(db, clock)
+            store = RoomReportStore(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.dirtyProjectionDao(),
+                db.reportDao(),
+                dev.daymark.data.local.plan.PlanningSnapshotReader(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao()
+                ),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             sync = SyncCoordinator(
                 store,
                 server,
@@ -214,7 +256,8 @@ class SyncCoordinatorTest {
                 retry = SyncRetryPolicy { kotlin.time.Duration.ZERO })
             val key = ProjectionKey.Day(fixturePlan().key)
             db.withWriteTransaction {
-                db.dao().markDirty(binding.trackerId, key.storageKey()); db.dao()
+                db.dirtyProjectionDao()
+                    .markDirty(binding.trackerId, key.storageKey()); db.dirtyProjectionDao()
                 .markDirty(binding.trackerId, "OVERVIEW")
             }
             clock.value = at("09:03:00")
@@ -239,9 +282,21 @@ class SyncCoordinatorTest {
         try {
             seedDatabase(db);
             val clock = TestClock();
-            val store = RoomReportStore(db, clock)
+            val store = RoomReportStore(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.dirtyProjectionDao(),
+                db.reportDao(),
+                dev.daymark.data.local.plan.PlanningSnapshotReader(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao()
+                ),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             val a = ReportBinding(
-                db.dao().tracker()!!.id,
+                db.profileDao().tracker()!!.id,
                 store.beginConnection()!!,
                 "a",
                 "r",
@@ -276,10 +331,22 @@ class SyncCoordinatorTest {
         try {
             seedDatabase(db);
             val clock = TestClock();
-            val store = RoomReportStore(db, clock)
+            val store = RoomReportStore(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.dirtyProjectionDao(),
+                db.reportDao(),
+                dev.daymark.data.local.plan.PlanningSnapshotReader(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao()
+                ),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             store.bind(
                 ReportBinding(
-                    db.dao().tracker()!!.id,
+                    db.profileDao().tracker()!!.id,
                     store.beginConnection()!!,
                     "a",
                     "r",
@@ -303,7 +370,7 @@ class SyncCoordinatorTest {
             }
             assertEquals(6, server.writes)
             assertTrue(
-                db.dao().dirtyProjections(db.dao().tracker()!!.id)
+                db.dirtyProjectionDao().dirtyProjections(db.profileDao().tracker()!!.id)
                     .any { it.acknowledgedRevision < it.revision })
         } finally {
             db.close(); folder.toFile().deleteRecursively()
@@ -318,10 +385,22 @@ class SyncCoordinatorTest {
             try {
                 seedDatabase(db);
                 val clock = TestClock();
-                val store = RoomReportStore(db, clock)
+                val store = RoomReportStore(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.dirtyProjectionDao(),
+                    db.reportDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 store.bind(
                     ReportBinding(
-                        db.dao().tracker()!!.id,
+                        db.profileDao().tracker()!!.id,
                         store.beginConnection()!!,
                         "a",
                         "r",
@@ -345,10 +424,22 @@ class SyncCoordinatorTest {
         try {
             seedDatabase(db);
             val clock = TestClock();
-            val store = RoomReportStore(db, clock)
+            val store = RoomReportStore(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.dirtyProjectionDao(),
+                db.reportDao(),
+                dev.daymark.data.local.plan.PlanningSnapshotReader(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao()
+                ),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             store.bind(
                 ReportBinding(
-                    db.dao().tracker()!!.id,
+                    db.profileDao().tracker()!!.id,
                     store.beginConnection()!!,
                     "a",
                     "r",
@@ -392,8 +483,8 @@ class SyncCoordinatorTest {
                 val start = dev.daymark.fixtureDate.minus(600, kotlinx.datetime.DateTimeUnit.DAY)
                 val begins = start.atStartOfDayIn(kotlinx.datetime.TimeZone.UTC)
                 seedDatabase(db, createdAt = begins, trackingStartsAt = begins)
-                val tracker = db.dao().tracker()!!.id
-                db.dao().putVersion(
+                val tracker = db.profileDao().tracker()!!.id
+                db.planningDao().putVersion(
                     PlanVersionEntity.fromSnapshot(
                         tracker,
                         1,
@@ -406,10 +497,26 @@ class SyncCoordinatorTest {
                     )
                 )
                 val clock = TestClock(at("09:06:00")); RoomAttendanceRepository(
-                    db,
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
                     clock
                 ).reconcile(clock.now())
-                val store = RoomReportStore(db, clock)
+                val store = RoomReportStore(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.dirtyProjectionDao(),
+                    db.reportDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 store.bind(
                     ReportBinding(
                         tracker,
@@ -441,7 +548,7 @@ class SyncCoordinatorTest {
                 assertTrue(server.readSizes.all { it <= 100 })
                 assertTrue(server.writes > 0)
                 assertTrue(
-                    db.dao().dirtyProjections(tracker)
+                    db.dirtyProjectionDao().dirtyProjections(tracker)
                         .all { it.revision == it.acknowledgedRevision })
             } finally {
                 db.close(); folder.toFile().deleteRecursively()
@@ -455,10 +562,22 @@ class SyncCoordinatorTest {
         try {
             seedDatabase(db);
             val clock = TestClock();
-            val store = RoomReportStore(db, clock)
+            val store = RoomReportStore(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.dirtyProjectionDao(),
+                db.reportDao(),
+                dev.daymark.data.local.plan.PlanningSnapshotReader(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao()
+                ),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             store.bind(
                 ReportBinding(
-                    db.dao().tracker()!!.id,
+                    db.profileDao().tracker()!!.id,
                     store.beginConnection()!!,
                     "a",
                     "r",
@@ -489,16 +608,35 @@ class SyncCoordinatorTest {
             try {
                 seedDatabase(db);
                 val clock = TestClock();
-                val repo = RoomAttendanceRepository(db, clock)
+                val repo = RoomAttendanceRepository(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 val note = "x".repeat(2_000_000)
                 repo.correct(Correction(fixturePlan().key, AttendanceStatus.ABSENT, null, note))
                 clock.value = kotlin.time.Instant.parse("2026-10-28T09:06:00Z"); repo.reconcile(
                     clock.now()
                 )
-                val store = RoomReportStore(db, clock)
+                val store = RoomReportStore(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.dirtyProjectionDao(),
+                    db.reportDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 store.bind(
                     ReportBinding(
-                        db.dao().tracker()!!.id,
+                        db.profileDao().tracker()!!.id,
                         store.beginConnection()!!,
                         "a",
                         "r",

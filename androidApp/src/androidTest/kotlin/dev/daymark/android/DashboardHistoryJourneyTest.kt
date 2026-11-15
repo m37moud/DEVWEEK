@@ -103,16 +103,32 @@ class DashboardHistoryJourneyTest {
             compose.onNodeWithTag("plan-add-time-off").performScrollTo().performClick()
             compose.onNodeWithText("Holiday").performClick()
             compose.onNodeWithTag("time-off-preview").performClick()
-            compose.waitUntil(10_000) { compose.onAllNodesWithTag("preview-before-2026-10-27").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithTag("preview-before-2026-10-27").assertTextContains("Present",substring=true)
-            compose.onNodeWithTag("preview-after-2026-10-27").assertTextContains("Holiday",substring=true)
-            compose.onNodeWithTag("preview-evidence-2026-10-27").assertTextContains("Location checked manually",substring=true)
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("preview-before-2026-10-27").fetchSemanticsNodes()
+                    .isNotEmpty()
+            }
+            compose.onNodeWithTag("preview-before-2026-10-27")
+                .assertTextContains("Present", substring = true)
+            compose.onNodeWithTag("preview-after-2026-10-27")
+                .assertTextContains("Holiday", substring = true)
+            compose.onNodeWithTag("preview-evidence-2026-10-27")
+                .assertTextContains("Location checked manually", substring = true)
             compose.onNodeWithTag("preview-confirm").performClick()
-            compose.waitUntil(10_000) { runBlocking { fixture.db.dao().tracker()?.let { fixture.db.dao().timeOff(it.id).isNotEmpty() }==true } }
+            compose.waitUntil(10_000) {
+                runBlocking {
+                    fixture.db.profileDao().tracker()
+                        ?.let { fixture.db.planningDao().timeOff(it.id).isNotEmpty() } == true
+                }
+            }
             compose.onNodeWithTag("nav-today").performClick()
-            compose.waitUntil(10_000) { compose.onAllNodesWithTag("today-next").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithTag("today-next").performScrollTo().assertTextContains(DisplayFormats.date(LocalDate(2026,10,28),AppLanguage.EN),substring=true)
-            Assert.assertEquals(1,fixture.locationRequests)
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("today-next").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("today-next").performScrollTo().assertTextContains(
+                DisplayFormats.date(LocalDate(2026, 10, 28), AppLanguage.EN),
+                substring = true
+            )
+            Assert.assertEquals(1, fixture.locationRequests)
         } finally {
             compose.runOnIdle { shown=false }; compose.waitForIdle()
             fixture.graph.reporting.close(); fixture.db.close(); context.deleteDatabase(name)

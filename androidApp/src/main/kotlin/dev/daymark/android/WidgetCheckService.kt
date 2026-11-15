@@ -109,7 +109,7 @@ class WidgetCheckService : Service() {
     }
 
     private suspend fun trackedCheck(graph: AndroidAppGraph, expectedId: String): CheckOutcome {
-        val tracker = graph.database.dao().tracker()
+        val tracker = graph.profileDao.tracker()
             ?: return CheckOutcome.Rejected(null, CheckRejection.NO_TRACKER)
         if (tracker.id != expectedId) return CheckOutcome.StateChanged(null)
         val day = graph.attendanceRepository.loadCurrentDay(graph.clock.now())

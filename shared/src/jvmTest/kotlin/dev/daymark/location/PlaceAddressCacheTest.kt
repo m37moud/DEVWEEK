@@ -1,5 +1,7 @@
 package dev.daymark.location
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import dev.daymark.data.local.address.RoomPlaceAddressDataSource
 import dev.daymark.data.local.deleteAllLocalRows
 import dev.daymark.data.local.openJvmDatabase
@@ -30,14 +32,20 @@ class PlaceAddressCacheTest {
         var db = openJvmDatabase(path)
         try {
             seedDatabase(db)
-            val source = RoomPlaceAddressDataSource(db, PlaceGeocoder { "Test street" })
+            val source = RoomPlaceAddressDataSource(
+                db.profileDao(), db.placeAddressDao(),
+                RoomDatabaseTransactions(db),
+                PlaceGeocoder { "Test street" })
             assertEquals("Test street", source.resolve(request))
             db.close()
             db = openJvmDatabase(path)
-            val cached = RoomPlaceAddressDataSource(db, PlaceGeocoder { null })
+            val cached = RoomPlaceAddressDataSource(
+                db.profileDao(), db.placeAddressDao(),
+                RoomDatabaseTransactions(db),
+                PlaceGeocoder { null })
             assertEquals("Test street", cached.resolve(request))
             assertNull(cached.resolve(request.copy(language = AppLanguage.AR)))
-            db.withWriteTransaction { db.dao().deleteAllLocalRows() }
+            db.withWriteTransaction { db.localDataDeletionDao().deleteAllLocalRows() }
             assertNull(cached.resolve(request))
         } finally {
             db.close()
@@ -53,17 +61,27 @@ class PlaceAddressCacheTest {
             seedDatabase(db)
             val started = CompletableDeferred<Unit>()
             val reply = CompletableDeferred<String?>()
-            val source = RoomPlaceAddressDataSource(db, PlaceGeocoder {
-                started.complete(Unit)
-                reply.await()
-            })
+            val source =
+                RoomPlaceAddressDataSource(
+                    db.profileDao(),
+                    db.placeAddressDao(),
+                    RoomDatabaseTransactions(db),
+                    PlaceGeocoder {
+                        started.complete(Unit)
+                        reply.await()
+                    })
             val lookup = async { source.resolve(request) }
             started.await()
-            db.withWriteTransaction { db.dao().deleteAllLocalRows() }
+            db.withWriteTransaction { db.localDataDeletionDao().deleteAllLocalRows() }
             reply.complete("Test street")
             assertNull(lookup.await())
             seedDatabase(db)
-            assertNull(RoomPlaceAddressDataSource(db, PlaceGeocoder { null }).resolve(request))
+            assertNull(
+                RoomPlaceAddressDataSource(
+                    db.profileDao(), db.placeAddressDao(),
+                    RoomDatabaseTransactions(db),
+                    PlaceGeocoder { null }).resolve(request)
+            )
         } finally {
             db.close()
             folder.toFile().deleteRecursively()
@@ -76,10 +94,10 @@ class PlaceAddressCacheTest {
         val db = openJvmDatabase(folder.resolve("test.db").toString())
         try {
             seedDatabase(db)
-            assertNull(RoomPlaceAddressDataSource(db, PlaceGeocoder { "  " }).resolve(request))
+            assertNull(RoomPlaceAddressDataSource(db.profileDao(), db.placeAddressDao(), RoomDatabaseTransactions(db), PlaceGeocoder { "  " }).resolve(request))
             val started = CompletableDeferred<Unit>()
             val timeout = async {
-                RoomPlaceAddressDataSource(db, PlaceGeocoder {
+                RoomPlaceAddressDataSource(db.profileDao(), db.placeAddressDao(), RoomDatabaseTransactions(db), PlaceGeocoder {
                     started.complete(Unit)
                     awaitCancellation()
                 }).resolve(request)
@@ -87,12 +105,12 @@ class PlaceAddressCacheTest {
             started.await()
             advanceTimeBy(10_001)
             assertNull(timeout.await())
-            assertNull(db.dao().placeAddress(request.latitude, request.longitude, request.language.tag))
+            assertNull(db.placeAddressDao().placeAddress(request.latitude, request.longitude, request.language.tag))
             db.useWriterConnection {
                 it.executeSQL("CREATE TRIGGER reject_address BEFORE INSERT ON place_addresses BEGIN SELECT RAISE(ABORT, 'test cache fault'); END")
             }
-            assertNull(RoomPlaceAddressDataSource(db, PlaceGeocoder { "Test street" }).resolve(request))
-            assertNull(db.dao().placeAddress(request.latitude, request.longitude, request.language.tag))
+            assertNull(RoomPlaceAddressDataSource(db.profileDao(), db.placeAddressDao(), RoomDatabaseTransactions(db), PlaceGeocoder { "Test street" }).resolve(request))
+            assertNull(db.placeAddressDao().placeAddress(request.latitude, request.longitude, request.language.tag))
         } finally {
             db.close()
             folder.toFile().deleteRecursively()

@@ -60,14 +60,14 @@ class DatabaseMigrationTest {
             }
             val db = openJvmDatabase(path.toString())
             try {
-                val tracker = requireNotNull(db.dao().tracker())
+                val tracker = requireNotNull(db.profileDao().tracker())
                 assertEquals("Legacy person", tracker.displayName)
                 assertEquals(12, tracker.openingBalance)
                 assertEquals(0L, tracker.changeRevision)
-                val adjustment = db.dao().balanceAdjustments(tracker.id).single()
+                val adjustment = db.planningDao().balanceAdjustments(tracker.id).single()
                 assertEquals(-2, adjustment.delta)
                 assertNull(adjustment.note)
-                assertNull(db.dao().placeAddress(30.0, 31.0, "en"))
+                assertNull(db.placeAddressDao().placeAddress(30.0, 31.0, "en"))
             } finally {
                 db.close()
             }

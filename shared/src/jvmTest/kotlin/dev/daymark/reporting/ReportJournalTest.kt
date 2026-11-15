@@ -1,5 +1,7 @@
 package dev.daymark.reporting
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import androidx.room3.withWriteTransaction
 import dev.daymark.at
 import dev.daymark.attendance.TestClock
@@ -33,8 +35,20 @@ class ReportJournalTest {
             var db = openJvmDatabase(file)
             try {
                 seedDatabase(db)
-                var store = RoomReportStore(db, TestClock())
-                val tracker = db.dao().tracker()!!.id
+                var store = RoomReportStore(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.dirtyProjectionDao(),
+                    db.reportDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    TestClock()
+                )
+                val tracker = db.profileDao().tracker()!!.id
                 val generation = store.beginConnection()!!
                 val a = ReportBinding(
                     tracker,
@@ -47,8 +61,21 @@ class ReportJournalTest {
                 store.bind(a)
                 val batch = store.buildBatch(a, 100)!!
                 store.journalBeforeDispatch(batch); store.markDispatched(batch)
-                db.close(); db = openJvmDatabase(file); store = RoomReportStore(db, TestClock())
-                assertEquals("DISPATCHED", db.dao().batches(tracker).single().status)
+                db.close(); db = openJvmDatabase(file); store =
+                    RoomReportStore(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.dirtyProjectionDao(),
+                        db.reportDao(),
+                        dev.daymark.data.local.plan.PlanningSnapshotReader(
+                            db.profileDao(),
+                            db.attendanceDao(),
+                            db.planningDao()
+                        ),
+                        RoomDatabaseTransactions(db),
+                        TestClock()
+                    )
+                assertEquals("DISPATCHED", db.reportDao().batches(tracker).single().status)
                 assertNotNull(store.buildBatch(a, 100))
                 val b = a.copy(
                     connectionGeneration = store.beginConnection()!!,
@@ -74,9 +101,21 @@ class ReportJournalTest {
             val db = openJvmDatabase(folder.resolve("test.db").toString())
             try {
                 seedDatabase(db)
-                val store = RoomReportStore(db, TestClock())
+                val store = RoomReportStore(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.dirtyProjectionDao(),
+                    db.reportDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    TestClock()
+                )
                 val a = ReportBinding(
-                    db.dao().tracker()!!.id,
+                    db.profileDao().tracker()!!.id,
                     store.beginConnection()!!,
                     "a",
                     "r",
@@ -88,12 +127,12 @@ class ReportJournalTest {
                 store.journalBeforeDispatch(first); store.markDispatched(first)
                 db.withWriteTransaction {
                     first.projections.forEach {
-                        db.dao().markDirty(a.trackerId, it.key.storageKey())
+                        db.dirtyProjectionDao().markDirty(a.trackerId, it.key.storageKey())
                     }
                 }
                 store.acknowledge(first)
                 assertTrue(
-                    db.dao().dirtyProjections(a.trackerId)
+                    db.dirtyProjectionDao().dirtyProjections(a.trackerId)
                         .any { it.revision > it.acknowledgedRevision })
                 var count = 0
                 while (true) {
@@ -119,9 +158,21 @@ class ReportJournalTest {
             val db = openJvmDatabase(folder.resolve("test.db").toString())
             try {
                 seedDatabase(db);
-                val store = RoomReportStore(db, TestClock())
+                val store = RoomReportStore(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.dirtyProjectionDao(),
+                    db.reportDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    TestClock()
+                )
                 val binding = ReportBinding(
-                    db.dao().tracker()!!.id,
+                    db.profileDao().tracker()!!.id,
                     store.beginConnection()!!,
                     "a",
                     "r",
@@ -129,7 +180,7 @@ class ReportJournalTest {
                 )
                 db.withWriteTransaction {
                     repeat(3) { index ->
-                        db.dao().putTimeOff(
+                        db.planningDao().putTimeOff(
                             TimeOffEntity(
                                 "off-$index",
                                 binding.trackerId,
@@ -148,7 +199,7 @@ class ReportJournalTest {
                     batch
                 )
                 db.withWriteTransaction {
-                    repeat(3) { db.dao().deleteTimeOff("off-$it") }; db.dao()
+                    repeat(3) { db.planningDao().deleteTimeOff("off-$it") }; db.dirtyProjectionDao()
                     .markDirty(binding.trackerId, "TIME_OFF")
                 }
                 val cleared = store.localProjections(binding)
@@ -167,7 +218,11 @@ class ReportJournalTest {
         try {
             seedDatabase(db);
             val clock = TestClock();
-            val repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(db, clock)
+            val repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             val note = "x".repeat(2_000_000)
             repo.correct(
                 dev.daymark.models.attendance.Correction(
@@ -177,9 +232,21 @@ class ReportJournalTest {
                     note
                 )
             )
-            val store = RoomReportStore(db, clock)
+            val store = RoomReportStore(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.dirtyProjectionDao(),
+                db.reportDao(),
+                dev.daymark.data.local.plan.PlanningSnapshotReader(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao()
+                ),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             val binding = ReportBinding(
-                db.dao().tracker()!!.id,
+                db.profileDao().tracker()!!.id,
                 store.beginConnection()!!,
                 "a",
                 "r",
@@ -190,7 +257,7 @@ class ReportJournalTest {
             assertEquals(ReportField.NOTE, store.projectionIssues(binding).single().field)
             assertEquals(note, repo.loadDay(fixturePlan().key)!!.evidence!!.note)
             assertTrue(
-                db.dao().dirtyProjections(binding.trackerId)
+                db.dirtyProjectionDao().dirtyProjections(binding.trackerId)
                     .any { it.projectionKey.startsWith("DAY:") && it.revision > it.acknowledgedRevision })
         } finally {
             db.close(); folder.toFile().deleteRecursively()
@@ -205,8 +272,8 @@ class ReportJournalTest {
             val start = kotlinx.datetime.LocalDate(2025, 10, 27)
             val begins = kotlin.time.Instant.parse("2025-10-27T09:00:00Z")
             seedDatabase(db, createdAt = begins, trackingStartsAt = begins)
-            val tracker = db.dao().tracker()!!.id
-            db.dao().putVersion(
+            val tracker = db.profileDao().tracker()!!.id
+            db.planningDao().putVersion(
                 PlanVersionEntity.fromSnapshot(
                     tracker,
                     1,
@@ -219,9 +286,25 @@ class ReportJournalTest {
                 )
             )
             val clock = TestClock(at("09:06:00"));
-            val repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(db, clock)
+            val repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             repo.reconcile(clock.now())
-            val store = RoomReportStore(db, clock)
+            val store = RoomReportStore(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.dirtyProjectionDao(),
+                db.reportDao(),
+                dev.daymark.data.local.plan.PlanningSnapshotReader(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao()
+                ),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             val binding = ReportBinding(
                 tracker,
                 store.beginConnection()!!,
@@ -251,7 +334,8 @@ class ReportJournalTest {
             assertTrue(batches >= 10)
             assertTrue(publishedRows >= 365)
             assertTrue(
-                db.dao().dirtyProjections(tracker).all { it.acknowledgedRevision == it.revision })
+                db.dirtyProjectionDao().dirtyProjections(tracker)
+                    .all { it.acknowledgedRevision == it.revision })
         } finally {
             db.close(); folder.toFile().deleteRecursively()
         }

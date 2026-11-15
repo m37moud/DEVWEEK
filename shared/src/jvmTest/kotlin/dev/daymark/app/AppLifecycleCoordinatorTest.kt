@@ -1,5 +1,7 @@
 package dev.daymark.app
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import dev.daymark.data.local.reporting.RoomReportStore
 import dev.daymark.data.remote.data_source.domain.ReportTransport
 import dev.daymark.models.reporting.RawPatch
@@ -72,10 +74,26 @@ class AppLifecycleCoordinatorTest {
             try {
                 dev.daymark.data.seedDatabase(db)
                 val clock = dev.daymark.attendance.TestClock()
-                var repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(db, clock)
+                var repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                    db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 repo.completeCheck(dev.daymark.data.testCommit())
-                var store = RoomReportStore(db, clock)
-                val tracker = db.dao().tracker()!!.id
+                var store = RoomReportStore(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.dirtyProjectionDao(),
+                    db.reportDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
+                val tracker = db.profileDao().tracker()!!.id
                 store.bind(
                     ReportBinding(
                         tracker,
@@ -149,9 +167,13 @@ class AppLifecycleCoordinatorTest {
                 owner = AppLifecycleCoordinator(scope, sync::runPass)
                 owner.onActive(true); withTimeout(10_000) { entered.await() }
                 owner.stop()
-                assertTrue(db.dao().batches(tracker).any { it.status == "AMBIGUOUS" })
+                assertTrue(db.reportDao().batches(tracker).any { it.status == "AMBIGUOUS" })
                 db.close(); db = dev.daymark.data.local.openJvmDatabase(path)
-                repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(db, clock)
+                repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                    db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 repo.correct(
                     dev.daymark.models.attendance.Correction(
                         dev.daymark.fixturePlan().key,
@@ -160,7 +182,20 @@ class AppLifecycleCoordinatorTest {
                         "Updated while offline"
                     )
                 )
-                store = RoomReportStore(db, clock); sync = coordinator(); server.block = false
+                store = RoomReportStore(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.dirtyProjectionDao(),
+                    db.reportDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock
+                ); sync =
+                    coordinator(); server.block = false
                 val done = CompletableDeferred<Unit>()
                 owner = AppLifecycleCoordinator(
                     scope,

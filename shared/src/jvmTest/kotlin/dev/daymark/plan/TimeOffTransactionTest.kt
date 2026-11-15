@@ -1,5 +1,7 @@
 package dev.daymark.plan
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import androidx.room3.executeSQL
 import androidx.room3.useWriterConnection
 import dev.daymark.at
@@ -69,16 +71,44 @@ class TimeOffTransactionTest {
         val clock = TestClock(initialNow)
         try {
             seedDatabase(db)
-            val tracker = requireNotNull(db.dao().tracker())
-            db.dao().putTracker(tracker.copy(openingBalance = 12))
-            db.dao().putVersion(
+            val tracker = requireNotNull(db.profileDao().tracker())
+            db.profileDao().putTracker(tracker.copy(openingBalance = 12))
+            db.planningDao().putVersion(
                 PlanVersionEntity.fromSnapshot(
                     tracker.id, 1, fixtureDate, at("08:00:00"),
                     TrackerCategory.WORK, fixtureSchedule(days = weekdays), fixturePlace(), "Work"
                 )
             )
-            RoomAttendanceRepository(db, clock).reconcile(clock.now())
-            block(db, clock, TimeOffService(db, clock))
+            RoomAttendanceRepository(
+                db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            ).reconcile(clock.now())
+            block(
+                db,
+                clock,
+                TimeOffService(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock,
+                    attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db),
+                        clock
+                    )
+                )
+            )
         } finally {
             db.close(); folder.toFile().deleteRecursively()
         }
@@ -114,7 +144,14 @@ class TimeOffTransactionTest {
     @Test
     fun removing_retrospective_leave_restores_absence_and_underlying_correction() = runTest {
         withStore { db, clock, service ->
-            val repo = RoomAttendanceRepository(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             val past = DayKey(fixturePlan().key.trackerId, date("2026-10-28"))
             save(service, TimeOffCommand.Add(TimeOffKind.VACATION, past.date, past.date))
             assertEquals(AttendanceStatus.VACATION, repo.observeDay(past).first()?.status)
@@ -159,7 +196,7 @@ class TimeOffTransactionTest {
     @Test
     fun invalid_or_insufficient_changes_do_not_partially_mutate_records() = runTest {
         withStore { db, _, service ->
-            val before = db.dao().dirtyProjections(fixturePlan().key.trackerId)
+            val before = db.dirtyProjectionDao().dirtyProjections(fixturePlan().key.trackerId)
             val invalid =
                 TimeOffCommand.Add(TimeOffKind.VACATION, date("2026-11-04"), date("2026-11-02"))
             assertEquals(PlanRejection.INVALID_RANGE, service.preview(invalid).rejection)
@@ -178,7 +215,10 @@ class TimeOffTransactionTest {
                 )
             )
             assertTrue(service.observeEntries().first().isEmpty())
-            assertEquals(before, db.dao().dirtyProjections(fixturePlan().key.trackerId))
+            assertEquals(
+                before,
+                db.dirtyProjectionDao().dirtyProjections(fixturePlan().key.trackerId)
+            )
         }
     }
 
@@ -188,7 +228,7 @@ class TimeOffTransactionTest {
             assertIs<PlanMutationResult.Applied>(service.setAvailableBalance(5, "  تعديل =1+2  "))
             assertIs<PlanMutationResult.Applied>(service.setAvailableBalance(5, "unused duplicate"))
             assertEquals(5, service.observeAvailableBalance().first())
-            val adjustments = db.dao().balanceAdjustments(fixturePlan().key.trackerId)
+            val adjustments = db.planningDao().balanceAdjustments(fixturePlan().key.trackerId)
             assertEquals(1, adjustments.size)
             assertEquals("  تعديل =1+2  ", adjustments.single().note)
         }
@@ -199,7 +239,14 @@ class TimeOffTransactionTest {
         withStore(at("09:02:00")) { db, clock, service ->
             val command = TimeOffCommand.Add(TimeOffKind.HOLIDAY, fixtureDate, fixtureDate)
             val preview = service.preview(command)
-            val repo = RoomAttendanceRepository(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             repo.correct(
                 Correction(
                     fixturePlan().key,
@@ -233,7 +280,16 @@ class TimeOffTransactionTest {
             assertTrue(service.observeEntries().first().isEmpty())
             assertEquals(
                 AttendanceStatus.ABSENT,
-                RoomAttendanceRepository(db, clock).observeDay(fixturePlan().key).first()?.status
+                RoomAttendanceRepository(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                ).observeDay(
+                    fixturePlan().key
+                ).first()?.status
             )
         }
     }
@@ -241,7 +297,14 @@ class TimeOffTransactionTest {
     @Test
     fun today_overlay_aba_invalidates_gps_and_never_releases_consumed_claim() = runTest {
         withStore(at("09:02:00")) { db, clock, service ->
-            val repo = RoomAttendanceRepository(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             val key = fixturePlan().key
             assertIs<ClaimResult.Claimed>(repo.claimAutomatic(key, "one-auto", clock.now()))
             val started = CompletableDeferred<Unit>();
@@ -280,7 +343,23 @@ class TimeOffTransactionTest {
                 TimeOffCommand.Add(TimeOffKind.VACATION, date("2026-11-02"), date("2026-11-03"))
             )
             assertEquals(9, service.observeAvailableBalance().first())
-            val plans = PlanService(db, clock)
+            val plans = PlanService(
+                db.profileDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                dev.daymark.data.local.plan.PlanningSnapshotReader(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao()
+                ),
+                RoomDatabaseTransactions(db),
+                clock,
+                attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                    db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
+            )
             val change =
                 PlanChange(fixtureSchedule(days = weekdays), TrackerCategory.SCHOOL, fixturePlace())
             val preview = plans.previewChange(change)
@@ -293,7 +372,14 @@ class TimeOffTransactionTest {
                 )
             )
             assertEquals(11, service.observeAvailableBalance().first())
-            val history = RoomAttendanceRepository(db, clock).loadDay(
+            val history = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            ).loadDay(
                 DayKey(
                     fixturePlan().key.trackerId,
                     date("2026-10-28")
@@ -312,7 +398,23 @@ class TimeOffTransactionTest {
                 TimeOffCommand.Add(TimeOffKind.VACATION, date("2026-11-07"), date("2026-11-08"))
             )
             service.setAvailableBalance(0, null)
-            val plans = PlanService(db, clock)
+            val plans = PlanService(
+                db.profileDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                dev.daymark.data.local.plan.PlanningSnapshotReader(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao()
+                ),
+                RoomDatabaseTransactions(db),
+                clock,
+                attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                    db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
+            )
             val change = PlanChange(fixtureSchedule(), TrackerCategory.WORK, fixturePlace())
             val preview = plans.previewChange(change)
             assertEquals(PlanRejection.INSUFFICIENT_BALANCE, preview.rejection)
@@ -322,7 +424,7 @@ class TimeOffTransactionTest {
                     preview.expectedRevision
                 )
             )
-            assertEquals(1, db.dao().versions(fixturePlan().key.trackerId).size)
+            assertEquals(1, db.planningDao().versions(fixturePlan().key.trackerId).size)
             assertNull(plans.observePlan().first()?.pending)
         }
     }
@@ -333,8 +435,8 @@ class TimeOffTransactionTest {
             val command =
                 TimeOffCommand.Add(TimeOffKind.VACATION, date("2026-11-02"), date("2026-11-03"))
             val preview = service.preview(command)
-            val tracker = db.dao().tracker()
-            val dirty = db.dao().dirtyProjections(fixturePlan().key.trackerId)
+            val tracker = db.profileDao().tracker()
+            val dirty = db.dirtyProjectionDao().dirtyProjections(fixturePlan().key.trackerId)
             db.useWriterConnection { it.executeSQL("CREATE TRIGGER abort_leave BEFORE UPDATE ON dirty_projections WHEN NEW.projectionKey = 'OVERVIEW' BEGIN SELECT RAISE(ABORT, 'test_abort'); END") }
             assertIs<PlanMutationResult.LocalSaveFailed>(
                 service.apply(
@@ -342,8 +444,11 @@ class TimeOffTransactionTest {
                     preview.expectedRevision
                 )
             )
-            assertEquals(tracker, db.dao().tracker())
-            assertEquals(dirty, db.dao().dirtyProjections(fixturePlan().key.trackerId))
+            assertEquals(tracker, db.profileDao().tracker())
+            assertEquals(
+                dirty,
+                db.dirtyProjectionDao().dirtyProjections(fixturePlan().key.trackerId)
+            )
             assertTrue(service.observeEntries().first().isEmpty())
             assertEquals(12, service.observeAvailableBalance().first())
             db.useWriterConnection { it.executeSQL("DROP TRIGGER abort_leave") }
@@ -354,7 +459,23 @@ class TimeOffTransactionTest {
     @Test
     fun a_zone_change_does_not_charge_or_mark_absent_a_window_before_its_activation() = runTest {
         withStore { db, clock, service ->
-            val plans = PlanService(db, clock)
+            val plans = PlanService(
+                db.profileDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                dev.daymark.data.local.plan.PlanningSnapshotReader(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao()
+                ),
+                RoomDatabaseTransactions(db),
+                clock,
+                attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                    db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
+            )
             val command = PlanChange(
                 fixtureSchedule(days = weekdays).copy(zoneId = "Pacific/Kiritimati"),
                 TrackerCategory.WORK,
@@ -374,7 +495,14 @@ class TimeOffTransactionTest {
             // New-zone November 2 at 09:00 occurred before old-zone midnight activated this change.
             assertEquals(12, service.observeAvailableBalance().first())
             clock.value = Instant.parse("2026-11-02T00:01:00Z")
-            val repo = RoomAttendanceRepository(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             repo.reconcile(clock.now())
             val day = requireNotNull(
                 repo.loadDay(
@@ -396,7 +524,23 @@ class TimeOffTransactionTest {
         val clock = TestClock(at("12:00:00"))
         try {
             seedDatabase(db, trackingStartsAt = Instant.parse("2026-11-10T09:00:00Z"))
-            val plans = PlanService(db, clock)
+            val plans = PlanService(
+                db.profileDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                dev.daymark.data.local.plan.PlanningSnapshotReader(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao()
+                ),
+                RoomDatabaseTransactions(db),
+                clock,
+                attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                    db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
+            )
             val command = PlanChange(fixtureSchedule(), TrackerCategory.COURSE, fixturePlace())
             val preview = plans.previewChange(command)
             clock.value = Instant.parse("2026-10-28T00:01:00Z")
@@ -406,7 +550,7 @@ class TimeOffTransactionTest {
                     preview.expectedRevision
                 )
             )
-            assertEquals(1, db.dao().versions(fixturePlan().key.trackerId).size)
+            assertEquals(1, db.planningDao().versions(fixturePlan().key.trackerId).size)
         } finally {
             db.close(); folder.toFile().deleteRecursively()
         }
@@ -420,9 +564,33 @@ class TimeOffTransactionTest {
             try {
                 dev.daymark.data.seedDatabase(db)
                 val clock = dev.daymark.attendance.TestClock()
-                val repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(db, clock)
+                val repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                    db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 repo.completeCheck(dev.daymark.data.testCommit())
-                val service = TimeOffService(db, clock)
+                val service = TimeOffService(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock,
+                    attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db),
+                        clock
+                    )
+                )
                 val command = TimeOffCommand.Add(
                     TimeOffKind.HOLIDAY,
                     dev.daymark.fixtureDate,
@@ -473,7 +641,11 @@ class TimeOffTransactionTest {
             try {
                 dev.daymark.data.seedDatabase(db)
                 val clock = dev.daymark.attendance.TestClock()
-                val repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(db, clock)
+                val repo = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                    db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(db),
+                    clock
+                )
                 val attempt = kotlin.uuid.Uuid.random().toString()
                 assertTrue(
                     repo.claimAutomatic(
@@ -482,7 +654,27 @@ class TimeOffTransactionTest {
                         clock.now()
                     ) is dev.daymark.models.attendance.ClaimResult.Claimed
                 )
-                TimeOffService(db, clock).preview(
+                TimeOffService(
+                    db.profileDao(),
+                    db.attendanceDao(),
+                    db.planningDao(),
+                    db.dirtyProjectionDao(),
+                    dev.daymark.data.local.plan.PlanningSnapshotReader(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao()
+                    ),
+                    RoomDatabaseTransactions(db),
+                    clock,
+                    attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db),
+                        clock
+                    )
+                ).preview(
                     TimeOffCommand.Add(
                         TimeOffKind.HOLIDAY,
                         dev.daymark.fixtureDate,

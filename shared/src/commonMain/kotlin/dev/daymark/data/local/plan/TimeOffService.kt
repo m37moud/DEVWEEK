@@ -2,13 +2,14 @@
 
 package dev.daymark.data.local.plan
 
-import androidx.room3.withReadTransaction
-import androidx.room3.withWriteTransaction
 import dev.daymark.attendance.AttendanceRepository
 import dev.daymark.data.local.AttendanceEntity
 import dev.daymark.data.local.BalanceAdjustmentEntity
-import dev.daymark.data.local.DaymarkDatabase
-import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.DatabaseTransactions
+import dev.daymark.data.local.dao.AttendanceDao
+import dev.daymark.data.local.dao.DirtyProjectionDao
+import dev.daymark.data.local.dao.PlanningDao
+import dev.daymark.data.local.dao.ProfileDao
 import dev.daymark.data.local.markDirty
 import dev.daymark.models.attendance.DayKey
 import dev.daymark.models.plan.PlanMutationResult
@@ -26,31 +27,40 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
+// clean-code exception: constructor arity keeps cross-DAO transaction ownership explicit; revisit when responsibilities can split without changing atomicity.
 class TimeOffService(
-    private val db: DaymarkDatabase, private val clock: Clock,
-    private val attendance: AttendanceRepository = RoomAttendanceRepository(db, clock)
+    private val profileDao: ProfileDao,
+    private val attendanceDao: AttendanceDao,
+    private val planningDao: PlanningDao,
+    private val dirtyProjectionDao: DirtyProjectionDao,
+    private val snapshots: PlanningSnapshotReader,
+    private val transactions: DatabaseTransactions,
+    private val clock: Clock,
+    private val attendance: AttendanceRepository
 ) : TimeOffDataSource {
-    private val dao get() = db.dao()
     override fun observeEntries(): Flow<List<TimeOffEntry>> =
-        dao.observeTracker().flatMapLatest { tracker ->
-            if (tracker == null) flowOf(emptyList()) else dao.observeTimeOff(tracker.id)
+        profileDao.observeTracker().flatMapLatest { tracker ->
+            if (tracker == null) flowOf(emptyList()) else planningDao.observeTimeOff(tracker.id)
                 .map { entries -> entries.map { it.entry() } }
         }
 
     override fun observeAvailableBalance(): Flow<Int?> =
-        dao.observeTracker().flatMapLatest { tracker ->
-            if (tracker == null) flowOf(null) else dao.observeDirtyProjections(tracker.id).map {
-                db.withReadTransaction { dao.planning(clock.now())?.balance() }
+        profileDao.observeTracker().flatMapLatest { tracker ->
+            if (tracker == null) flowOf(null) else dirtyProjectionDao.observeDirtyProjections(
+                tracker.id
+            ).map {
+                transactions.withReadTransaction { snapshots.load(clock.now())?.balance() }
             }
         }
 
     override suspend fun preview(command: TimeOffCommand): TimeOffPreview =
         storageResult(invalidPreview(PlanRejection.LOCAL_SAVE_FAILED)) {
             attendance.reconcile(clock.now())
-            db.withReadTransaction {
-                val store = dao.planning(clock.now()) ?: return@withReadTransaction invalidPreview(
-                    PlanRejection.INVALID_VALUE
-                )
+            transactions.withReadTransaction {
+                val store =
+                    snapshots.load(clock.now()) ?: return@withReadTransaction invalidPreview(
+                        PlanRejection.INVALID_VALUE
+                    )
                 proposal(store, command).preview
             }
         }
@@ -60,9 +70,9 @@ class TimeOffService(
         expectedRevision: Long
     ): PlanMutationResult =
         storageResult<PlanMutationResult>(PlanMutationResult.LocalSaveFailed) {
-            db.withWriteTransaction {
+            transactions.withWriteTransaction {
                 attendance.reconcile(clock.now())
-                val store = dao.planning(clock.now())
+                val store = snapshots.load(clock.now())
                     ?: return@withWriteTransaction PlanMutationResult.Invalid(PlanRejection.INVALID_VALUE)
                 val proposal = proposal(store, command)
                 if (expectedRevision != store.revision) return@withWriteTransaction PlanMutationResult.StalePreview
@@ -70,9 +80,9 @@ class TimeOffService(
                 if (proposal.entries == store.entries) return@withWriteTransaction PlanMutationResult.Applied
                 val removed =
                     store.entries.filter { old -> proposal.entries.none { it.id == old.id } }
-                removed.forEach { dao.deleteTimeOff(it.id) }
+                removed.forEach { planningDao.deleteTimeOff(it.id) }
                 proposal.entries.filter { it !in store.entries }
-                    .forEach { dao.putTimeOff(it.entity(store.tracker.id)) }
+                    .forEach { planningDao.putTimeOff(it.entity(store.tracker.id)) }
                 for (key in proposal.preview.affectedDays) {
                     // Future reservations are projections only: do not freeze future attendance expectations.
                     if (key.date <= store.today) {
@@ -80,7 +90,7 @@ class TimeOffService(
                         val row =
                             before ?: AttendanceEntity.fromPlan(store.plan(key.date), store.now)
                         val outcome = store.outcome(key.date, proposal.entries)
-                        dao.putDay(
+                        attendanceDao.putDay(
                             row.copy(
                                 revision = (before?.revision ?: 0) + 1,
                                 userEditRevision = row.userEditRevision + 1,
@@ -91,11 +101,11 @@ class TimeOffService(
                             )
                         )
                     }
-                    dao.markDirty(key.trackerId, "DAY:${key.date}")
+                    dirtyProjectionDao.markDirty(key.trackerId, "DAY:${key.date}")
                 }
-                dao.markDirty(store.tracker.id, "TIME_OFF")
-                dao.markDirty(store.tracker.id, "OVERVIEW")
-                dao.advanceRevision(store.tracker.id)
+                dirtyProjectionDao.markDirty(store.tracker.id, "TIME_OFF")
+                dirtyProjectionDao.markDirty(store.tracker.id, "OVERVIEW")
+                profileDao.advanceRevision(store.tracker.id)
                 PlanMutationResult.Applied
             }
         }
@@ -103,15 +113,15 @@ class TimeOffService(
     override suspend fun setAvailableBalance(targetDays: Int, note: String?): PlanMutationResult {
         if (targetDays < 0) return PlanMutationResult.Invalid(PlanRejection.INVALID_VALUE)
         return storageResult<PlanMutationResult>(PlanMutationResult.LocalSaveFailed) {
-            db.withWriteTransaction {
-                val store = dao.planning(clock.now())
+            transactions.withWriteTransaction {
+                val store = snapshots.load(clock.now())
                     ?: return@withWriteTransaction PlanMutationResult.Invalid(PlanRejection.INVALID_VALUE)
                 val difference = targetDays.toLong() - store.balance()
                 if (difference !in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) return@withWriteTransaction PlanMutationResult.Invalid(
                     PlanRejection.INVALID_VALUE
                 )
                 if (difference != 0L) {
-                    dao.insertBalanceAdjustment(
+                    planningDao.insertBalanceAdjustment(
                         BalanceAdjustmentEntity(
                             Uuid.random().toString(),
                             store.tracker.id,
@@ -120,8 +130,8 @@ class TimeOffService(
                             note
                         )
                     )
-                    dao.markDirty(store.tracker.id, "OVERVIEW")
-                    dao.advanceRevision(store.tracker.id)
+                    dirtyProjectionDao.markDirty(store.tracker.id, "OVERVIEW")
+                    profileDao.advanceRevision(store.tracker.id)
                 }
                 PlanMutationResult.Applied
             }

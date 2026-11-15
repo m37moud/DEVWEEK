@@ -2,7 +2,6 @@ package dev.daymark.android
 
 import android.content.Context
 import androidx.glance.appwidget.updateAll
-import androidx.room3.withWriteTransaction
 import androidx.work.WorkManager
 import dev.daymark.app.AppGraph
 import dev.daymark.attendance.*
@@ -11,6 +10,8 @@ import dev.daymark.attendance.AttendanceService
 import dev.daymark.auth.NativeGoogleAuth
 import dev.daymark.data.*
 import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.dao.ProfileDao
+import dev.daymark.data.local.DatabaseTransactions
 import dev.daymark.data.local.openAndroidDatabase
 import dev.daymark.data.local.reporting.ReportingRuntime
 import dev.daymark.location.*
@@ -56,6 +57,7 @@ class AndroidAppGraph(context: Context) {
             single<WidgetSink> { AndroidWidgetPublisher(app) }
             single {
                 ReportingRuntime(
+                    get(), get(), get(), get(),
                     get(),
                     get(),
                     get(),
@@ -70,7 +72,8 @@ class AndroidAppGraph(context: Context) {
     )
     internal val isDeleting get() = dependencies.dataLifecycle.deleting.value
     val clock: Clock by dependencies.koin.inject()
-    val database: DaymarkDatabase by dependencies.koin.inject()
+    internal val profileDao: ProfileDao by dependencies.koin.inject()
+    private val transactions: DatabaseTransactions by dependencies.koin.inject()
     val attendanceRepository: AttendanceRepository by dependencies.koin.inject()
     val attendance: AttendanceService by dependencies.koin.inject()
     val widgets: WidgetPublisher by dependencies.koin.inject()
@@ -107,15 +110,25 @@ class AndroidAppGraph(context: Context) {
     private suspend fun stopExternal() {
         WidgetCheckService.cancelAndJoin()
         app.stopService(android.content.Intent(app, WidgetCheckService::class.java))
-        database.dao().tracker()?.let { scheduler.cancelTrackerAwait(it.id) }
+        profileDao.tracker()?.let { scheduler.cancelTrackerAwait(it.id) }
         withContext(Dispatchers.IO) {
             WorkManager.getInstance(app).cancelUniqueWork(REPORT_WORK).result.get()
         }
         recoveryMutex.withLock { /* Wait for any older native recovery before the final widget clear. */ }
     }
-    private fun permitted(): Boolean = androidLocationCapabilities(app).let { it.foregroundGranted && it.preciseGranted && it.backgroundGranted }
-    private suspend fun disableAutomation(trackerId: String) = database.withWriteTransaction {
-        database.dao().tracker()?.takeIf { it.automaticEnabled && it.id == trackerId }?.let { database.dao().putTracker(it.copy(automaticEnabled = false, changeRevision = it.changeRevision + 1)) }
+
+    private fun permitted(): Boolean =
+        androidLocationCapabilities(app).let { it.foregroundGranted && it.preciseGranted && it.backgroundGranted }
+
+    private suspend fun disableAutomation(trackerId: String) = transactions.withWriteTransaction {
+        profileDao.tracker()?.takeIf { it.automaticEnabled && it.id == trackerId }?.let {
+            profileDao.putTracker(
+                it.copy(
+                    automaticEnabled = false,
+                    changeRevision = it.changeRevision + 1
+                )
+            )
+        }
     }
 
     fun attendanceJob(): AndroidAttendanceJob = dependencies.koin.get()
@@ -123,7 +136,7 @@ class AndroidAppGraph(context: Context) {
     private suspend fun recoverInternal(publishWidget: Boolean) = recoveryMutex.withLock {
         if (shared?.dataLifecycle?.deleting?.value == true) return@withLock
         attendanceRepository.reconcile(clock.now())
-        if (!permitted()) database.dao().tracker()?.let { disableAutomation(it.id) }
+        if (!permitted()) profileDao.tracker()?.let { disableAutomation(it.id) }
         scheduler.replaceNextAwait(nextAttendance(clock.now(), planReader))
         if (publishWidget) widgets.refresh()
     }

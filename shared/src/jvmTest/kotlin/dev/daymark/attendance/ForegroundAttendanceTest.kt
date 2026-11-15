@@ -1,5 +1,7 @@
 package dev.daymark.attendance
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import dev.daymark.at
 import dev.daymark.data.local.attendance.RoomAttendanceRepository
 import dev.daymark.data.local.openJvmDatabase
@@ -37,7 +39,14 @@ class ForegroundAttendanceTest {
         var observation: Job? = null
         try {
             seedDatabase(db)
-            val repo = RoomAttendanceRepository(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             repo.reconcile(clock.now())
             val key = fixturePlan().key
             val before = repo.loadDay(key)!!.revision
@@ -55,7 +64,7 @@ class ForegroundAttendanceTest {
             observation.cancelAndJoin()
             clock.value = Instant.parse("2026-10-28T09:06:00Z")
             delay(150)
-            assertEquals(1, db.dao().days(key.trackerId).size)
+            assertEquals(1, db.attendanceDao().days(key.trackerId).size)
         } finally {
             observation?.cancelAndJoin(); db.close(); folder.toFile().deleteRecursively()
         }
@@ -69,7 +78,14 @@ class ForegroundAttendanceTest {
         val clock = TestClock(at("09:18:00"))
         try {
             seedDatabase(db)
-            val repo = RoomAttendanceRepository(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             val location = object : LocationGateway {
                 override suspend fun requestFix(budget: Duration) =
                     fixtureFix(capturedAt = clock.now())
@@ -91,7 +107,15 @@ class ForegroundAttendanceTest {
         }
         val reopened = openJvmDatabase(path)
         try {
-            val repo = RoomAttendanceRepository(reopened, clock)
+            val repo =
+                RoomAttendanceRepository(
+                    reopened.profileDao(),
+                    reopened.attendanceDao(),
+                    reopened.planningDao(),
+                    reopened.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(reopened),
+                    clock
+                )
             val saved = repo.loadCurrentDay(clock.now())!!
             assertEquals(AttendanceStatus.PRESENT, saved.evidence?.status)
             assertEquals(AttendanceSource.MANUAL_CORRECTION, saved.evidence?.source)

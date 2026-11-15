@@ -36,19 +36,24 @@ class GoogleConnectionJourneyTest {
             compose.waitUntil(10_000) { compose.onAllNodesWithTag("nav-settings").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("nav-settings").performClick()
             compose.onNodeWithTag("report-connect").performScrollTo().performClick()
-            compose.waitUntil(10_000) { compose.onAllNodesWithText("Google connection was cancelled. Your local records are kept.").fetchSemanticsNodes().isNotEmpty() }
-            Assert.assertEquals(1,consent)
-            Assert.assertNotNull(runBlocking { fixture.db.dao().tracker() })
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithText("Google connection was cancelled. Your local records are kept.")
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+            Assert.assertEquals(1, consent)
+            Assert.assertNotNull(runBlocking { fixture.db.profileDao().tracker() })
             compose.onNodeWithTag("delete-local-data").performScrollTo().performClick()
             compose.onNodeWithText("Cancel").performClick()
-            Assert.assertNotNull(runBlocking { fixture.db.dao().tracker() })
-            Assert.assertEquals(0,fixture.locationRequests)
+            Assert.assertNotNull(runBlocking { fixture.db.profileDao().tracker() })
+            Assert.assertEquals(0, fixture.locationRequests)
             compose.onNodeWithTag("delete-local-data").performScrollTo().performClick()
             compose.onNodeWithTag("report-confirm-action").performClick()
-            compose.waitUntil(10_000) { compose.onAllNodesWithTag("setup-name").fetchSemanticsNodes().isNotEmpty() }
-            Assert.assertNull(runBlocking { fixture.db.dao().tracker() })
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("setup-name").fetchSemanticsNodes().isNotEmpty()
+            }
+            Assert.assertNull(runBlocking { fixture.db.profileDao().tracker() })
         } finally {
-            compose.runOnIdle { shown=false }; compose.waitForIdle()
+            compose.runOnIdle { shown = false }; compose.waitForIdle()
             fixture.graph.reporting.close(); fixture.db.close(); context.deleteDatabase(name)
         }
     }

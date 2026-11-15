@@ -1,7 +1,6 @@
 package dev.daymark.data.local.plan
 
-import androidx.room3.withReadTransaction
-import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.DatabaseTransactions
 import dev.daymark.models.attendance.AttendanceSource
 import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.models.attendance.AutomaticState
@@ -13,10 +12,14 @@ import kotlin.time.Clock
 import kotlinx.datetime.LocalDate
 
 /** Each planning pass reads a consistent snapshot; the claim transaction revalidates it before GPS. */
-class RoomPlanReader(private val db: DaymarkDatabase, private val clock: Clock) : PlanReader {
+class RoomPlanReader(
+    private val snapshots: PlanningSnapshotReader,
+    private val transactions: DatabaseTransactions,
+    private val clock: Clock
+) : PlanReader {
     private var snapshot: PlanningStore? = null
     override suspend fun context(): ScheduleContext? {
-        val store = db.withReadTransaction { db.dao().planning(clock.now()) }
+        val store = transactions.withReadTransaction { snapshots.load(clock.now()) }
         snapshot = store
         return store?.let {
             ScheduleContext(

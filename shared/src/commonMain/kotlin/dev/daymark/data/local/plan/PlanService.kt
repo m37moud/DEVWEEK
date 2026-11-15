@@ -2,12 +2,12 @@
 
 package dev.daymark.data.local.plan
 
-import androidx.room3.withReadTransaction
-import androidx.room3.withWriteTransaction
 import dev.daymark.attendance.AttendanceRepository
-import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.DatabaseTransactions
 import dev.daymark.data.local.PlanVersionEntity
-import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.dao.DirtyProjectionDao
+import dev.daymark.data.local.dao.PlanningDao
+import dev.daymark.data.local.dao.ProfileDao
 import dev.daymark.data.local.markDirty
 import dev.daymark.models.attendance.DayKey
 import dev.daymark.models.plan.PlanChange
@@ -27,14 +27,19 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.plus
 
+// clean-code exception: constructor arity keeps cross-DAO transaction ownership explicit; revisit when responsibilities can split without changing atomicity.
 class PlanService(
-    private val db: DaymarkDatabase, private val clock: Clock,
-    private val attendance: AttendanceRepository = RoomAttendanceRepository(db, clock)
+    private val profileDao: ProfileDao,
+    private val planningDao: PlanningDao,
+    private val dirtyProjectionDao: DirtyProjectionDao,
+    private val snapshots: PlanningSnapshotReader,
+    private val transactions: DatabaseTransactions,
+    private val clock: Clock,
+    private val attendance: AttendanceRepository
 ) : PlanDataSource {
-    private val dao get() = db.dao()
-    override fun observePlan(): Flow<PlanState?> = dao.observeTracker().map {
-        db.withReadTransaction {
-            val store = dao.planning(clock.now()) ?: return@withReadTransaction null
+    override fun observePlan(): Flow<PlanState?> = profileDao.observeTracker().map {
+        transactions.withReadTransaction {
+            val store = snapshots.load(clock.now()) ?: return@withReadTransaction null
             val pending = store.versions.filter { Instant.parse(it.effectiveAt) > store.now }
                 .maxByOrNull { it.version }
             PlanState(
@@ -49,10 +54,11 @@ class PlanService(
     override suspend fun previewChange(command: PlanChange): TimeOffPreview =
         storageResult(invalidPreview(PlanRejection.LOCAL_SAVE_FAILED)) {
             attendance.reconcile(clock.now())
-            db.withReadTransaction {
-                val store = dao.planning(clock.now()) ?: return@withReadTransaction invalidPreview(
-                    PlanRejection.INVALID_VALUE
-                )
+            transactions.withReadTransaction {
+                val store =
+                    snapshots.load(clock.now()) ?: return@withReadTransaction invalidPreview(
+                        PlanRejection.INVALID_VALUE
+                    )
                 proposal(store, command).preview
             }
         }
@@ -62,23 +68,23 @@ class PlanService(
         expectedRevision: Long
     ): PlanMutationResult =
         storageResult<PlanMutationResult>(PlanMutationResult.LocalSaveFailed) {
-            db.withWriteTransaction {
+            transactions.withWriteTransaction {
                 attendance.reconcile(clock.now())
-                val store = dao.planning(clock.now())
+                val store = snapshots.load(clock.now())
                     ?: return@withWriteTransaction PlanMutationResult.Invalid(PlanRejection.INVALID_VALUE)
                 if (expectedRevision != store.revision) return@withWriteTransaction PlanMutationResult.StalePreview
                 val proposal = proposal(store, command)
                 proposal.preview.failure()?.let { return@withWriteTransaction it }
-                dao.putVersion(proposal.version)
+                planningDao.putVersion(proposal.version)
                 proposal.preview.affectedDays.forEach {
-                    dao.markDirty(
+                    dirtyProjectionDao.markDirty(
                         it.trackerId,
                         "DAY:${it.date}"
                     )
                 }
-                dao.markDirty(store.tracker.id, "TIME_OFF")
-                dao.markDirty(store.tracker.id, "OVERVIEW")
-                dao.advanceRevision(store.tracker.id)
+                dirtyProjectionDao.markDirty(store.tracker.id, "TIME_OFF")
+                dirtyProjectionDao.markDirty(store.tracker.id, "OVERVIEW")
+                profileDao.advanceRevision(store.tracker.id)
                 PlanMutationResult.Applied
             }
         }

@@ -1,9 +1,10 @@
 package dev.daymark.widgets
 
-import androidx.room3.withReadTransaction
 import dev.daymark.attendance.AttendanceRepository
 import dev.daymark.attendance.evaluateDay
-import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.DatabaseTransactions
+import dev.daymark.data.local.dao.PlanningDao
+import dev.daymark.data.local.dao.ProfileDao
 import dev.daymark.data.local.settings.SettingsRepository
 import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.settings.AppLanguage
@@ -20,12 +21,17 @@ import kotlinx.coroutines.withContext
 class WidgetPublicationException : Exception("Could not update the attendance widget")
 
 /** One application-owned publisher serializes refresh/clear. The native file contains display fields only. */
+// clean-code exception: constructor arity keeps cross-DAO transaction ownership explicit; revisit when responsibilities can split without changing atomicity.
 class WidgetPublisher(
-    private val db: DaymarkDatabase, private val repository: AttendanceRepository,
-    private val sink: WidgetSink, private val clock: Clock,
+    private val profileDao: ProfileDao,
+    private val planningDao: PlanningDao,
+    private val transactions: DatabaseTransactions,
+    private val repository: AttendanceRepository,
+    private val sink: WidgetSink,
+    private val clock: Clock,
     private val systemTags: () -> List<String> = ::widgetSystemLanguageTags,
     private val statusLabel: (AttendanceStatus?, AppLanguage) -> String = ::widgetStatusLabel,
-    private val settings: SettingsRepository = SettingsRepository(db)
+    private val settings: SettingsRepository
 ) {
     private val mutex = Mutex()
 
@@ -43,8 +49,8 @@ class WidgetPublisher(
                 if (!withContext(Dispatchers.IO) { sink.clear() }) throw WidgetPublicationException()
                 return@withLock
             }
-            val current = db.dao().tracker()
-            val preferences = db.dao().setting("ui-settings")?.value
+            val current = profileDao.tracker()
+            val preferences = profileDao.setting("ui-settings")?.value
             if (current?.id == projection.trackerId && current.changeRevision == projection.revision && preferences == projection.settingsValue) {
                 if (!withContext(Dispatchers.IO) { sink.publish(encodeWidgetSnapshot(projection.snapshot)) }) throw WidgetPublicationException()
                 return@withLock
@@ -56,17 +62,17 @@ class WidgetPublisher(
     suspend fun clear(): Unit =
         mutex.withLock { if (!withContext(Dispatchers.IO) { sink.clear() }) throw WidgetPublicationException() }
 
-    private suspend fun project(now: Instant): Projection? = db.withReadTransaction {
-        val tracker = db.dao().tracker() ?: return@withReadTransaction null
+    private suspend fun project(now: Instant): Projection? = transactions.withReadTransaction {
+        val tracker = profileDao.tracker() ?: return@withReadTransaction null
         val preferences = settings.snapshot()
-        val settingsValue = db.dao().setting("ui-settings")?.value
+        val settingsValue = profileDao.setting("ui-settings")?.value
         val day = repository.loadCurrentDay(now) ?: return@withReadTransaction null
         val language = effectiveLanguage(preferences.language, systemTags())
         val isTracked =
             day.revision > 0 || day.plan.arrival >= Instant.parse(tracker.trackingStartsAt)
         val outcome = evaluateDay(day.plan, day.evidence, day.off, now)
         val version =
-            db.dao().versions(tracker.id).firstOrNull { it.version == day.plan.scheduleVersion }
+            planningDao.versions(tracker.id).firstOrNull { it.version == day.plan.scheduleVersion }
         val label = version?.placeName.orEmpty().let {
             if (it.length <= 512) it else it.take(511)
                 .trimEnd { char -> char in '\uD800'..'\uDBFF' } + "…"

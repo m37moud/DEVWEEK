@@ -1,5 +1,7 @@
 package dev.daymark.attendance
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import androidx.room3.executeSQL
 import androidx.room3.useReaderConnection
 import androidx.room3.useWriterConnection
@@ -63,7 +65,14 @@ class AttendanceTransactionTest {
     fun claim_is_unique_and_remains_consumed_after_reopen() = runTest {
         withDatabase { db, path ->
             val clock = TestClock();
-            val repo = RoomAttendanceRepository(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             val key = fixturePlan().key
             val claims = coroutineScope {
                 (1..8).map {
@@ -73,11 +82,18 @@ class AttendanceTransactionTest {
                 }.awaitAll()
             }
             assertEquals(1, claims.count { it is ClaimResult.Claimed })
-            assertEquals(1, db.dao().countDay(key.trackerId, key.date.toString()))
+            assertEquals(1, db.attendanceDao().countDay(key.trackerId, key.date.toString()))
             db.close()
             val reopened = openJvmDatabase(path.toString())
             try {
-                val next = RoomAttendanceRepository(reopened, clock)
+                val next = RoomAttendanceRepository(
+                    reopened.profileDao(),
+                    reopened.attendanceDao(),
+                    reopened.planningDao(),
+                    reopened.dirtyProjectionDao(),
+                    RoomDatabaseTransactions(reopened),
+                    clock
+                )
                 assertIs<ClaimResult.AlreadyConsumed>(
                     next.claimAutomatic(
                         key,
@@ -87,7 +103,10 @@ class AttendanceTransactionTest {
                 )
                 next.reconcile(clock.now())
                 assertEquals(AutomaticState.INTERRUPTED, next.loadDay(key)?.automaticState)
-                assertEquals(1, reopened.dao().countDay(key.trackerId, key.date.toString()))
+                assertEquals(
+                    1,
+                    reopened.attendanceDao().countDay(key.trackerId, key.date.toString())
+                )
             } finally {
                 reopened.close()
             }
@@ -98,11 +117,21 @@ class AttendanceTransactionTest {
     fun concurrent_reconciliation_creates_one_date_row() = runTest {
         withDatabase { db, _ ->
             val clock = TestClock();
-            val repo = RoomAttendanceRepository(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             coroutineScope {
                 (1..8).map { async(Dispatchers.Default) { repo.reconcile(clock.now()) } }.awaitAll()
             }
-            assertEquals(1, db.dao().countDay(fixturePlan().key.trackerId, fixtureDate.toString()))
+            assertEquals(
+                1,
+                db.attendanceDao().countDay(fixturePlan().key.trackerId, fixtureDate.toString())
+            )
         }
     }
 
@@ -110,7 +139,14 @@ class AttendanceTransactionTest {
     fun correction_wins_while_a_real_database_check_is_acquiring_location() = runTest {
         withDatabase { db, _ ->
             val clock = TestClock();
-            val repo = RoomAttendanceRepository(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             val started = CompletableDeferred<Unit>();
             val response = CompletableDeferred<LocationResult>()
             val gateway = object : LocationGateway {
@@ -139,12 +175,19 @@ class AttendanceTransactionTest {
     fun changed_user_edit_revision_rejects_an_aba_request() = runTest {
         withDatabase { db, _ ->
             val clock = TestClock();
-            val repo = RoomAttendanceRepository(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             repo.reconcile(clock.now())
             val key = fixturePlan().key
             db.withWriteTransaction {
-                val row = requireNotNull(db.dao().day(key.trackerId, key.date.toString()))
-                db.dao().putDay(row.copy(userEditRevision = row.userEditRevision + 2))
+                val row = requireNotNull(db.attendanceDao().day(key.trackerId, key.date.toString()))
+                db.attendanceDao().putDay(row.copy(userEditRevision = row.userEditRevision + 2))
             }
             assertIs<CheckOutcome.StateChanged>(repo.completeCheck(testCommit()))
             assertNull(repo.loadDay(key)?.evidence)
@@ -154,7 +197,14 @@ class AttendanceTransactionTest {
     @Test
     fun failed_check_cannot_downgrade_and_earlier_success_wins() = runTest {
         withDatabase { db, _ ->
-            val repo = RoomAttendanceRepository(db, TestClock())
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                TestClock()
+            )
             assertIs<CheckOutcome.Recorded>(repo.completeCheck(testCommit()))
             val failed =
                 repo.completeCheck(testCommit(verdict = FixVerdict.Rejected(CheckRejection.OUTSIDE_AREA)))
@@ -169,10 +219,17 @@ class AttendanceTransactionTest {
     fun failed_transaction_cannot_leave_partial_outbox_or_success_ui() = runTest {
         withDatabase { db, _ ->
             val clock = TestClock();
-            val repo = RoomAttendanceRepository(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             repo.reconcile(clock.now())
             val before = requireNotNull(repo.loadDay(fixturePlan().key)).revision
-            val dirty = db.dao().dirtyProjections(fixturePlan().key.trackerId)
+            val dirty = db.dirtyProjectionDao().dirtyProjections(fixturePlan().key.trackerId)
             db.useWriterConnection { connection ->
                 connection.executeSQL(
                     "CREATE TRIGGER abort_overview BEFORE UPDATE ON dirty_projections WHEN NEW.projectionKey = 'OVERVIEW' BEGIN SELECT RAISE(ABORT, 'test_abort'); END"
@@ -190,7 +247,10 @@ class AttendanceTransactionTest {
             )
             assertEquals(CheckRejection.LOCAL_SAVE_FAILED, result.reason)
             assertEquals(before, repo.loadDay(fixturePlan().key)?.revision)
-            assertEquals(dirty, db.dao().dirtyProjections(fixturePlan().key.trackerId))
+            assertEquals(
+                dirty,
+                db.dirtyProjectionDao().dirtyProjections(fixturePlan().key.trackerId)
+            )
             assertNull(repo.loadDay(fixturePlan().key)?.evidence)
             db.useWriterConnection { it.executeSQL("DROP TRIGGER abort_overview") }
             assertIs<CheckOutcome.Recorded>(AttendanceService(repo, gateway, clock).manualCheck())
@@ -205,9 +265,19 @@ class AttendanceTransactionTest {
             val now = at("10:00:00");
             val clock = TestClock(now)
             seedDatabase(db, now, Instant.parse("2026-10-28T09:00:00Z"))
-            val repo = RoomAttendanceRepository(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             repo.reconcile(now)
-            assertEquals(0, db.dao().countDay(fixturePlan().key.trackerId, fixtureDate.toString()))
+            assertEquals(
+                0,
+                db.attendanceDao().countDay(fixturePlan().key.trackerId, fixtureDate.toString())
+            )
             assertEquals(0, repo.observeMonth(2026, 10).first().absent)
             repo.correct(
                 Correction(
@@ -231,9 +301,17 @@ class AttendanceTransactionTest {
     fun a_future_configuration_does_not_replace_today_snapshot_or_reject_its_valid_check() =
         runTest {
             withDatabase { db, _ ->
-                val repo = RoomAttendanceRepository(db, TestClock())
+                val repo =
+                    RoomAttendanceRepository(
+                        db.profileDao(),
+                        db.attendanceDao(),
+                        db.planningDao(),
+                        db.dirtyProjectionDao(),
+                        RoomDatabaseTransactions(db),
+                        TestClock()
+                    )
                 repo.reconcile(at("09:02:00"))
-                db.dao().putVersion(
+                db.planningDao().putVersion(
                     PlanVersionEntity.fromSnapshot(
                         fixturePlan().key.trackerId,
                         2,
@@ -279,7 +357,14 @@ class AttendanceTransactionTest {
                 }
             }
             val clock = TestClock();
-            val repo = RoomAttendanceRepository(db, clock)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
             val gateway = object : LocationGateway {
                 override suspend fun requestFix(budget: Duration) =
                     fixtureFix(latitude = 0.00001, longitude = 0.00002)

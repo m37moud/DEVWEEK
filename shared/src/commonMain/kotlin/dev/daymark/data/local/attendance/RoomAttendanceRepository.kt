@@ -2,16 +2,18 @@
 
 package dev.daymark.data.local.attendance
 
-import androidx.room3.withReadTransaction
-import androidx.room3.withWriteTransaction
 import dev.daymark.attendance.AttendanceRepository
 import dev.daymark.attendance.outcome
 import dev.daymark.data.local.AttendanceEntity
-import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.DatabaseTransactions
 import dev.daymark.data.local.PlanVersionEntity
 import dev.daymark.data.local.SettingEntity
 import dev.daymark.data.local.TimeOffEntity
 import dev.daymark.data.local.TrackerEntity
+import dev.daymark.data.local.dao.AttendanceDao
+import dev.daymark.data.local.dao.DirtyProjectionDao
+import dev.daymark.data.local.dao.PlanningDao
+import dev.daymark.data.local.dao.ProfileDao
 import dev.daymark.data.local.markDirty
 import dev.daymark.data.local.plan.projectedPlan
 import dev.daymark.models.attendance.AttendanceSource
@@ -50,13 +52,20 @@ import kotlinx.datetime.number
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 
-class RoomAttendanceRepository(private val db: DaymarkDatabase, private val clock: Clock) :
+// clean-code exception: constructor arity keeps cross-DAO transaction ownership explicit; revisit when responsibilities can split without changing atomicity.
+class RoomAttendanceRepository(
+    private val profileDao: ProfileDao,
+    private val attendanceDao: AttendanceDao,
+    private val planningDao: PlanningDao,
+    private val dirtyProjectionDao: DirtyProjectionDao,
+    private val transactions: DatabaseTransactions,
+    private val clock: Clock
+) :
     AttendanceRepository {
     private val sessionId = Uuid.random().toString()
-    private val dao get() = db.dao()
 
     override fun observeDay(key: DayKey): Flow<DayOutcome?> =
-        dao.observeDay(key.trackerId, key.date.toString()).flatMapLatest {
+        attendanceDao.observeDay(key.trackerId, key.date.toString()).flatMapLatest {
             flow {
                 while (true) {
                     val now = clock.now()
@@ -74,15 +83,15 @@ class RoomAttendanceRepository(private val db: DaymarkDatabase, private val cloc
 
     override fun observeMonth(year: Int, month: Int): Flow<HistoryMonth> {
         LocalDate(year, month, 1)
-        return dao.observeTracker().flatMapLatest { tracker ->
+        return profileDao.observeTracker().flatMapLatest { tracker ->
             if (tracker == null) flowOf(HistoryMonth(emptyList(), 0, 0, 0))
-            else dao.observeDays(tracker.id).flatMapLatest {
+            else attendanceDao.observeDays(tracker.id).flatMapLatest {
                 flow {
                     while (true) {
                         val now = clock.now()
-                        val history = db.withReadTransaction {
-                            val entries = dao.timeOff(tracker.id)
-                            val records = dao.days(tracker.id).filter {
+                        val history = transactions.withReadTransaction {
+                            val entries = planningDao.timeOff(tracker.id)
+                            val records = attendanceDao.days(tracker.id).filter {
                                 val date =
                                     LocalDate.parse(it.date); date.year == year && date.month.number == month
                             }.map { row ->
@@ -106,38 +115,40 @@ class RoomAttendanceRepository(private val db: DaymarkDatabase, private val cloc
         }
     }
 
-    override suspend fun loadCurrentDay(now: Instant): StoredDay? = db.withReadTransaction {
-        val context = context(now) ?: return@withReadTransaction null
-        val key = DayKey(
-            context.tracker.id,
-            now.toLocalDateTime(TimeZone.of(context.active.schedule().zoneId)).date
-        )
-        val row = dao.day(key.trackerId, key.date.toString()) ?: project(
-            context,
-            key,
-            now
-        )?.copy(revision = 0)
-        row?.let { stored(it, dao.timeOff(key.trackerId)) }
+    override suspend fun loadCurrentDay(now: Instant): StoredDay? =
+        transactions.withReadTransaction {
+            val context = context(now) ?: return@withReadTransaction null
+            val key = DayKey(
+                context.tracker.id,
+                now.toLocalDateTime(TimeZone.of(context.active.schedule().zoneId)).date
+            )
+            val row = attendanceDao.day(key.trackerId, key.date.toString()) ?: project(
+                context,
+                key,
+                now
+            )?.copy(revision = 0)
+            row?.let { stored(it, planningDao.timeOff(key.trackerId)) }
+        }
+
+    override suspend fun loadDay(key: DayKey): StoredDay? = transactions.withReadTransaction {
+        attendanceDao.day(key.trackerId, key.date.toString())
+            ?.let { stored(it, planningDao.timeOff(key.trackerId)) }
     }
 
-    override suspend fun loadDay(key: DayKey): StoredDay? = db.withReadTransaction {
-        dao.day(key.trackerId, key.date.toString())?.let { stored(it, dao.timeOff(key.trackerId)) }
-    }
-
-    override suspend fun reconcile(now: Instant) = db.withWriteTransaction {
+    override suspend fun reconcile(now: Instant) = transactions.withWriteTransaction {
         val context = context(now) ?: return@withWriteTransaction
-        val entries = dao.timeOff(context.tracker.id)
-        val rows = dao.days(context.tracker.id).associateBy { it.date }.toMutableMap()
+        val entries = planningDao.timeOff(context.tracker.id)
+        val rows = attendanceDao.days(context.tracker.id).associateBy { it.date }.toMutableMap()
         val start = Instant.parse(context.tracker.trackingStartsAt)
         var date =
             start.toLocalDateTime(TimeZone.of(context.versions.first().schedule().zoneId)).date
         val today = now.toLocalDateTime(TimeZone.of(context.active.schedule().zoneId)).date
         val clockKey = "planning-clock:${context.tracker.id}"
         val clockValue = "$today:${context.active.version}"
-        if (dao.setting(clockKey)?.value != clockValue) {
-            dao.putSetting(SettingEntity(clockKey, clockValue))
-            dao.advanceRevision(context.tracker.id)
-            dao.markDirty(context.tracker.id, "OVERVIEW")
+        if (profileDao.setting(clockKey)?.value != clockValue) {
+            profileDao.putSetting(SettingEntity(clockKey, clockValue))
+            profileDao.advanceRevision(context.tracker.id)
+            dirtyProjectionDao.markDirty(context.tracker.id, "OVERVIEW")
         }
         val inserted = mutableSetOf<String>()
         while (date <= today) {
@@ -163,15 +174,15 @@ class RoomAttendanceRepository(private val db: DaymarkDatabase, private val cloc
     }
 
     override suspend fun claimAutomatic(key: DayKey, attemptId: String, now: Instant): ClaimResult =
-        db.withWriteTransaction {
+        transactions.withWriteTransaction {
             require(attemptId.isNotBlank())
             val actualNow = clock.now()
             val context = context(actualNow) ?: return@withWriteTransaction ClaimResult.Ineligible
             if (context.tracker.id != key.trackerId || !context.tracker.automaticEnabled) return@withWriteTransaction ClaimResult.Ineligible
-            val before = dao.day(key.trackerId, key.date.toString())
+            val before = attendanceDao.day(key.trackerId, key.date.toString())
             val row = before ?: project(context, key, actualNow)
             ?: return@withWriteTransaction ClaimResult.Ineligible
-            val entries = dao.timeOff(key.trackerId)
+            val entries = planningDao.timeOff(key.trackerId)
             val day = stored(row, entries)
             val zone = TimeZone.of(day.plan.zoneId)
             if (actualNow.toLocalDateTime(zone).date != key.date || now.toLocalDateTime(zone).date != key.date)
@@ -195,14 +206,14 @@ class RoomAttendanceRepository(private val db: DaymarkDatabase, private val cloc
         }
 
     override suspend fun completeCheck(request: CheckCommit): CheckOutcome =
-        db.withWriteTransaction {
+        transactions.withWriteTransaction {
             val now = clock.now()
             val context =
                 context(now) ?: return@withWriteTransaction CheckOutcome.StateChanged(null)
             if (context.tracker.id != request.key.trackerId) return@withWriteTransaction CheckOutcome.StateChanged(
                 null
             )
-            val before = dao.day(request.key.trackerId, request.key.date.toString())
+            val before = attendanceDao.day(request.key.trackerId, request.key.date.toString())
             val row = before ?: if (request.mode == CheckMode.USER_INITIATED) project(
                 context,
                 request.key,
@@ -210,7 +221,7 @@ class RoomAttendanceRepository(private val db: DaymarkDatabase, private val cloc
             )
             else null
             if (row == null) return@withWriteTransaction CheckOutcome.StateChanged(null)
-            val entries = dao.timeOff(request.key.trackerId)
+            val entries = planningDao.timeOff(request.key.trackerId)
             val day = stored(row, entries)
             val current = day.outcome(now)
             val autoMatches =
@@ -278,7 +289,7 @@ class RoomAttendanceRepository(private val db: DaymarkDatabase, private val cloc
             CheckOutcome.Recorded(stored(saved, entries).outcome(now))
         }
 
-    override suspend fun correct(command: Correction): DayOutcome = db.withWriteTransaction {
+    override suspend fun correct(command: Correction): DayOutcome = transactions.withWriteTransaction {
         require(
             command.status in listOf(
                 AttendanceStatus.PRESENT,
@@ -289,7 +300,7 @@ class RoomAttendanceRepository(private val db: DaymarkDatabase, private val cloc
         val now = clock.now()
         val context = requireNotNull(context(now)) { "Tracker is unavailable" }
         require(command.key.trackerId == context.tracker.id)
-        val before = dao.day(command.key.trackerId, command.key.date.toString())
+        val before = attendanceDao.day(command.key.trackerId, command.key.date.toString())
         val row = requireNotNull(
             before ?: project(
                 context,
@@ -297,7 +308,7 @@ class RoomAttendanceRepository(private val db: DaymarkDatabase, private val cloc
                 now
             )
         ) { "Date is outside the tracked period" }
-        val entries = dao.timeOff(command.key.trackerId)
+        val entries = planningDao.timeOff(command.key.trackerId)
         val day = stored(row, entries)
         require(command.key.date <= now.toLocalDateTime(TimeZone.of(day.plan.zoneId)).date)
         require(day.plan.isScheduled && day.off == null) { "Edit time off before correcting attendance" }
@@ -327,8 +338,8 @@ class RoomAttendanceRepository(private val db: DaymarkDatabase, private val cloc
     )
 
     private suspend fun context(now: Instant): Context? {
-        val tracker = dao.tracker() ?: return null
-        val versions = dao.versions(tracker.id)
+        val tracker = profileDao.tracker() ?: return null
+        val versions = planningDao.versions(tracker.id)
         require(versions.isNotEmpty()) { "Tracker expectations are unavailable" }
         val active = versions.filter { Instant.parse(it.effectiveAt) <= now }
             .maxWithOrNull(compareBy<PlanVersionEntity> { Instant.parse(it.effectiveAt) }.thenBy { it.version })
@@ -375,10 +386,10 @@ class RoomAttendanceRepository(private val db: DaymarkDatabase, private val cloc
         )
         if (before != null && cached == before) return before
         val saved = cached.copy(revision = (before?.revision ?: 0) + 1, updatedAt = now.toString())
-        dao.putDay(saved)
-        dao.advanceRevision(saved.trackerId)
-        dao.markDirty(saved.trackerId, "DAY:${saved.date}")
-        dao.markDirty(saved.trackerId, "OVERVIEW")
+        attendanceDao.putDay(saved)
+        profileDao.advanceRevision(saved.trackerId)
+        dirtyProjectionDao.markDirty(saved.trackerId, "DAY:${saved.date}")
+        dirtyProjectionDao.markDirty(saved.trackerId, "OVERVIEW")
         return saved
     }
 

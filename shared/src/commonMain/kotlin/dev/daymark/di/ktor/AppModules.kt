@@ -4,15 +4,24 @@ import dev.daymark.app.hostPlatform
 import dev.daymark.attendance.AttendanceRepository
 import dev.daymark.attendance.AttendanceService
 import dev.daymark.auth.GoogleAccess
+import dev.daymark.data.local.DatabaseTransactions
 import dev.daymark.data.local.DaymarkDatabase
-import dev.daymark.data.local.address.RoomPlaceAddressDataSource
-import dev.daymark.repository.PlaceAddressDataSource
 import dev.daymark.data.local.RoomApplicationDataSource
+import dev.daymark.data.local.RoomDatabaseTransactions
+import dev.daymark.data.local.address.RoomPlaceAddressDataSource
 import dev.daymark.data.local.application.ConfigurationCoordinator
 import dev.daymark.data.local.application.DataLifecycleService
 import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.dao.AttendanceDao
+import dev.daymark.data.local.dao.DirtyProjectionDao
+import dev.daymark.data.local.dao.LocalDataDeletionDao
+import dev.daymark.data.local.dao.PlaceAddressDao
+import dev.daymark.data.local.dao.PlanningDao
+import dev.daymark.data.local.dao.ProfileDao
+import dev.daymark.data.local.dao.ReportDao
 import dev.daymark.data.local.dashboard.TodayDashboardReader
 import dev.daymark.data.local.plan.PlanService
+import dev.daymark.data.local.plan.PlanningSnapshotReader
 import dev.daymark.data.local.plan.RoomPlanReader
 import dev.daymark.data.local.plan.TimeOffService
 import dev.daymark.data.local.reporting.ReportingRuntime
@@ -26,8 +35,6 @@ import dev.daymark.plan.PlanReader
 import dev.daymark.presentation.features.app.AppViewModel
 import dev.daymark.presentation.features.history.HistoryViewModel
 import dev.daymark.presentation.features.plan.PlanViewModel
-import dev.daymark.widgets.WidgetSetupPort
-import dev.daymark.widgets.createWidgetSetupPort
 import dev.daymark.presentation.features.settings.SettingsViewModel
 import dev.daymark.presentation.features.setup.SetupViewModel
 import dev.daymark.presentation.features.today.TodayViewModel
@@ -36,6 +43,7 @@ import dev.daymark.repository.ApplicationDataSource
 import dev.daymark.repository.AttendanceChecks
 import dev.daymark.repository.DashboardDataSource
 import dev.daymark.repository.DataLifecycleDataSource
+import dev.daymark.repository.PlaceAddressDataSource
 import dev.daymark.repository.PlanDataSource
 import dev.daymark.repository.ReportingDataSource
 import dev.daymark.repository.Repository
@@ -43,6 +51,8 @@ import dev.daymark.repository.SettingsDataSource
 import dev.daymark.repository.SetupDataSource
 import dev.daymark.repository.TimeOffDataSource
 import dev.daymark.widgets.WidgetPublisher
+import dev.daymark.widgets.WidgetSetupPort
+import dev.daymark.widgets.createWidgetSetupPort
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
 import kotlin.time.Clock
@@ -56,7 +66,16 @@ import org.koin.dsl.module
 import org.koin.dsl.onClose
 
 internal fun attendanceModule() = module {
-    single<PlaceAddressDataSource> { RoomPlaceAddressDataSource(get(), get()) }
+    single<ProfileDao> { get<DaymarkDatabase>().profileDao() }
+    single<AttendanceDao> { get<DaymarkDatabase>().attendanceDao() }
+    single<PlanningDao> { get<DaymarkDatabase>().planningDao() }
+    single<DirtyProjectionDao> { get<DaymarkDatabase>().dirtyProjectionDao() }
+    single<ReportDao> { get<DaymarkDatabase>().reportDao() }
+    single<PlaceAddressDao> { get<DaymarkDatabase>().placeAddressDao() }
+    single<LocalDataDeletionDao> { get<DaymarkDatabase>().localDataDeletionDao() }
+    single { PlanningSnapshotReader(get(), get(), get()) }
+    single<DatabaseTransactions> { RoomDatabaseTransactions(get()) }
+    single<PlaceAddressDataSource> { RoomPlaceAddressDataSource(get(), get(), get(), get()) }
     single<AttendanceChecks> { get<AttendanceService>() }
     single<PlanDataSource> { get<PlanService>() }
     single<TimeOffDataSource> { get<TimeOffService>() }
@@ -94,17 +113,26 @@ internal fun attendanceModule() = module {
     }
 
     single<Clock> { Clock.System }
-    single<AttendanceRepository> { RoomAttendanceRepository(get(), get()) }
+    single<AttendanceRepository> {
+        RoomAttendanceRepository(
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+            get()
+        )
+    }
     single { AttendanceService(get(), get(), get()) }
-    single { TimeOffService(get(), get(), get()) }
-    single { PlanService(get(), get(), get()) }
-    single<PlanReader> { RoomPlanReader(get(), get()) }
-    single { SettingsRepository(get()) }
-    single { SetupService(get(), get(), get()) }
+    single { TimeOffService(get(), get(), get(), get(), get(), get(), get(), get()) }
+    single { PlanService(get(), get(), get(), get(), get(), get(), get()) }
+    single<PlanReader> { RoomPlanReader(get(), get(), get()) }
+    single { SettingsRepository(get(), get(), get()) }
+    single { SetupService(get(), get(), get(), get(), get(), get()) }
     single { GoogleAccess(get()) }
-    single { WidgetPublisher(get(), get(), get(), get(), settings = get()) }
-    single { TodayDashboardReader(get(), get()) }
-    single { RoomReportStore(get(), get()) }
+    single { WidgetPublisher(get(), get(), get(), get(), get(), get(), settings = get()) }
+    single { TodayDashboardReader(get(), get(), get(), get()) }
+    single { RoomReportStore(get(), get(), get(), get(), get(), get(), get()) }
     single {
         HttpClient {
             install(HttpTimeout) {
@@ -119,6 +147,7 @@ internal fun attendanceModule() = module {
     single<ReportTransport> { get<GoogleReportTransport>() }
     single {
         ReportingRuntime(
+            get(), get(), get(), get(),
             get(),
             get(),
             get(),
@@ -142,11 +171,12 @@ internal fun lifecycleModule(
     }
     single {
         DataLifecycleService(
+            get(), get(),
             get(),
             get<ReportingRuntime>().store,
             stopExternal = {
                 get<ReportingRuntime>().lifecycle.stop()
-                get<DaymarkDatabase>().dao().tracker()
+                get<ProfileDao>().tracker()
                     ?.let { get<ConfigurationCoordinator>().cancelTracker(it.id) }
                 stopExternalWork()
             },

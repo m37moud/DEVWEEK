@@ -1,7 +1,6 @@
 package dev.daymark.app
 
 import dev.daymark.attendance.AttendanceService
-import dev.daymark.data.local.DaymarkDatabase
 import dev.daymark.data.local.application.ConfigurationCoordinator
 import dev.daymark.data.local.application.DataLifecycleService
 import dev.daymark.data.local.reporting.ReportingRuntime
@@ -34,7 +33,6 @@ class AppGraph(
         )
     }
     val koin get() = container.koin
-    val db: DaymarkDatabase by koin.inject()
     val repository: Repository by koin.inject()
     val attendance: AttendanceService by koin.inject()
     val planReader: PlanReader by koin.inject()

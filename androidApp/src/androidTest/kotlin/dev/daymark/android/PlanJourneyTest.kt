@@ -1,5 +1,7 @@
 package dev.daymark.android
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -55,15 +57,52 @@ class PlanJourneyTest {
             compose.waitUntil(10_000) {
                 runBlocking {
                     TimeOffService(
-                        fixture.db,
-                        fixture.clock
+                        fixture.db.profileDao(),
+                        fixture.db.attendanceDao(),
+                        fixture.db.planningDao(),
+                        fixture.db.dirtyProjectionDao(),
+                        dev.daymark.data.local.plan.PlanningSnapshotReader(
+                            fixture.db.profileDao(),
+                            fixture.db.attendanceDao(),
+                            fixture.db.planningDao()
+                        ),
+                        RoomDatabaseTransactions(fixture.db),
+                        fixture.clock,
+                        attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                            fixture.db.profileDao(),
+                            fixture.db.attendanceDao(),
+                            fixture.db.planningDao(),
+                            fixture.db.dirtyProjectionDao(),
+                            RoomDatabaseTransactions(fixture.db),
+                            fixture.clock
+                        )
                     ).observeEntries().first().isNotEmpty()
                 }
             }
             Assert.assertEquals(
                 9,
                 runBlocking {
-                    TimeOffService(fixture.db, fixture.clock).observeAvailableBalance().first()
+                    TimeOffService(
+                        fixture.db.profileDao(),
+                        fixture.db.attendanceDao(),
+                        fixture.db.planningDao(),
+                        fixture.db.dirtyProjectionDao(),
+                        dev.daymark.data.local.plan.PlanningSnapshotReader(
+                            fixture.db.profileDao(),
+                            fixture.db.attendanceDao(),
+                            fixture.db.planningDao()
+                        ),
+                        RoomDatabaseTransactions(fixture.db),
+                        fixture.clock,
+                        attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                            fixture.db.profileDao(),
+                            fixture.db.attendanceDao(),
+                            fixture.db.planningDao(),
+                            fixture.db.dirtyProjectionDao(),
+                            RoomDatabaseTransactions(fixture.db),
+                            fixture.clock
+                        )
+                    ).observeAvailableBalance().first()
                 })
             compose.onNodeWithTag("nav-history").performClick()
             compose.waitUntil(10_000) {
@@ -84,15 +123,52 @@ class PlanJourneyTest {
             compose.waitUntil(10_000) {
                 runBlocking {
                     TimeOffService(
-                        fixture.db,
-                        fixture.clock
+                        fixture.db.profileDao(),
+                        fixture.db.attendanceDao(),
+                        fixture.db.planningDao(),
+                        fixture.db.dirtyProjectionDao(),
+                        dev.daymark.data.local.plan.PlanningSnapshotReader(
+                            fixture.db.profileDao(),
+                            fixture.db.attendanceDao(),
+                            fixture.db.planningDao()
+                        ),
+                        RoomDatabaseTransactions(fixture.db),
+                        fixture.clock,
+                        attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                            fixture.db.profileDao(),
+                            fixture.db.attendanceDao(),
+                            fixture.db.planningDao(),
+                            fixture.db.dirtyProjectionDao(),
+                            RoomDatabaseTransactions(fixture.db),
+                            fixture.clock
+                        )
                     ).observeEntries().first().isEmpty()
                 }
             }
             Assert.assertEquals(
                 10,
                 runBlocking {
-                    TimeOffService(fixture.db, fixture.clock).observeAvailableBalance().first()
+                    TimeOffService(
+                        fixture.db.profileDao(),
+                        fixture.db.attendanceDao(),
+                        fixture.db.planningDao(),
+                        fixture.db.dirtyProjectionDao(),
+                        dev.daymark.data.local.plan.PlanningSnapshotReader(
+                            fixture.db.profileDao(),
+                            fixture.db.attendanceDao(),
+                            fixture.db.planningDao()
+                        ),
+                        RoomDatabaseTransactions(fixture.db),
+                        fixture.clock,
+                        attendance = dev.daymark.data.local.attendance.RoomAttendanceRepository(
+                            fixture.db.profileDao(),
+                            fixture.db.attendanceDao(),
+                            fixture.db.planningDao(),
+                            fixture.db.dirtyProjectionDao(),
+                            RoomDatabaseTransactions(fixture.db),
+                            fixture.clock
+                        )
+                    ).observeAvailableBalance().first()
                 })
         } finally {
             compose.runOnIdle { shown = false }; compose.waitForIdle()

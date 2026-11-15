@@ -1,5 +1,7 @@
 package dev.daymark.attendance
 
+import dev.daymark.data.local.RoomDatabaseTransactions
+
 import dev.daymark.data.local.attendance.RoomAttendanceRepository
 import dev.daymark.data.local.openJvmDatabase
 import dev.daymark.data.seedDatabase
@@ -23,7 +25,14 @@ fun main(args: Array<String>): Unit = runBlocking {
         }
     }
     AttendanceService(
-        RoomAttendanceRepository(db, clock),
+        RoomAttendanceRepository(
+            db.profileDao(),
+            db.attendanceDao(),
+            db.planningDao(),
+            db.dirtyProjectionDao(),
+            RoomDatabaseTransactions(db),
+            clock
+        ),
         gateway,
         clock
     ).runAutomatic(dev.daymark.fixturePlan().key)

@@ -18,10 +18,10 @@ class UpgradeJourneyTest {
         val fixture=AttendanceTestApp(context,name)
         try {
             fixture.graph.attendance.manualCheck()
-            val tracker=fixture.db.dao().tracker()!!.id
-            val records=fixture.db.dao().days(tracker)
+            val tracker = fixture.db.profileDao().tracker()!!.id
+            val records = fixture.db.attendanceDao().days(tracker)
             Assert.assertTrue(records.isNotEmpty())
-            val pending=fixture.db.dao().dirtyProjections(tracker)
+            val pending = fixture.db.dirtyProjectionDao().dirtyProjections(tracker)
             // Test-only fixture of exported schema 1; this is not an older shipped application.
             fixture.db.useWriterConnection { connection ->
                 connection.executeSQL("ALTER TABLE trackers DROP COLUMN changeRevision")
@@ -30,12 +30,19 @@ class UpgradeJourneyTest {
                 connection.executeSQL("PRAGMA user_version=1")
             }
             fixture.db.close()
-            val upgraded=openAndroidDatabase(context,name)
+            val upgraded = openAndroidDatabase(context, name)
             try {
-                Assert.assertEquals(records,upgraded.dao().days(tracker))
-                Assert.assertEquals(pending,upgraded.dao().dirtyProjections(tracker))
-                Assert.assertEquals(10,upgraded.dao().tracker()!!.openingBalance)
-            } finally { upgraded.close() }
-        } finally { fixture.db.close(); context.deleteDatabase(name) }
+                Assert.assertEquals(records, upgraded.attendanceDao().days(tracker))
+                Assert.assertEquals(
+                    pending,
+                    upgraded.dirtyProjectionDao().dirtyProjections(tracker)
+                )
+                Assert.assertEquals(10, upgraded.profileDao().tracker()!!.openingBalance)
+            } finally {
+                upgraded.close()
+            }
+        } finally {
+            fixture.db.close(); context.deleteDatabase(name)
+        }
     }
 }

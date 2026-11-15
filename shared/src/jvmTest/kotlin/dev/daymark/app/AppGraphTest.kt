@@ -6,6 +6,15 @@ import dev.daymark.attendance.TestClock
 import dev.daymark.auth.NativeAuthReply
 import dev.daymark.auth.NativeGoogleAuth
 import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.dao.ProfileDao
+import dev.daymark.data.local.dao.LocalDataDeletionDao
+import dev.daymark.data.local.dao.PlaceAddressDao
+import dev.daymark.data.local.dao.ReportDao
+import dev.daymark.data.local.dao.DirtyProjectionDao
+import dev.daymark.data.local.dao.PlanningDao
+import dev.daymark.data.local.dao.AttendanceDao
+import dev.daymark.data.local.DatabaseTransactions
+import dev.daymark.data.local.SettingEntity
 import dev.daymark.data.local.openJvmDatabase
 import dev.daymark.location.LocationCapabilities
 import dev.daymark.location.LocationGateway
@@ -26,6 +35,7 @@ import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 import kotlin.time.Clock
@@ -47,12 +57,62 @@ class AppGraphTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val folder = Files.createTempDirectory("daymark-di-")
         val db = openJvmDatabase(folder.resolve("app.db").toString())
+        val otherDb = openJvmDatabase(folder.resolve("other.db").toString())
         val clock = TestClock()
         val graph = AppGraph(platformModule(db, clock))
-        val other = AppGraph(platformModule(db, TestClock()))
+        val other = AppGraph(platformModule(otherDb, TestClock()))
         val models = ViewModelStore()
         try {
-            assertSame(db, graph.db)
+            val graphDaos = listOf(
+                db.profileDao() to graph.koin.get<ProfileDao>(),
+                db.attendanceDao() to graph.koin.get<AttendanceDao>(),
+                db.planningDao() to graph.koin.get<PlanningDao>(),
+                db.dirtyProjectionDao() to graph.koin.get<DirtyProjectionDao>(),
+                db.reportDao() to graph.koin.get<ReportDao>(),
+                db.placeAddressDao() to graph.koin.get<PlaceAddressDao>(),
+                db.localDataDeletionDao() to graph.koin.get<LocalDataDeletionDao>()
+            )
+            val otherDaos = listOf(
+                otherDb.profileDao() to other.koin.get<ProfileDao>(),
+                otherDb.attendanceDao() to other.koin.get<AttendanceDao>(),
+                otherDb.planningDao() to other.koin.get<PlanningDao>(),
+                otherDb.dirtyProjectionDao() to other.koin.get<DirtyProjectionDao>(),
+                otherDb.reportDao() to other.koin.get<ReportDao>(),
+                otherDb.placeAddressDao() to other.koin.get<PlaceAddressDao>(),
+                otherDb.localDataDeletionDao() to other.koin.get<LocalDataDeletionDao>()
+            )
+            graphDaos.zip(otherDaos).forEach { (first, second) ->
+                assertSame(first.first, first.second)
+                assertSame(second.first, second.second)
+                assertNotSame(first.second, second.second)
+            }
+            val dao = graph.koin.get<ProfileDao>()
+            val otherDao = other.koin.get<ProfileDao>()
+            val transactions = graph.koin.get<DatabaseTransactions>()
+            val otherTransactions = other.koin.get<DatabaseTransactions>()
+            assertSame(db.profileDao(), dao)
+            assertSame(otherDb.profileDao(), otherDao)
+            assertNotSame(dao, otherDao)
+            assertSame(transactions, graph.koin.get<DatabaseTransactions>())
+            assertNotSame(transactions, otherTransactions)
+            transactions.withWriteTransaction { dao.putSetting(SettingEntity("graph", "first")) }
+            otherTransactions.withWriteTransaction {
+                otherDao.putSetting(SettingEntity("graph", "second"))
+            }
+            assertEquals("first", db.profileDao().setting("graph")?.value)
+            assertEquals("second", otherDb.profileDao().setting("graph")?.value)
+            for ((graphDao, graphTransactions) in listOf(
+                dao to transactions,
+                otherDao to otherTransactions
+            )) {
+                assertFailsWith<IllegalStateException> {
+                    graphTransactions.withWriteTransaction {
+                        graphDao.putSetting(SettingEntity("rolled-back", "pending"))
+                        error("abort_graph_transaction")
+                    }
+                }
+                assertEquals(null, graphDao.setting("rolled-back"))
+            }
             assertSame(graph.repository, graph.koin.get<Repository>())
             assertSame(graph.attendance, graph.repository.checks)
             assertSame(clock, graph.clock)
@@ -91,6 +151,7 @@ class AppGraphTest {
             graph.close()
             other.close()
             db.close()
+            otherDb.close()
             folder.toFile().deleteRecursively()
             Dispatchers.resetMain()
         }
