@@ -43,6 +43,7 @@ import compose.icons.fontawesomeicons.solid.Clock
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.plan.WeeklySchedule
+import dev.daymark.presentation.component.DepartureCutoffEditor
 import dev.daymark.presentation.component.WeekdayOverrides
 import dev.daymark.presentation.component.label
 import dev.daymark.presentation.component.localTimeLabel
@@ -92,6 +93,7 @@ internal fun PlanRoutineCard(
     onResetOverride: (DayOfWeek) -> Unit,
     onPickZone: () -> Unit,
     onReviewChanges: () -> Unit,
+    onScheduleChange: (WeeklySchedule) -> Unit,
     modifier: Modifier = Modifier,
     appLanguage: AppLanguage = LocalAppLanguage.current,
 ) {
@@ -237,6 +239,8 @@ internal fun PlanRoutineCard(
                 )
             }
 
+            DepartureCutoffEditor(schedule, busy, onScheduleChange)
+
             WeekdayOverrides(
                 schedule = schedule,
                 busy = busy,
@@ -315,16 +319,22 @@ internal fun PlanRoutineCard(
 }
 
 
-
 @Preview
 @Composable
 private fun PlanRoutineCardPreview() {
     val sampleSchedule = WeeklySchedule(
-        days = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY),
+        days = setOf(
+            DayOfWeek.MONDAY,
+            DayOfWeek.TUESDAY,
+            DayOfWeek.WEDNESDAY,
+            DayOfWeek.THURSDAY,
+            DayOfWeek.FRIDAY
+        ),
         arrival = LocalTime(9, 0),
         overrides = mapOf(DayOfWeek.FRIDAY to LocalTime(8, 30)),
         graceMinutes = 10,
-        zoneId = "UTC"
+        zoneId = "UTC",
+        departure = LocalTime(17, 0)
     )
     DaymarkTheme(ThemePreference.LIGHT) {
         PlanRoutineCard(
@@ -340,7 +350,8 @@ private fun PlanRoutineCardPreview() {
             onPickDayOverride = {},
             onResetOverride = {},
             onPickZone = {},
-            onReviewChanges = {}
+            onReviewChanges = {},
+            onScheduleChange = {}
         )
     }
 }

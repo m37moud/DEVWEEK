@@ -1,5 +1,8 @@
 package dev.daymark.plan
 
+import dev.daymark.app.firstSetupArrival
+import dev.daymark.fixturePlace
+import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.acceptedStatus
 import dev.daymark.at
 import dev.daymark.fixtureDate
@@ -19,6 +22,70 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
 class ScheduleRulesTest {
+    @Test
+    fun weekly_off_days_have_no_departure_and_do_not_reject_valid_scheduled_overrides() {
+        val schedule = fixtureSchedule(
+            days = setOf(DayOfWeek.TUESDAY),
+            arrival = LocalTime(9, 0),
+            overrides = mapOf(DayOfWeek.TUESDAY to LocalTime(7, 0))
+        ).copy(departure = LocalTime(8, 0))
+        val scheduled = fixturePlan(schedule)
+        assertEquals(at("08:00:00"), scheduled.departure)
+        val off = fixturePlan(schedule, LocalDate(2026, 10, 28))
+        assertEquals(false, off.isScheduled)
+        assertEquals(null, off.departure)
+        assertEquals(
+            at("07:00:00"),
+            schedule.firstSetupArrival(at("06:00:00"), TrackerCategory.WORK, fixturePlace())
+        )
+    }
+
+    @Test
+    fun departure_inherits_overrides_and_can_be_disabled_per_day() {
+        val schedule = fixtureSchedule().copy(
+            departure = LocalTime(17, 0),
+            departureOverrides = mapOf(
+                DayOfWeek.TUESDAY to null,
+                DayOfWeek.WEDNESDAY to LocalTime(16, 0)
+            )
+        )
+        assertEquals(null, fixturePlan(schedule).departure)
+        assertEquals(
+            Instant.parse("2026-10-28T16:00:00Z"),
+            fixturePlan(schedule, LocalDate(2026, 10, 28)).departure
+        )
+        assertEquals(
+            Instant.parse("2026-10-29T17:00:00Z"),
+            fixturePlan(schedule, LocalDate(2026, 10, 29)).departure
+        )
+    }
+
+    @Test
+    fun departure_must_not_precede_grace_and_reuses_dst_resolution() {
+        assertFailsWith<IllegalArgumentException> {
+            fixturePlan(
+                fixtureSchedule().copy(
+                    departure = LocalTime(
+                        9,
+                        4
+                    )
+                )
+            )
+        }
+        assertEquals(
+            at("09:05:00"),
+            fixturePlan(fixtureSchedule().copy(departure = LocalTime(9, 5))).departure
+        )
+        val gap = fixtureSchedule(
+            arrival = LocalTime(1, 0),
+            zoneId = "America/New_York"
+        ).copy(departure = LocalTime(2, 30))
+        assertEquals(
+            Instant.parse("2026-03-08T07:00:00Z"),
+            fixturePlan(gap, LocalDate(2026, 3, 8)).departure
+        )
+    }
+
     @Test
     fun gap_uses_first_valid_instant_and_overlap_uses_earlier_occurrence() {
         assertEquals(

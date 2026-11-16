@@ -44,7 +44,8 @@ class SettingsRepository(
         language: LanguagePreference?,
         theme: ThemePreference?,
         displayName: String?,
-        remindersEnabled: Boolean?
+        remindersEnabled: Boolean?,
+        resultNotificationsEnabled: Boolean?
     ): Unit = try {
         transactions.withWriteTransaction {
             require(
@@ -57,38 +58,50 @@ class SettingsRepository(
                 displayName = displayName ?: before.displayName,
                 language = language ?: before.language,
                 theme = theme ?: before.theme,
-                remindersEnabled = remindersEnabled ?: before.remindersEnabled
+                remindersEnabled = remindersEnabled ?: before.remindersEnabled,
+                resultNotificationsEnabled = resultNotificationsEnabled
+                    ?: before.resultNotificationsEnabled
             )
-            if (after != before) profileDao.putSetting(SettingEntity("ui-settings", buildJsonObject {
-                put("displayName", after.displayName); put(
-                "language",
-                after.language.name
-            ); put("theme", after.theme.name); put("remindersEnabled", after.remindersEnabled)
-            }.toString()))
-            if (displayName != null) profileDao.tracker()?.takeIf { it.displayName != displayName }?.let {
-                profileDao.putTracker(
-                    it.copy(
-                        displayName = displayName,
-                        changeRevision = it.changeRevision + 1
-                    )
+            if (after != before) profileDao.putSetting(
+                SettingEntity(
+                    "ui-settings",
+                    buildJsonObject {
+                        put("displayName", after.displayName); put(
+                        "language",
+                        after.language.name
+                    ); put("theme", after.theme.name); put(
+                        "remindersEnabled",
+                        after.remindersEnabled
+                    ); put("resultNotificationsEnabled", after.resultNotificationsEnabled)
+                    }.toString()
                 )
-                dirtyProjectionDao.markDirty(it.id, "OVERVIEW")
-            }
+            )
+            if (displayName != null) profileDao.tracker()?.takeIf { it.displayName != displayName }
+                ?.let {
+                    profileDao.putTracker(
+                        it.copy(
+                            displayName = displayName,
+                            changeRevision = it.changeRevision + 1
+                        )
+                    )
+                    dirtyProjectionDao.markDirty(it.id, "OVERVIEW")
+                }
         }
     } catch (failure: SQLiteException) {
         throw SettingsStorageException(failure)
     }
 
-    override fun observeTracker(): Flow<TrackerSummary?> = profileDao.observeTracker().map { tracker ->
-        tracker?.let {
-            TrackerSummary(
-                it.id,
-                it.displayName,
-                it.changeRevision,
-                it.automaticEnabled
-            )
+    override fun observeTracker(): Flow<TrackerSummary?> =
+        profileDao.observeTracker().map { tracker ->
+            tracker?.let {
+                TrackerSummary(
+                    it.id,
+                    it.displayName,
+                    it.changeRevision,
+                    it.automaticEnabled
+                )
+            }
         }
-    }
 
     override suspend fun trackerIdentity(): String? = profileDao.tracker()?.id
 
@@ -122,7 +135,8 @@ class SettingsRepository(
                 json["displayName"]?.jsonPrimitive?.content.orEmpty(),
                 LanguagePreference.valueOf(json.getValue("language").jsonPrimitive.content),
                 ThemePreference.valueOf(json.getValue("theme").jsonPrimitive.content),
-                json["remindersEnabled"]?.jsonPrimitive?.booleanOrNull ?: false
+                json["remindersEnabled"]?.jsonPrimitive?.booleanOrNull ?: false,
+                json["resultNotificationsEnabled"]?.jsonPrimitive?.booleanOrNull ?: false
             )
         }.getOrNull()
     } ?: AppSettings()

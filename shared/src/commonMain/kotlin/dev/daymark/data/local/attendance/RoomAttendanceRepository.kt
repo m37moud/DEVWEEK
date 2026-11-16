@@ -81,6 +81,15 @@ class RoomAttendanceRepository(
             }
         }
 
+    override fun observeRange(from: LocalDate, through: LocalDate) =
+        HistoryRangeReader(
+            profileDao,
+            attendanceDao,
+            planningDao,
+            transactions,
+            clock
+        ).observe(from, through)
+
     override fun observeMonth(year: Int, month: Int): Flow<HistoryMonth> {
         LocalDate(year, month, 1)
         return profileDao.observeTracker().flatMapLatest { tracker ->
@@ -264,6 +273,7 @@ class RoomAttendanceRepository(
                 if (verdict.confirmedAt <= day.plan.deadline) AttendanceStatus.PRESENT else AttendanceStatus.LATE
             val invalid = when {
                 verdict.confirmedAt < day.plan.arrival || verdict.confirmedAt > now || verdict.status != expectedStatus -> CheckRejection.INVALID_FIX
+                request.mode == CheckMode.USER_INITIATED && day.plan.departure?.let { verdict.confirmedAt > it } == true -> CheckRejection.AFTER_DEPARTURE
                 request.mode == CheckMode.AUTOMATIC && expectedStatus == AttendanceStatus.LATE -> CheckRejection.AFTER_AUTOMATIC_WINDOW
                 else -> null
             }
@@ -289,47 +299,48 @@ class RoomAttendanceRepository(
             CheckOutcome.Recorded(stored(saved, entries).outcome(now))
         }
 
-    override suspend fun correct(command: Correction): DayOutcome = transactions.withWriteTransaction {
-        require(
-            command.status in listOf(
-                AttendanceStatus.PRESENT,
-                AttendanceStatus.LATE,
-                AttendanceStatus.ABSENT
+    override suspend fun correct(command: Correction): DayOutcome =
+        transactions.withWriteTransaction {
+            require(
+                command.status in listOf(
+                    AttendanceStatus.PRESENT,
+                    AttendanceStatus.LATE,
+                    AttendanceStatus.ABSENT
+                )
             )
-        )
-        val now = clock.now()
-        val context = requireNotNull(context(now)) { "Tracker is unavailable" }
-        require(command.key.trackerId == context.tracker.id)
-        val before = attendanceDao.day(command.key.trackerId, command.key.date.toString())
-        val row = requireNotNull(
-            before ?: project(
-                context,
-                command.key,
-                now
+            val now = clock.now()
+            val context = requireNotNull(context(now)) { "Tracker is unavailable" }
+            require(command.key.trackerId == context.tracker.id)
+            val before = attendanceDao.day(command.key.trackerId, command.key.date.toString())
+            val row = requireNotNull(
+                before ?: project(
+                    context,
+                    command.key,
+                    now
+                )
+            ) { "Date is outside the tracked period" }
+            val entries = planningDao.timeOff(command.key.trackerId)
+            val day = stored(row, entries)
+            require(command.key.date <= now.toLocalDateTime(TimeZone.of(day.plan.zoneId)).date)
+            require(day.plan.isScheduled && day.off == null) { "Edit time off before correcting attendance" }
+            val confirmed = if (command.status == AttendanceStatus.ABSENT) null
+            else resolveLocalArrival(
+                command.key.date,
+                requireNotNull(command.arrivalTime),
+                day.plan.zoneId
             )
-        ) { "Date is outside the tracked period" }
-        val entries = planningDao.timeOff(command.key.trackerId)
-        val day = stored(row, entries)
-        require(command.key.date <= now.toLocalDateTime(TimeZone.of(day.plan.zoneId)).date)
-        require(day.plan.isScheduled && day.off == null) { "Edit time off before correcting attendance" }
-        val confirmed = if (command.status == AttendanceStatus.ABSENT) null
-        else resolveLocalArrival(
-            command.key.date,
-            requireNotNull(command.arrivalTime),
-            day.plan.zoneId
-        )
-        val saved = persist(
-            before, row.copy(
-                evidenceStatus = command.status.name,
-                evidenceSource = AttendanceSource.MANUAL_CORRECTION.name,
-                confirmedAt = confirmed?.toString(),
-                note = command.note,
-                evidenceUpdatedAt = now.toString(),
-                userEditRevision = row.userEditRevision + 1
-            ), entries, now
-        )
-        stored(saved, entries).outcome(now)
-    }
+            val saved = persist(
+                before, row.copy(
+                    evidenceStatus = command.status.name,
+                    evidenceSource = AttendanceSource.MANUAL_CORRECTION.name,
+                    confirmedAt = confirmed?.toString(),
+                    note = command.note,
+                    evidenceUpdatedAt = now.toString(),
+                    userEditRevision = row.userEditRevision + 1
+                ), entries, now
+            )
+            stored(saved, entries).outcome(now)
+        }
 
     private data class Context(
         val tracker: TrackerEntity,

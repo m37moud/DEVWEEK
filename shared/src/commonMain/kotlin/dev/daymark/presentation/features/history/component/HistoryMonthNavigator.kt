@@ -6,15 +6,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -23,23 +19,20 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import dev.daymark.history.HistoryMetric
+import dev.daymark.history.historyMetrics
+import dev.daymark.logging.AppLogger
 import dev.daymark.models.attendance.HistoryMonth
+import dev.daymark.presentation.component.HistoryMetricsGrid
 import dev.daymark.resources.Res
-import dev.daymark.resources.month_counts
 import dev.daymark.resources.next_month
 import dev.daymark.resources.previous_month
-import dev.daymark.resources.status_absent
-import dev.daymark.resources.status_late
-import dev.daymark.resources.status_present
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.str
@@ -56,12 +49,14 @@ internal fun HistoryMonthNavigator(
     history: HistoryMonth,
     language: AppLanguage,
     onSelectMonth: (Int, Int) -> Unit,
+    today: LocalDate = LocalDate(year, month, 1),
+    onMetric: (HistoryMetric) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val presentText = DisplayFormats.number(history.present, language)
-    val lateText = DisplayFormats.number(history.late, language)
-    val absentText = DisplayFormats.number(history.absent, language)
-    val monthCountsDescription = str(Res.string.month_counts, presentText, lateText, absentText)
+    val metrics = historyMetrics(history.records, today)
+    LaunchedEffect(metrics) {
+        AppLogger.d("HistoryMonthNavigator", "History metrics: $metrics")
+    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -128,73 +123,7 @@ internal fun HistoryMonthNavigator(
                 }
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics(mergeDescendants = true) {
-                        contentDescription = monthCountsDescription
-                    },
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                MonthKpiTile(
-                    count = presentText,
-                    label = str(Res.string.status_present),
-                    dotColor = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.weight(1f)
-                )
-                MonthKpiTile(
-                    count = lateText,
-                    label = str(Res.string.status_late),
-                    dotColor = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.weight(1f)
-                )
-                MonthKpiTile(
-                    count = absentText,
-                    label = str(Res.string.status_absent),
-                    dotColor = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun MonthKpiTile(
-    count: String,
-    label: String,
-    dotColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surface
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(color = dotColor, shape = CircleShape)
-                )
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Text(
-                text = count,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            HistoryMetricsGrid(metrics = metrics, onMetric = onMetric)
         }
     }
 }

@@ -114,7 +114,6 @@
     <string name="previous_month">الشهر السابق</string>
     <string name="next_month">الشهر التالي</string>
     <string name="back">رجوع</string>
-    <string name="month_counts">%1$s حاضر · %2$s متأخر · %3$s غائب</string>
     <string name="edit_time_off">تعديل العطلة في الجدول</string>
     <string name="time_off_edit_help">لا يمكن لتصحيح الحضور استبدال يوم راحة أو عطلة أو إجازة. عدّل تواريخها في الجدول.</string>
     <string name="location_before_window">لم يبدأ وقت تسجيل الحضور بعد.</string>
@@ -258,4 +257,36 @@
     <string name="widget_checking">جارٍ التحقق من حالة الأداة…</string>
     <string name="widget_setup_unknown">تعذّر التحقق من حالة الأداة</string>
     <string name="widget_refresh_status">التحقق من حالة الأداة</string>
+    <string name="departure_cutoff">آخر موعد للحضور (اختياري)</string>
+    <string name="departure_explanation">يُقبل التحقق بالموقع حتى هذا الوقت شاملًا. اختر وقتًا في اليوم نفسه لا يسبق الوصول مع فترة السماح.</string>
+    <string name="departure_inherit">استخدام الافتراضي</string>
+    <string name="departure_none">بدون موعد نهائي</string>
+    <string name="departure_set">تعيين موعد</string>
+    <string name="location_after_departure">انتهى موعد التحقق بالموقع. يمكنك تصحيح الحضور يدويًا.</string>
+
+    <string name="result_notifications">إشعارات نتيجة الحضور</string>
+    <string name="result_notifications_help">إشعارات اختيارية صامتة بعد فحص الحضور. يفتح النقر صفحة اليوم دون فحص موقعك.</string>
+    <string name="result_notifications_denied">الإشعارات غير متاحة. يستمر الحضور بالعمل. اسمح بالإشعارات من إعدادات النظام.</string>
+    <string name="result_saved">تم حفظ الحضور على هذا الهاتف</string>
+    <string name="result_unconfirmed">لم يتم تأكيد الحضور</string>
+    <string name="result_present">حاضر. افتح اليوم لعرض الحالة الحالية.</string>
+    <string name="result_late">متأخر. افتح اليوم لعرض الحالة الحالية.</string>
+    <string name="result_location_denied">تم رفض إذن الموقع.</string>
+    <string name="result_location_disabled">خدمات الموقع متوقفة.</string>
+    <string name="result_location_timeout">انتهت مهلة طلب الموقع.</string>
+    <string name="result_outside_area">موقعك خارج المكان المسجل.</string>
+    <string name="result_save_failed">تعذر حفظ نتيجة الحضور على هذا الهاتف.</string>
+    <string name="result_fix_unusable">تعذر التحقق من موقع حديث ودقيق.</string>
+    <string name="result_location_unavailable">الموقع غير متاح.</string>
+
+    <string name="history_attendance">الحضور</string>
+    <string name="history_leave_rest">الإجازات</string>
+    <string name="history_holidays">العطلات الرسمية</string>
+    <string name="history_elapsed_days">الأيام حتى اليوم: %1$s</string>
+    <string name="history_late_minutes">دقائق التأخير: %1$s</string>
+    <string name="history_under_minute">أقل من دقيقة</string>
+    <string name="history_range_invalid">اختر فترة مرتبة تبدأ من أول يوم تتبع أو بعده.</string>
+    <string name="history_late_basis">يُحسب التأخير من موعد الحضور المقرر. يحتفظ التصحيح اليدوي بالحالة التي اخترتها.</string>
+    <string name="history_scheduled_arrival">موعد الحضور المقرر: %1$s</string>
+    <string name="apply_range">تطبيق الفترة</string>
 </resources>

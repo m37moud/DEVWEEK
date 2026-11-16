@@ -17,4 +17,5 @@
     <string name="widget_check_cancelled">تم إلغاء التحقق</string>
     <string name="widget_check_retry">الموقع غير متاح</string>
     <string name="widget_check_retry_action">أعد تسجيل الحضور</string>
+    <string name="widget_check_departure">انتهى موعد التحقق بالموقع. افتح Daymark لتصحيح الحضور يدويًا.</string>
 </resources>

@@ -30,6 +30,10 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import androidx.savedstate.serialization.SavedStateConfiguration
+import dev.daymark.app.TodayIntents
+import dev.daymark.history.HistoryMetric
+import dev.daymark.presentation.features.history.HistoryDetailScreen
+import dev.daymark.presentation.features.history.HistoryDetailViewModel
 import dev.daymark.app.HostPlatform
 import dev.daymark.app.QuickCheckIntents
 import dev.daymark.app.QuickCheckRequest
@@ -82,6 +86,10 @@ data class PlanRoute(val timeOffDate: String? = null) : NavKey
 @SerialName("dev.daymark.ui.SettingsRoute")
 data object SettingsRoute : NavKey
 
+@Serializable
+@SerialName("dev.daymark.navigation.HistoryDetailRoute")
+data class HistoryDetailRoute(val metric: HistoryMetric, val year: Int, val month: Int) : NavKey
+
 enum class SetupFinish { TODAY, CUSTOMIZE }
 
 internal val navigationConfig = SavedStateConfiguration {
@@ -96,6 +104,7 @@ internal val navigationConfig = SavedStateConfiguration {
             PlanRoute.serializer()
         )
             subclass(SettingsRoute::class, SettingsRoute.serializer())
+            subclass(HistoryDetailRoute::class, HistoryDetailRoute.serializer())
         }
     }
 }
@@ -113,6 +122,12 @@ fun AppNavigation(appModel: AppViewModel, platform: HostPlatform, tracker: Track
         }
     }
 
+    LaunchedEffect(tracker?.id) {
+        TodayIntents.events.collect {
+            pendingCheck = null
+            go(if (tracker == null) SetupRoute else TodayRoute)
+        }
+    }
     LaunchedEffect(appModel) {
         appModel.effects.collect { effect ->
             when (effect) {
@@ -148,7 +163,7 @@ fun AppNavigation(appModel: AppViewModel, platform: HostPlatform, tracker: Track
                 listOf(Res.string.today, Res.string.history, Res.string.plan, Res.string.settings)
             val tags = listOf("today", "history", "plan", "settings")
             val selected = when (current) {
-                TodayRoute -> 0; is HistoryRoute -> 1; is PlanRoute -> 2; SettingsRoute -> 3; else -> -1
+                TodayRoute -> 0; is HistoryRoute, is HistoryDetailRoute -> 1; is PlanRoute -> 2; SettingsRoute -> 3; else -> -1
             }
             labels.forEachIndexed { index, label ->
                 NavigationBarItem(
@@ -170,7 +185,10 @@ fun AppNavigation(appModel: AppViewModel, platform: HostPlatform, tracker: Track
         NavDisplay(
             backStack = stack,
             modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
-            onBack = { if (stack.lastOrNull() != TodayRoute && tracker != null) go(TodayRoute) },
+            onBack = {
+                if (stack.lastOrNull() is HistoryDetailRoute) stack.removeLastOrNull()
+                else if (stack.lastOrNull() != TodayRoute && tracker != null) go(TodayRoute)
+            },
             entryDecorators = listOf(
                 rememberSaveableStateHolderNavEntryDecorator(),
                 rememberViewModelStoreNavEntryDecorator()
@@ -193,7 +211,16 @@ fun AppNavigation(appModel: AppViewModel, platform: HostPlatform, tracker: Track
                     TodayScreen(
                         model,
                         tracker?.displayName.orEmpty(),
-                        onHistory = appModel::showHistory
+                        onHistory = appModel::showHistory,
+                        onMetric = { metric, displayedDate ->
+                            stack.add(
+                                HistoryDetailRoute(
+                                    metric,
+                                    displayedDate.year,
+                                    displayedDate.month.number
+                                )
+                            )
+                        }
                     )
                 }
                 entry<HistoryRoute> { route ->
@@ -203,6 +230,19 @@ fun AppNavigation(appModel: AppViewModel, platform: HostPlatform, tracker: Track
                     HistoryScreen(
                         model,
                         onBack = { go(TodayRoute) },
+                        onEditTimeOff = { date -> go(PlanRoute(date.toString())) },
+                        onMetric = { metric ->
+                            val current = model.uiState.value
+                            stack.add(HistoryDetailRoute(metric, current.year, current.month))
+                        })
+                }
+                entry<HistoryDetailRoute> { route ->
+                    val model = koinViewModel<HistoryDetailViewModel> {
+                        parametersOf(route.metric, LocalDate(route.year, route.month, 1))
+                    }
+                    HistoryDetailScreen(
+                        model,
+                        onBack = { stack.removeLastOrNull() },
                         onEditTimeOff = { date -> go(PlanRoute(date.toString())) })
                 }
                 entry<PlanRoute> { route ->

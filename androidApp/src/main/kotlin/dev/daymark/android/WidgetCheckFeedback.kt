@@ -59,6 +59,7 @@ private fun rejectionText(
             )
         } ?: context.getString(R.string.widget_check_disabled)
 
+        CheckRejection.AFTER_DEPARTURE -> context.getString(R.string.widget_check_departure)
         CheckRejection.LOCATION_DENIED -> context.getString(R.string.widget_check_permission)
         CheckRejection.LOCATION_DISABLED -> context.getString(R.string.widget_check_location_off)
         CheckRejection.OUTSIDE_AREA -> context.getString(R.string.widget_check_outside)

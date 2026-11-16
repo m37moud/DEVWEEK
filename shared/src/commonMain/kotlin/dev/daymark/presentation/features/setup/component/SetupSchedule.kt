@@ -36,6 +36,7 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Clock
 import dev.daymark.plan.WeeklySchedule
+import dev.daymark.presentation.component.DepartureCutoffEditor
 import dev.daymark.presentation.component.ArrivalTimeDialog
 import dev.daymark.presentation.component.WeekdayOverrides
 import dev.daymark.presentation.component.ZonePicker
@@ -110,6 +111,7 @@ internal fun SetupSchedule(
         }
 
         GracePeriod(schedule, busy, onScheduleChange)
+        DepartureCutoffEditor(schedule, busy, onScheduleChange)
 
         WeekdayOverrides(
             schedule = schedule,
@@ -197,12 +199,14 @@ private fun AttendanceDays(
                     selected = day in schedule.days,
                     enabled = !busy,
                     onClick = {
-                        val days = if (day in schedule.days) schedule.days - day else schedule.days + day
+                        val days =
+                            if (day in schedule.days) schedule.days - day else schedule.days + day
                         if (days.isNotEmpty()) {
                             onChange(
                                 schedule.copy(
                                     days = days,
-                                    overrides = schedule.overrides.filterKeys { it in days }
+                                    overrides = schedule.overrides.filterKeys { it in days },
+                                    departureOverrides = schedule.departureOverrides.filterKeys { it in days }
                                 )
                             )
                         }
@@ -268,5 +272,29 @@ private fun GracePeriod(
                     }
             )
         }
+    }
+}
+
+
+@androidx.compose.ui.tooling.preview.Preview(
+    name = "Schedule with departure",
+    widthDp = 320,
+    fontScale = 1.5f
+)
+@Composable
+private fun SetupScheduleDeparturePreview() {
+    dev.daymark.ui.theme.DaymarkTheme(dev.daymark.settings.ThemePreference.LIGHT) {
+        SetupSchedule(
+            schedule = WeeklySchedule(
+                setOf(DayOfWeek.MONDAY),
+                kotlinx.datetime.LocalTime(9, 0),
+                emptyMap(),
+                5,
+                "UTC",
+                kotlinx.datetime.LocalTime(17, 0)
+            ),
+            busy = false,
+            onScheduleChange = {}
+        )
     }
 }

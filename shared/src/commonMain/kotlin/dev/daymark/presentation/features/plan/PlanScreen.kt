@@ -83,7 +83,13 @@ fun PlanScreen(model: PlanViewModel, clock: Clock, initialTimeOffDate: LocalDate
     val state by model.uiState.collectAsStateWithLifecycle()
     val language = LocalAppLanguage.current
     val place = state.draft?.place
-    LaunchedEffect(model, place?.latitude, place?.longitude, language, state.placeRegistrationRevision) {
+    LaunchedEffect(
+        model,
+        place?.latitude,
+        place?.longitude,
+        language,
+        state.placeRegistrationRevision
+    ) {
         if (place != null) model.showPlaceAddress(place, language)
     }
     val actions = remember(model) {
@@ -190,11 +196,13 @@ private fun PlanContent(
                 },
                 onDayToggle = { day ->
                     actions.edit {
-                        val days = if (day in it.schedule.days) it.schedule.days - day else it.schedule.days + day
+                        val days =
+                            if (day in it.schedule.days) it.schedule.days - day else it.schedule.days + day
                         it.copy(
                             schedule = it.schedule.copy(
                                 days = days,
-                                overrides = it.schedule.overrides.filterKeys { selected -> selected in days }
+                                overrides = it.schedule.overrides.filterKeys { selected -> selected in days },
+                                departureOverrides = it.schedule.departureOverrides.filterKeys { selected -> selected in days }
                             )
                         )
                     }
@@ -212,7 +220,8 @@ private fun PlanContent(
                     }
                 },
                 onPickZone = { chooseZone = true },
-                onReviewChanges = { actions.preview(draft) }
+                onReviewChanges = { actions.preview(draft) },
+                onScheduleChange = { schedule -> actions.edit { it.copy(schedule = schedule) } }
             )
 
             PlanPlaceCard(
@@ -349,7 +358,8 @@ internal fun PlanResult(result: PlanMutationResult?) {
 @Preview(name = "Narrow large text", widthDp = 320, fontScale = 2f)
 @Composable
 private fun PlanScreenLightPreview() {
-    val actions = PlanActions({ _ -> }, { _ -> }, { _ -> }, { _ -> }, { _ -> }, {}, { _, _ -> }, {}, {})
+    val actions =
+        PlanActions({ _ -> }, { _ -> }, { _ -> }, { _ -> }, { _ -> }, {}, { _, _ -> }, {}, {})
     DaymarkTheme(ThemePreference.LIGHT) {
         PlanContent(samplePlanState(), Clock.System, null, actions)
     }
@@ -358,7 +368,8 @@ private fun PlanScreenLightPreview() {
 @Preview
 @Composable
 private fun PlanScreenDarkPreview() {
-    val actions = PlanActions({ _ -> }, { _ -> }, { _ -> }, { _ -> }, { _ -> }, {}, { _, _ -> }, {}, {})
+    val actions =
+        PlanActions({ _ -> }, { _ -> }, { _ -> }, { _ -> }, { _ -> }, {}, { _, _ -> }, {}, {})
     DaymarkTheme(ThemePreference.DARK) {
         PlanContent(samplePlanState(), Clock.System, null, actions)
     }
@@ -367,7 +378,13 @@ private fun PlanScreenDarkPreview() {
 private fun samplePlanState(): PlanUiState {
     val draft = PlanChange(
         WeeklySchedule(
-            days = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY),
+            days = setOf(
+                DayOfWeek.MONDAY,
+                DayOfWeek.TUESDAY,
+                DayOfWeek.WEDNESDAY,
+                DayOfWeek.THURSDAY,
+                DayOfWeek.FRIDAY
+            ),
             arrival = LocalTime(9, 0),
             overrides = mapOf(DayOfWeek.FRIDAY to LocalTime(8, 30)),
             graceMinutes = 10,
@@ -385,8 +402,20 @@ private fun samplePlanState(): PlanUiState {
         ),
         availableBalance = 12,
         entries = listOf(
-            TimeOffEntry("sample-1", TimeOffKind.VACATION, LocalDate(2026, 11, 20), LocalDate(2026, 11, 25), Instant.fromEpochMilliseconds(0)),
-            TimeOffEntry("sample-2", TimeOffKind.HOLIDAY, LocalDate(2026, 12, 25), LocalDate(2026, 12, 25), Instant.fromEpochMilliseconds(0))
+            TimeOffEntry(
+                "sample-1",
+                TimeOffKind.VACATION,
+                LocalDate(2026, 11, 20),
+                LocalDate(2026, 11, 25),
+                Instant.fromEpochMilliseconds(0)
+            ),
+            TimeOffEntry(
+                "sample-2",
+                TimeOffKind.HOLIDAY,
+                LocalDate(2026, 12, 25),
+                LocalDate(2026, 12, 25),
+                Instant.fromEpochMilliseconds(0)
+            )
         )
     )
 }

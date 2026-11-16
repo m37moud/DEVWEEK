@@ -1,5 +1,6 @@
 package dev.daymark.attendance
 
+import dev.daymark.logging.AppLogger
 import dev.daymark.location.LocationFailure
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationResult
@@ -26,7 +27,8 @@ import kotlin.uuid.Uuid
 class AttendanceService(
     private val repository: AttendanceRepository,
     private val location: LocationGateway,
-    private val clock: Clock
+    private val clock: Clock,
+    private val onCheckCompleted: suspend (DayKey, CheckMode, CheckOutcome) -> Unit = { _, _, _ -> }
 ) : AttendanceChecks {
     private val manual = Mutex()
     override suspend fun manualCheck(): CheckOutcome = checkManual(null)
@@ -64,6 +66,11 @@ class AttendanceService(
                     current,
                     CheckRejection.BEFORE_WINDOW
                 )
+
+                day.plan.departure?.let { now > it } == true -> {
+                    AppLogger.i("AttendanceService", "Manual check rejected: AFTER_DEPARTURE")
+                    CheckOutcome.Rejected(current, CheckRejection.AFTER_DEPARTURE)
+                }
 
                 else -> acquire(day, CheckMode.USER_INITIATED, null)
             }
@@ -138,7 +145,22 @@ class AttendanceService(
                 }
             )
         }
-        return repository.completeCheck(commit(day, verdict, mode, attemptId))
+        val outcome = try {
+            repository.completeCheck(commit(day, verdict, mode, attemptId))
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            AppLogger.e("AttendanceService", "Check persistence failed", failure)
+            CheckOutcome.Rejected(null, CheckRejection.LOCAL_SAVE_FAILED)
+        }
+        try {
+            onCheckCompleted(day.plan.key, mode, outcome)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            AppLogger.e("AttendanceService", "Check completion notification failed", failure)
+        }
+        return outcome
     }
 
     private fun commit(day: StoredDay, verdict: FixVerdict, mode: CheckMode, attemptId: String?) =

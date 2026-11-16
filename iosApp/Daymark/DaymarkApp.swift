@@ -8,6 +8,7 @@ struct DaymarkApp: App {
     @State private var showDeveloperProbe = false
     private let widget: WidgetSink
     private let widgetSetup = IosWidgetSetupPort()
+    private let resultNotifications = IosAttendanceResults()
     private let reminders: IosReminderAdapter
     private let notificationDelegate: DaymarkNotificationDelegate
     private let googleDriver: AppAuthDriver
@@ -31,13 +32,14 @@ struct DaymarkApp: App {
                 if showDeveloperProbe {
                     NativeProbeView(googleAuth: googleAuth, reminders: reminders, onClose: { showDeveloperProbe = false })
                 } else {
-                    ContentView(auth: googleAuth, reminders: reminders, widget: widget, widgetSetup: widgetSetup).ignoresSafeArea()
+                    ContentView(auth: googleAuth, reminders: reminders, widget: widget, widgetSetup: widgetSetup, resultNotifications: resultNotifications).ignoresSafeArea()
                 }
 #else
-                ContentView(auth: googleAuth, reminders: reminders, widget: widget, widgetSetup: widgetSetup).ignoresSafeArea()
+                ContentView(auth: googleAuth, reminders: reminders, widget: widget, widgetSetup: widgetSetup, resultNotifications: resultNotifications).ignoresSafeArea()
 #endif
             }
             .onOpenURL { url in
+                if url.absoluteString == "daymark://today" { TodayIntents.shared.request(); return }
                 if url.scheme == "daymark", ["quick-check", "check-in"].contains(url.host ?? "") { QuickCheckIntents.shared.requestRoute(raw: url.absoluteString); return }
 #if DEBUG
                 if url.scheme == "daymark", ["developer-probe", "native-probe"].contains(url.host ?? "") { showDeveloperProbe = true; return }

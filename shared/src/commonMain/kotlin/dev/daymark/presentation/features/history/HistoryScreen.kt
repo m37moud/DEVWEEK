@@ -27,6 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.daymark.history.HistoryMetric
 import dev.daymark.models.attendance.AttendanceEvidence
 import dev.daymark.models.attendance.AttendanceSource
 import dev.daymark.models.attendance.AttendanceStatus
@@ -57,22 +58,24 @@ import kotlinx.datetime.LocalDate
 
 private data class HistoryActions(
     val selectMonth: (Int, Int) -> Unit,
-    val saveCorrection: (Correction) -> Unit
+    val saveCorrection: (Correction) -> Unit,
+    val openMetric: (HistoryMetric) -> Unit = {}
 )
 
 @Composable
 fun HistoryScreen(
     model: HistoryViewModel,
     onBack: () -> Unit,
-    onEditTimeOff: (LocalDate) -> Unit
+    onEditTimeOff: (LocalDate) -> Unit,
+    onMetric: (HistoryMetric) -> Unit = {}
 ) {
     val state by model.uiState.collectAsStateWithLifecycle()
     LifecycleStartEffect(model) {
         model.setActive(true)
         onStopOrDispose { model.setActive(false) }
     }
-    val actions = remember(model) {
-        HistoryActions(model::selectMonth, model::saveCorrection)
+    val actions = remember(model, onMetric) {
+        HistoryActions(model::selectMonth, model::saveCorrection, onMetric)
     }
     HistoryContent(state, onBack, onEditTimeOff, actions)
 }
@@ -96,7 +99,11 @@ private fun HistoryContent(
 
     var selectedDate by rememberSaveable(state.year, state.month) { mutableStateOf<String?>(null) }
     val selected = selectedDate?.let(LocalDate::parse)
-    val shown = state.history.records.filter { selected == null || it.plan.key.date == selected }
+    val shown = remember(state) {
+        state.history.records.filter {
+            (selected == null || it.plan.key.date == selected) && it.plan.key.date <= state.today
+        }.sortedByDescending { it.plan.key.date }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -116,7 +123,9 @@ private fun HistoryContent(
                 month = state.month,
                 history = state.history,
                 language = language,
-                onSelectMonth = actions.selectMonth
+                onSelectMonth = actions.selectMonth,
+                today = state.today,
+                onMetric = actions.openMetric
             )
         }
 

@@ -1,8 +1,12 @@
 package dev.daymark.di.ktor
 
 import dev.daymark.app.hostPlatform
+import dev.daymark.notifications.AttendanceResultPort
+import dev.daymark.notifications.AttendanceResultNotifier
+import dev.daymark.notifications.UnsupportedAttendanceResultPort
 import dev.daymark.attendance.AttendanceRepository
 import dev.daymark.attendance.AttendanceService
+import dev.daymark.attendance.outcome
 import dev.daymark.auth.GoogleAccess
 import dev.daymark.data.local.DatabaseTransactions
 import dev.daymark.data.local.DaymarkDatabase
@@ -123,7 +127,22 @@ internal fun attendanceModule() = module {
             get()
         )
     }
-    single { AttendanceService(get(), get(), get()) }
+    single<AttendanceResultPort> { UnsupportedAttendanceResultPort }
+    single {
+        AttendanceResultNotifier(get<SettingsDataSource>(), get()) {
+            get<AttendanceRepository>().loadCurrentDay(get<Clock>().now())?.let { day ->
+                day.plan.key to day.outcome(get<Clock>().now())
+            }
+        }
+    }
+    single {
+        AttendanceService(
+            get(),
+            get(),
+            get(),
+            onCheckCompleted = get<AttendanceResultNotifier>()::completed
+        )
+    }
     single { TimeOffService(get(), get(), get(), get(), get(), get(), get(), get()) }
     single { PlanService(get(), get(), get(), get(), get(), get(), get()) }
     single<PlanReader> { RoomPlanReader(get(), get(), get()) }
@@ -178,6 +197,7 @@ internal fun lifecycleModule(
                 get<ReportingRuntime>().lifecycle.stop()
                 get<ProfileDao>().tracker()
                     ?.let { get<ConfigurationCoordinator>().cancelTracker(it.id) }
+                get<AttendanceResultNotifier>().setEnabled(false)
                 stopExternalWork()
             },
             forgetCredentials = get<GoogleAccess>()::forget,
@@ -193,7 +213,18 @@ internal fun viewModelModule() = module {
     viewModel { TodayViewModel(get(), get(), get(), initiallyActive = false) }
     viewModel { PlanViewModel(get(), get(), get(), get()) }
     factory<WidgetSetupPort> { createWidgetSetupPort() }
-    viewModel { SettingsViewModel(get(), get(), get(), widgetSetup = get()) }
+    viewModel {
+        SettingsViewModel(
+            get(),
+            get(),
+            get(),
+            widgetSetup = get(),
+            resultNotifications = get()
+        )
+    }
+    viewModel { (metric: dev.daymark.history.HistoryMetric, initialDate: LocalDate) ->
+        dev.daymark.presentation.features.history.HistoryDetailViewModel(get(), metric, initialDate)
+    }
     viewModel { (initialDate: LocalDate) ->
         val repository = get<Repository>()
         val clock = get<Clock>()

@@ -23,7 +23,8 @@ fun MainViewController(
     auth: NativeGoogleAuth,
     reminders: ReminderPort,
     widget: WidgetSink,
-    widgetSetup: WidgetSetupPort
+    widgetSetup: WidgetSetupPort,
+    resultNotifications: dev.daymark.notifications.AttendanceResultPort
 ): UIViewController {
     // One graph per application keeps manual checks and native side effects shared across host recreation.
     val graph = applicationGraph ?: AppGraph(module {
@@ -33,6 +34,7 @@ fun MainViewController(
         single<LocationPermissionPort> { IosLocationPermissions() }
         single<NativeGoogleAuth> { auth }
         single<ReminderPort> { reminders }
+        single<dev.daymark.notifications.AttendanceResultPort> { resultNotifications }
         single<WidgetSink> { widget }
         factory<WidgetSetupPort> { widgetSetup }
     }).also { applicationGraph = it }

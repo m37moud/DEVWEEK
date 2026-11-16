@@ -107,7 +107,6 @@
     <string name="previous_month">Previous month</string>
     <string name="next_month">Next month</string>
     <string name="back">Back</string>
-    <string name="month_counts">%1$s present · %2$s late · %3$s absent</string>
     <string name="edit_time_off">Edit time off in Plan</string>
     <string name="time_off_edit_help">Attendance corrections cannot replace a day off, holiday, or vacation. Manage its dates in Plan.</string>
     <string name="location_before_window">The attendance window has not started.</string>
@@ -253,4 +252,36 @@
     <string name="widget_checking">Checking widget status…</string>
     <string name="widget_setup_unknown">Could not check widget status</string>
     <string name="widget_refresh_status">Check widget status</string>
+    <string name="departure_cutoff">Departure cutoff (optional)</string>
+    <string name="departure_explanation">GPS checks are accepted through this time, inclusive. Choose a time at or after arrival plus grace on the same day.</string>
+    <string name="departure_inherit">Use default</string>
+    <string name="departure_none">No cutoff</string>
+    <string name="departure_set">Set cutoff</string>
+    <string name="location_after_departure">The departure cutoff has passed. You can still correct attendance manually.</string>
+
+    <string name="result_notifications">Attendance result notifications</string>
+    <string name="result_notifications_help">Optional, silent notices after attendance checks. Tapping opens Today without checking your location.</string>
+    <string name="result_notifications_denied">Notifications are unavailable. Attendance still works. Allow notifications in system settings.</string>
+    <string name="result_saved">Attendance saved on this phone</string>
+    <string name="result_unconfirmed">Attendance not confirmed</string>
+    <string name="result_present">Present. Open Today to view the current status.</string>
+    <string name="result_late">Late. Open Today to view the current status.</string>
+    <string name="result_location_denied">Location permission was denied.</string>
+    <string name="result_location_disabled">Location services are turned off.</string>
+    <string name="result_location_timeout">The location request timed out.</string>
+    <string name="result_outside_area">Your location was outside the registered place.</string>
+    <string name="result_save_failed">The attendance result could not be saved on this phone.</string>
+    <string name="result_fix_unusable">A fresh, accurate location could not be verified.</string>
+    <string name="result_location_unavailable">Location was unavailable.</string>
+
+    <string name="history_attendance">Attendance</string>
+    <string name="history_leave_rest">Leave</string>
+    <string name="history_holidays">Official holidays</string>
+    <string name="history_elapsed_days">Days through today: %1$s</string>
+    <string name="history_late_minutes">Late minutes: %1$s</string>
+    <string name="history_under_minute">Less than 1 minute</string>
+    <string name="history_range_invalid">Choose an ordered range starting on or after your first tracked date.</string>
+    <string name="history_late_basis">Late time is measured from scheduled arrival. Manual corrections keep the status you chose.</string>
+    <string name="history_scheduled_arrival">Scheduled arrival: %1$s</string>
+    <string name="apply_range">Apply date range</string>
 </resources>

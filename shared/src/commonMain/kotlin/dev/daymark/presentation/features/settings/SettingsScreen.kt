@@ -38,6 +38,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
@@ -54,6 +56,10 @@ import dev.daymark.presentation.features.settings.component.SettingsWidgetsCard
 import dev.daymark.resources.Res
 import dev.daymark.resources.local_save_failed
 import dev.daymark.resources.settings
+import dev.daymark.resources.result_notifications
+import dev.daymark.resources.result_notifications_help
+import dev.daymark.resources.result_notifications_denied
+import androidx.compose.material3.Switch
 import dev.daymark.settings.LanguagePreference
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.ThemePreference
@@ -70,6 +76,7 @@ private data class SettingsActions(
     val setAutomation: (Boolean) -> Unit,
     val setRemindersEnabled: (Boolean) -> Unit,
     val requestReminders: () -> Unit,
+    val setResultNotificationsEnabled: (Boolean) -> Unit,
     val openSystemSettings: () -> Unit,
     val reports: ReportActions
 )
@@ -92,6 +99,7 @@ fun SettingsScreen(model: SettingsViewModel, platform: HostPlatform) {
             setAutomation = model::setAutomation,
             setRemindersEnabled = model::setRemindersEnabled,
             requestReminders = model::requestReminders,
+            setResultNotificationsEnabled = model::setResultNotificationsEnabled,
             openSystemSettings = model::openSystemSettings,
             reports = ReportActions(
                 connectReport = model::connectReport,
@@ -216,6 +224,36 @@ private fun SettingsContent(
                         onRequestReminders = actions.requestReminders
                     )
 
+                    if (state.resultNotificationsSupported) {
+                        val notificationLabel = str(Res.string.result_notifications)
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        notificationLabel, Modifier.weight(1f),
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                    Switch(
+                                        checked = state.settings.resultNotificationsEnabled,
+                                        enabled = !state.busy,
+                                        onCheckedChange = actions.setResultNotificationsEnabled,
+                                        modifier = Modifier.testTag("settings-result-notifications")
+                                            .semantics { contentDescription = notificationLabel })
+                                }
+                                Text(
+                                    str(Res.string.result_notifications_help),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                if (state.resultNotificationPermissionDenied) {
+                                    Text(
+                                        str(Res.string.result_notifications_denied),
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     if (platform != HostPlatform.TEST) {
                         SettingsWidgetsCard(
                             state,
@@ -245,6 +283,7 @@ private fun SettingsScreenAndroidPreview() {
         setAutomation = {},
         setRemindersEnabled = {},
         requestReminders = {},
+        setResultNotificationsEnabled = {},
         openSystemSettings = {},
         reports = ReportActions({}, {}, {}, {}, {}, {}, {}, {})
     )
@@ -252,6 +291,7 @@ private fun SettingsScreenAndroidPreview() {
         SettingsContent(
             state = SettingsUiState(
                 ready = true,
+                resultNotificationsSupported = true,
                 widgetStatus = dev.daymark.widgets.WidgetSetupStatus.NOT_ADDED,
                 widgetCanPin = true,
                 settings = AppSettings(displayName = "Alex Lee")
@@ -274,6 +314,7 @@ private fun SettingsScreenIosDarkPreview() {
         setAutomation = {},
         setRemindersEnabled = {},
         requestReminders = {},
+        setResultNotificationsEnabled = {},
         openSystemSettings = {},
         reports = ReportActions({}, {}, {}, {}, {}, {}, {}, {})
     )
@@ -281,6 +322,7 @@ private fun SettingsScreenIosDarkPreview() {
         SettingsContent(
             state = SettingsUiState(
                 ready = true,
+                resultNotificationsSupported = true,
                 widgetStatus = dev.daymark.widgets.WidgetSetupStatus.ADDED,
                 settings = AppSettings(displayName = "Alex Lee", theme = ThemePreference.DARK),
                 reportBusy = true

@@ -141,6 +141,12 @@ final class DaymarkNotificationDelegate: NSObject, UNUserNotificationCenterDeleg
     init(openQuickCheck: @escaping (String) -> Void) { self.openQuickCheck = openQuickCheck }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void) {
+        if response.notification.request.identifier.hasPrefix("daymark.result:"),
+           response.notification.request.content.userInfo["intent"] as? String == "today" {
+            Task { @MainActor in TodayIntents.shared.request() }
+            completionHandler()
+            return
+        }
         let owned = response.notification.request.identifier.hasPrefix("daymark.reminder:")
         let quickCheck = response.notification.request.content.userInfo["intent"] as? String == "quick-check"
         let parts = response.notification.request.identifier.split(separator: ":")
@@ -152,6 +158,59 @@ final class DaymarkNotificationDelegate: NSObject, UNUserNotificationCenterDeleg
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound])
+        completionHandler(notification.request.identifier.hasPrefix("daymark.result:") ? [.banner] : [.banner, .sound])
+    }
+}
+
+
+@MainActor
+final class IosAttendanceResults: NSObject, AttendanceResultPort {
+    nonisolated var mode: CheckMode? { .userInitiated }
+    private let center = UNUserNotificationCenter.current()
+    private var generation = 0
+    private var tail: Task<Void, Never>?
+
+    nonisolated func requestPermission(completion: @escaping (KotlinBoolean) -> Void) {
+        Task { @MainActor in
+            let allowed = (try? await center.requestAuthorization(options: [.alert])) ?? false
+            completion(KotlinBoolean(bool: allowed))
+        }
+    }
+
+    nonisolated func post(identifier: String, title: String, body: String) {
+        Task { @MainActor in
+            guard identifier.hasPrefix("daymark.result:"), identifier.split(separator: ":").count == 3 else { return }
+            let ticket = generation
+            let previous = tail
+            tail = Task { @MainActor in
+                await previous?.value
+                guard ticket == generation else { return }
+                let settings = await center.notificationSettings()
+                guard ticket == generation, [.authorized, .provisional, .ephemeral].contains(settings.authorizationStatus) else { return }
+                let content = UNMutableNotificationContent()
+                content.title = title
+                content.body = body
+                content.userInfo = ["intent": "today"]
+                do {
+                    center.removeDeliveredNotifications(withIdentifiers: [identifier])
+                    try await center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
+                    if ticket != generation { center.removeDeliveredNotifications(withIdentifiers: [identifier]) }
+                } catch { AppLogger.shared.e(tag: "IosAttendanceResults", message: "Result notification failed", throwable: nil) }
+            }
+        }
+    }
+
+    nonisolated func clearResults() {
+        Task { @MainActor in
+            generation += 1
+            let previous = tail
+            tail = Task { @MainActor in
+                await previous?.value
+                let delivered = await center.deliveredNotifications()
+                center.removeDeliveredNotifications(withIdentifiers: delivered.map { $0.request.identifier }.filter { $0.hasPrefix("daymark.result:") })
+                let pending = await center.pendingNotificationRequests()
+                center.removePendingNotificationRequests(withIdentifiers: pending.map(\.identifier).filter { $0.hasPrefix("daymark.result:") })
+            }
+        }
     }
 }

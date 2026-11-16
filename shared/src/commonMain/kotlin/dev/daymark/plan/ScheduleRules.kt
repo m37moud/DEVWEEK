@@ -15,11 +15,14 @@ enum class TimeOffKind { HOLIDAY, VACATION }
 data class WeeklySchedule(
     val days: Set<DayOfWeek>, val arrival: LocalTime, val overrides: Map<DayOfWeek, LocalTime>,
     val graceMinutes: Int, val zoneId: String,
+    val departure: LocalTime? = null,
+    val departureOverrides: Map<DayOfWeek, LocalTime?> = emptyMap(),
 ) {
     init {
         require(days.isNotEmpty())
         require(graceMinutes in 0..120)
         require(overrides.keys.all { it in days })
+        require(departureOverrides.keys.all { it in days })
         TimeZone.of(zoneId)
     }
 }
@@ -38,6 +41,16 @@ fun resolveDay(
     require(arrival.toLocalDateTime(zone).date == key.date && deadline.toLocalDateTime(zone).date == key.date) {
         "Attendance window must remain on its calendar date"
     }
+    val scheduled = key.date.dayOfWeek in schedule.days
+    val departureTime = when {
+        !scheduled -> null
+        schedule.departureOverrides.containsKey(key.date.dayOfWeek) -> schedule.departureOverrides[key.date.dayOfWeek]
+        else -> schedule.departure
+    }
+    val departure = departureTime?.let { resolveLocalArrival(key.date, it, schedule.zoneId) }
+    require(departure == null || (departure >= deadline && departure.toLocalDateTime(zone).date == key.date)) {
+        "Departure must be on the attendance date at or after the grace deadline"
+    }
     return DayPlan(
         key,
         category,
@@ -46,6 +59,7 @@ fun resolveDay(
         schedule.zoneId,
         scheduleVersion,
         place,
-        key.date.dayOfWeek in schedule.days
+        scheduled,
+        departure
     )
 }

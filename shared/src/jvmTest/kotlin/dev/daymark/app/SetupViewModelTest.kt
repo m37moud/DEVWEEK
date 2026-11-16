@@ -51,7 +51,8 @@ class SetupViewModelTest {
             val settings = object : SettingsDataSource by stored {
                 override suspend fun update(
                     language: LanguagePreference?, theme: ThemePreference?,
-                    displayName: String?, remindersEnabled: Boolean?
+                    displayName: String?, remindersEnabled: Boolean?,
+                    resultNotificationsEnabled: Boolean?
                 ) {
                     releaseWrite.await()
                     if (failWrite) throw SettingsStorageException(IllegalStateException("Test storage failure"))

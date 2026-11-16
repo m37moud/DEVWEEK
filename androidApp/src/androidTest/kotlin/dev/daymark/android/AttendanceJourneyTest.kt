@@ -164,7 +164,11 @@ class AttendanceJourneyTest {
                         historyModel,
                         onBack = { history = false },
                         onEditTimeOff = {})
-                    else TodayScreen(today, "أحمد / Ahmed", onHistory = { history = true })
+                    else TodayScreen(
+                        today,
+                        "أحمد / Ahmed",
+                        onHistory = { history = true },
+                        onMetric = { _, _ -> })
                 }
             }
         }

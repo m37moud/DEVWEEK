@@ -81,6 +81,8 @@ fun classifyFix(plan: DayPlan, fix: LocationResult.Fix, mode: CheckMode, now: In
     ) return reject(CheckRejection.INVALID_FIX)
     if (now < plan.arrival || fix.capturedAt < plan.arrival) return reject(CheckRejection.BEFORE_WINDOW)
     if (mode == CheckMode.AUTOMATIC && fix.capturedAt > plan.deadline) return reject(CheckRejection.AFTER_AUTOMATIC_WINDOW)
+    if (mode == CheckMode.USER_INITIATED && plan.departure?.let { fix.capturedAt > it } == true)
+        return reject(CheckRejection.AFTER_DEPARTURE)
     if (age == null || age + (now - fix.receivedAt) > 30.seconds) return reject(CheckRejection.STALE_FIX)
     if (fix.horizontalAccuracyMetres > 50.0) return reject(CheckRejection.INACCURATE_FIX)
     if (distanceMetres(plan.place, fix) > plan.place.radiusMetres + 1e-7) return reject(

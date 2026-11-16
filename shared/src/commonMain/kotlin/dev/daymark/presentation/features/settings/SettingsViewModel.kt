@@ -32,10 +32,12 @@ class SettingsViewModel(
     private val permissions: LocationPermissionPort,
     private val reminders: ReminderPort,
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
-    private val widgetSetup: WidgetSetupPort = UnsupportedWidgetSetupPort
+    private val widgetSetup: WidgetSetupPort = UnsupportedWidgetSetupPort,
+    private val resultNotifications: dev.daymark.notifications.AttendanceResultNotifier? = null
 ) : ViewModel(scope) {
     private val TAG = SettingsViewModel::class.simpleName
-    private val state = MutableStateFlow(SettingsUiState())
+    private val state =
+        MutableStateFlow(SettingsUiState(resultNotificationsSupported = resultNotifications?.supported == true))
     val uiState = state.asStateFlow()
 
     init {
@@ -147,6 +149,21 @@ class SettingsViewModel(
                 state.update { it.copy(requestingReminderPermission = false) }
             }
         }
+    }
+
+    fun setResultNotificationsEnabled(enabled: Boolean) = save {
+        val notifications = resultNotifications ?: return@save
+        if (enabled) {
+            val allowed = suspendCancellableCoroutine { continuation ->
+                notifications.requestPermission { granted ->
+                    if (continuation.isActive) continuation.resume(granted)
+                }
+            }
+            state.update { it.copy(resultNotificationPermissionDenied = !allowed) }
+            if (!allowed) return@save
+        }
+        notifications.setEnabled(enabled)
+        AppLogger.i("SettingsViewModel", "Result notification preference saved")
     }
 
     fun setRemindersEnabled(enabled: Boolean) =

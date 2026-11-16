@@ -7,6 +7,7 @@ import dev.daymark.models.attendance.CheckRejection
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.presentation.component.label
 import dev.daymark.presentation.features.setup.SetupIssue
+import dev.daymark.resources.location_after_departure
 import dev.daymark.resources.Res
 import dev.daymark.resources.check_changed
 import dev.daymark.resources.check_denied
@@ -108,6 +109,7 @@ internal fun CheckRejection.label(): StringResource = when (this) {
     CheckRejection.INACCURATE_FIX -> Res.string.location_inaccurate
     CheckRejection.OUTSIDE_AREA -> Res.string.location_outside
     CheckRejection.LOCAL_SAVE_FAILED -> Res.string.load_failed
+    CheckRejection.AFTER_DEPARTURE -> Res.string.location_after_departure
     CheckRejection.BEFORE_WINDOW -> Res.string.location_before_window
     CheckRejection.NO_TRACKER -> Res.string.check_no_tracker
     CheckRejection.STATE_CHANGED, CheckRejection.AFTER_AUTOMATIC_WINDOW, CheckRejection.DAY_OFF -> Res.string.check_changed

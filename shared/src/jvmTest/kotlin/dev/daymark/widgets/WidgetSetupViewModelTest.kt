@@ -23,7 +23,8 @@ class WidgetSetupViewModelTest {
                 language: dev.daymark.settings.LanguagePreference?,
                 theme: dev.daymark.settings.ThemePreference?,
                 displayName: String?,
-                remindersEnabled: Boolean?
+                remindersEnabled: Boolean?,
+                resultNotificationsEnabled: Boolean?
             ) = error("Unexpected settings write")
 
             override suspend fun setAutomation(expectedTrackerId: String, enabled: Boolean) =

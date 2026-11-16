@@ -19,7 +19,8 @@ import kotlinx.datetime.LocalTime
 internal fun ArrivalTimeDialog(
     initial: LocalTime,
     onConfirm: (LocalTime) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    title: String = str(Res.string.arrival)
 ) {
     val time = rememberTimePickerState(
         initialHour = initial.hour,
@@ -28,7 +29,7 @@ internal fun ArrivalTimeDialog(
     )
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(str(Res.string.arrival)) },
+        title = { Text(title) },
         text = { TimePicker(time) },
         confirmButton = {
             TextButton(onClick = {

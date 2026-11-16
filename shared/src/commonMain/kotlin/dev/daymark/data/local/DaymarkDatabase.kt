@@ -22,7 +22,7 @@ import kotlinx.coroutines.IO
 @Database(
     entities = [SettingEntity::class, TrackerEntity::class, PlanVersionEntity::class, AttendanceEntity::class,
         TimeOffEntity::class, BalanceAdjustmentEntity::class, ReportBindingEntity::class, DirtyProjectionEntity::class, ReportBatchEntity::class, PlaceAddressEntity::class],
-    version = 3, exportSchema = true
+    version = 4, exportSchema = true
 )
 @ConstructedBy(DaymarkDatabaseConstructor::class)
 abstract class DaymarkDatabase : RoomDatabase() {
@@ -49,6 +49,10 @@ internal fun configureDatabase(builder: RoomDatabase.Builder<DaymarkDatabase>): 
         }, object : Migration(2, 3) {
             override suspend fun migrate(connection: SQLiteConnection) {
                 connection.execSQL("CREATE TABLE IF NOT EXISTS place_addresses (latitude REAL NOT NULL, longitude REAL NOT NULL, language TEXT NOT NULL, address TEXT NOT NULL, PRIMARY KEY(latitude, longitude, language))")
+            }
+        }, object : Migration(3, 4) {
+            override suspend fun migrate(connection: SQLiteConnection) {
+                connection.execSQL("ALTER TABLE attendance ADD COLUMN departure TEXT")
             }
         })
         .setDriver(BundledSQLiteDriver()).setQueryCoroutineContext(Dispatchers.IO)

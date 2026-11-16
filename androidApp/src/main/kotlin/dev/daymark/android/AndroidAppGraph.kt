@@ -39,6 +39,7 @@ import org.koin.dsl.onClose
 
 class AndroidAppGraph(context: Context) {
     private val app = context.applicationContext
+    val resultNotifications = AndroidAttendanceResults(app)
 
     init {
         initializeWidgetResources(app); initializeReportConnectivity(app)
@@ -54,6 +55,7 @@ class AndroidAppGraph(context: Context) {
             single { AndroidAttendanceScheduler(WorkManager.getInstance(app), get(), scope) }
             factory { AndroidAttendanceJob(get(), ::permitted, ::disableAutomation, ::recover) }
             single<ReminderPort> { AndroidReminderPort }
+            single<dev.daymark.notifications.AttendanceResultPort> { resultNotifications }
             single<WidgetSink> { AndroidWidgetPublisher(app) }
             single {
                 ReportingRuntime(
@@ -102,10 +104,18 @@ class AndroidAppGraph(context: Context) {
     val scheduler: AndroidAttendanceScheduler by dependencies.koin.inject()
     private val failed = MutableStateFlow(false)
     val recoveryFailed = failed.asStateFlow()
-    fun requestRecovery() { scope.launch { recoverSafely() } }
-    suspend fun recoverSafely(publishWidget: Boolean = true): Boolean = try { recoverInternal(publishWidget); failed.value = false; true }
-        catch (cancelled: CancellationException) { throw cancelled }
-        catch (_: Exception) { failed.value = true; false }
+    fun requestRecovery() {
+        scope.launch { recoverSafely() }
+    }
+
+    suspend fun recoverSafely(publishWidget: Boolean = true): Boolean = try {
+        recoverInternal(publishWidget); failed.value = false; true
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        failed.value = true; false
+    }
+
     private val recoveryMutex = Mutex()
     private suspend fun stopExternal() {
         WidgetCheckService.cancelAndJoin()
@@ -144,7 +154,15 @@ class AndroidAppGraph(context: Context) {
 
 /** iOS reminders have no Android scheduler; automation uses the separate WorkManager adapter. */
 private object AndroidReminderPort : ReminderPort {
-    override fun requestPermission(completion: (Boolean) -> Unit) { completion(false) }
-    override fun replace(remindersJson: String, completion: (Boolean) -> Unit) { completion(false) }
-    override fun cancelTracker(trackerId: String, completion: (Boolean) -> Unit) { completion(true) }
+    override fun requestPermission(completion: (Boolean) -> Unit) {
+        completion(false)
+    }
+
+    override fun replace(remindersJson: String, completion: (Boolean) -> Unit) {
+        completion(false)
+    }
+
+    override fun cancelTracker(trackerId: String, completion: (Boolean) -> Unit) {
+        completion(true)
+    }
 }

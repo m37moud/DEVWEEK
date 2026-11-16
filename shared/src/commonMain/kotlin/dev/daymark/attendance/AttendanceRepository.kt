@@ -14,6 +14,10 @@ import kotlinx.coroutines.flow.Flow
 interface AttendanceRepository {
     fun observeDay(key: DayKey): Flow<DayOutcome?>
     fun observeMonth(year: Int, month: Int): Flow<HistoryMonth>
+    fun observeRange(
+        from: kotlinx.datetime.LocalDate,
+        through: kotlinx.datetime.LocalDate
+    ): Flow<dev.daymark.history.HistoryRange>
 
     /** Can project today's baseline without persisting an untracked absence. */
     suspend fun loadCurrentDay(now: Instant): StoredDay?

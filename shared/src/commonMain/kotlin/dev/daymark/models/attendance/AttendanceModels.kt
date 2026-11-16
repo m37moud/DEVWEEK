@@ -40,9 +40,11 @@ data class DayPlan(
     val scheduleVersion: Long,
     val place: RegisteredPlace,
     val isScheduled: Boolean,
+    val departure: Instant? = null,
 ) {
     init {
         require(deadline >= arrival && scheduleVersion >= 0)
+        require(departure == null || departure >= deadline)
     }
 }
 
@@ -73,6 +75,6 @@ sealed interface FixVerdict {
 }
 
 enum class CheckRejection {
-    BEFORE_WINDOW, AFTER_AUTOMATIC_WINDOW, STALE_FIX, INVALID_FIX, INACCURATE_FIX, OUTSIDE_AREA,
+    BEFORE_WINDOW, AFTER_AUTOMATIC_WINDOW, AFTER_DEPARTURE, STALE_FIX, INVALID_FIX, INACCURATE_FIX, OUTSIDE_AREA,
     NO_TRACKER, DAY_OFF, LOCATION_DENIED, LOCATION_DISABLED, LOCATION_TIMEOUT, UNAVAILABLE, CANCELLED, STATE_CHANGED, LOCAL_SAVE_FAILED,
 }

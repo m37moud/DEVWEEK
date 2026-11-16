@@ -172,7 +172,7 @@ class SetupDayReportTest {
         }
 
     @Test
-    fun westward_zone_cutover_does_not_hide_previously_recorded_dates_from_totals_or_week(): Unit =
+    fun westward_zone_cutover_preserves_reports_and_week_but_excludes_future_dashboard_attendance(): Unit =
         runBlocking {
             val folder = Files.createTempDirectory("daymark-zone-report-");
             val db = openJvmDatabase(folder.resolve("test.db").toString())
@@ -284,7 +284,7 @@ class SetupDayReportTest {
                         clock
                     ).observe()
                         .first { it.ready }
-                assertEquals(1, dashboard.present)
+                assertEquals(0, dashboard.metrics.attendance)
                 assertFalse(dashboard.week.single { it.date == fixtureDate }.planned)
             } finally {
                 db.close(); folder.toFile().deleteRecursively()

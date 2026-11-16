@@ -18,6 +18,9 @@ import kotlinx.serialization.json.jsonPrimitive
 
 class DatabaseMigrationTest {
     @Test
+    fun schema_three_upgrades_without_losing_tracker_or_adjustment_history() = verifyMigration(3)
+
+    @Test
     fun schema_one_upgrades_without_losing_tracker_or_adjustment_history() = verifyMigration(1)
 
     @Test

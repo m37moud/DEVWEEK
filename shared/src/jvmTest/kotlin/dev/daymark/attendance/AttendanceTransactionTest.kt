@@ -62,6 +62,42 @@ class AttendanceTransactionTest {
     }
 
     @Test
+    fun departure_transaction_rejects_later_capture_and_accepts_delayed_cutoff_capture() = runTest {
+        withDatabase { db, _ ->
+            val clock = TestClock(at("17:00:20"))
+            val repo = RoomAttendanceRepository(
+                db.profileDao(),
+                db.attendanceDao(),
+                db.planningDao(),
+                db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db),
+                clock
+            )
+            val version = db.planningDao().versions(fixturePlan().key.trackerId).single()
+            db.planningDao().putVersion(
+                version.copy(
+                    scheduleJson = dev.daymark.data.local.encodeSchedule(
+                        fixtureSchedule().copy(
+                            departure = LocalTime(17, 0)
+                        )
+                    )
+                )
+            )
+            val late =
+                testCommit(verdict = FixVerdict.Accepted(AttendanceStatus.LATE, at("17:00:00.001")))
+            assertEquals(
+                CheckRejection.AFTER_DEPARTURE,
+                assertIs<CheckOutcome.Rejected>(repo.completeCheck(late)).reason
+            )
+            val cutoff =
+                testCommit(verdict = FixVerdict.Accepted(AttendanceStatus.LATE, at("17:00:00")))
+            assertIs<CheckOutcome.Recorded>(repo.completeCheck(cutoff))
+            assertEquals(at("17:00:00"), repo.loadDay(fixturePlan().key)!!.plan.departure)
+            assertEquals(at("17:00:00"), repo.loadDay(fixturePlan().key)!!.evidence!!.confirmedAt)
+        }
+    }
+
+    @Test
     fun claim_is_unique_and_remains_consumed_after_reopen() = runTest {
         withDatabase { db, path ->
             val clock = TestClock();

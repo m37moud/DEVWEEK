@@ -69,7 +69,8 @@ interface SettingsDataSource {
     suspend fun trackerIdentity(): String?
     suspend fun update(
         language: LanguagePreference? = null, theme: ThemePreference? = null,
-        displayName: String? = null, remindersEnabled: Boolean? = null
+        displayName: String? = null, remindersEnabled: Boolean? = null,
+        resultNotificationsEnabled: Boolean? = null
     )
 
     suspend fun setAutomation(expectedTrackerId: String, enabled: Boolean)

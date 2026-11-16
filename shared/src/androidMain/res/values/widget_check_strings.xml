@@ -17,4 +17,5 @@
     <string name="widget_check_cancelled">Check cancelled</string>
     <string name="widget_check_retry">Location unavailable</string>
     <string name="widget_check_retry_action">Retry check-in</string>
+    <string name="widget_check_departure">The departure cutoff has passed. Open Daymark to correct attendance manually.</string>
 </resources>

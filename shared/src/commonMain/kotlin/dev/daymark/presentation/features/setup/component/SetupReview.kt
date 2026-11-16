@@ -30,6 +30,8 @@ import dev.daymark.models.setup.SetupDraft
 import dev.daymark.presentation.component.label
 import dev.daymark.presentation.component.localTimeLabel
 import dev.daymark.presentation.features.setup.SetupUiState
+import dev.daymark.resources.departure_cutoff
+import dev.daymark.resources.departure_none
 import dev.daymark.resources.Res
 import dev.daymark.resources.attendance_zone
 import dev.daymark.resources.automation_help
@@ -217,6 +219,15 @@ private fun ScheduleSummary(draft: SetupDraft) {
                     schedule.overrides[day] ?: schedule.arrival, language
                 ),
                 style = MaterialTheme.typography.bodyMedium
+            )
+            val departure = if (schedule.departureOverrides.containsKey(day))
+                schedule.departureOverrides[day] else schedule.departure
+            Text(
+                text = str(Res.string.departure_cutoff) + " · " +
+                        (departure?.let { localTimeLabel(it, language) }
+                            ?: str(Res.string.departure_none)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Text(

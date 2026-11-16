@@ -20,6 +20,8 @@ import kotlin.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.datetime.number
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
@@ -33,6 +35,20 @@ class HistoryViewModelTest {
         var correction: Correction? = null
         val months = MutableStateFlow(HistoryMonth(emptyList(), 0, 0, 0))
         val repo = object : AttendanceRepository {
+            override fun observeRange(
+                from: LocalDate,
+                through: LocalDate
+            ): Flow<dev.daymark.history.HistoryRange> {
+                requests += from.year to from.month.number
+                return months.map {
+                    dev.daymark.history.HistoryRange(
+                        it.records,
+                        null,
+                        LocalDate(2026, 10, 27)
+                    )
+                }
+            }
+
             override fun observeMonth(year: Int, month: Int): Flow<HistoryMonth> {
                 requests += year to month; return months
             }

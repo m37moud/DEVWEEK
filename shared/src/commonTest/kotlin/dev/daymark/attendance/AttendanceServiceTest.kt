@@ -51,6 +51,11 @@ class AttendanceServiceTest {
         var failSave = false
         private fun outcome() = day?.let { evaluateDay(it.plan, it.evidence, it.off, clock.now()) }
         override fun observeDay(key: DayKey): Flow<DayOutcome?> = flowOf(outcome())
+        override fun observeRange(
+            from: kotlinx.datetime.LocalDate,
+            through: kotlinx.datetime.LocalDate
+        ): kotlinx.coroutines.flow.Flow<dev.daymark.history.HistoryRange> = error("Unused")
+
         override fun observeMonth(year: Int, month: Int): Flow<HistoryMonth> =
             flowOf(HistoryMonth(emptyList(), 0, 0, 0))
 
@@ -108,6 +113,38 @@ class AttendanceServiceTest {
         override suspend fun requestFix(budget: Duration): LocationResult {
             calls++; lastBudget = budget; return answer()
         }
+    }
+
+    @Test
+    fun departure_preflight_blocks_app_and_widget_without_gps() = runTest {
+        val clock = TestClock(at("17:00:00.001"))
+        val repo = Repository(clock)
+        repo.day = repo.day!!.let { it.copy(plan = it.plan.copy(departure = at("17:00:00"))) }
+        val gateway = Gateway()
+        val service = AttendanceService(repo, gateway, clock)
+        assertEquals(
+            CheckRejection.AFTER_DEPARTURE,
+            assertIs<CheckOutcome.Rejected>(service.manualCheck()).reason
+        )
+        assertEquals(
+            CheckRejection.AFTER_DEPARTURE,
+            assertIs<CheckOutcome.Rejected>(service.widgetCheck(repo.day!!.plan.key.trackerId)).reason
+        )
+        assertEquals(0, gateway.calls)
+    }
+
+    @Test
+    fun departure_allows_fix_captured_at_cutoff_delivered_later() = runTest {
+        val clock = TestClock(at("17:00:00"))
+        val repo = Repository(clock)
+        repo.day = repo.day!!.let { it.copy(plan = it.plan.copy(departure = at("17:00:00"))) }
+        val gateway = Gateway()
+        gateway.answer = {
+            clock.value = at("17:00:20")
+            fixtureFix(capturedAt = at("17:00:00"), ageSeconds = 20)
+        }
+        assertIs<CheckOutcome.Recorded>(AttendanceService(repo, gateway, clock).manualCheck())
+        assertEquals(30.seconds, gateway.lastBudget)
     }
 
     @Test

@@ -22,9 +22,12 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.plus
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.number
 
@@ -53,19 +56,17 @@ class HistoryViewModel(
                 val (year, month) = monthKey
                 if (!enabled) return@flatMapLatest emptyFlow()
                 val currentClock = clock
-                val histories = if (currentClock == null) repository.attendance.observeMonth(
-                    year,
-                    month
-                ) else channelFlow {
-                    repository.attendance.reconcile(currentClock.now())
-                    refreshBoundary()?.let { boundary ->
-                        launch {
-                            delay((boundary - currentClock.now()).coerceAtLeast(1.milliseconds))
-                            refresh.update { it + 1 }
+                val histories =
+                    if (currentClock == null) calendarMonth(year, month) else channelFlow {
+                        repository.attendance.reconcile(currentClock.now())
+                        refreshBoundary()?.let { boundary ->
+                            launch {
+                                delay((boundary - currentClock.now()).coerceAtLeast(1.milliseconds))
+                                refresh.update { it + 1 }
+                            }
                         }
+                        calendarMonth(year, month).collect { send(it) }
                     }
-                    repository.attendance.observeMonth(year, month).collect { send(it) }
-                }
                 histories.onEach { history ->
                     val currentDate = today(); state.update {
                     it.copy(
@@ -82,6 +83,21 @@ class HistoryViewModel(
         }
     }
 
+    private fun calendarMonth(year: Int, month: Int) = LocalDate(year, month, 1).let { from ->
+        repository.attendance.observeRange(
+            from,
+            from.plus(1, DateTimeUnit.MONTH).plus(-1, DateTimeUnit.DAY)
+        )
+            .map { range ->
+                val elapsed = range.records.filter { it.plan.key.date <= range.today }
+                dev.daymark.models.attendance.HistoryMonth(
+                    range.records,
+                    elapsed.count { it.outcome.status == AttendanceStatus.PRESENT },
+                    elapsed.count { it.outcome.status == AttendanceStatus.LATE },
+                    elapsed.count { it.outcome.status == AttendanceStatus.ABSENT })
+            }
+    }
+
     fun setActive(value: Boolean) {
         active.value = value
     }
@@ -89,7 +105,12 @@ class HistoryViewModel(
     fun selectMonth(year: Int, month: Int) {
         LocalDate(year, month, 1)
         if (selected.value == year to month) return
-        state.update { it.copy(year = year, month = month, ready = false, savedKey = null) }
+        state.update {
+            it.copy(
+                year = year, month = month, ready = false, savedKey = null,
+                history = dev.daymark.models.attendance.HistoryMonth(emptyList(), 0, 0, 0)
+            )
+        }
         selected.value = year to month
     }
 

@@ -41,6 +41,7 @@ data class AttendanceEntity(
     val cachedStatus: String = "SCHEDULED",
     val cachedSource: String = "NONE",
     val cachedConfirmedAt: String? = null,
+    val departure: String? = null,
 ) {
     fun plan() = DayPlan(
         DayKey(trackerId, LocalDate.parse(date)),
@@ -50,7 +51,8 @@ data class AttendanceEntity(
         zoneId,
         scheduleVersion,
         RegisteredPlace(placeLatitude, placeLongitude, placeRadiusMetres, placeVersion),
-        isScheduled
+        isScheduled,
+        departure?.let(Instant::parse)
     )
 
     fun evidence(): AttendanceEvidence? = evidenceStatus?.let {
@@ -77,7 +79,8 @@ data class AttendanceEntity(
             plan.place.radiusMetres,
             plan.place.version,
             plan.isScheduled,
-            now.toString()
+            now.toString(),
+            departure = plan.departure?.toString()
         )
     }
 }

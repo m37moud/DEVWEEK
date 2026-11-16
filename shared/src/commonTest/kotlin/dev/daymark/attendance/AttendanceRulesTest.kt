@@ -27,6 +27,45 @@ import kotlinx.datetime.DayOfWeek
 
 class AttendanceRulesTest {
     @Test
+    fun departure_is_inclusive_and_uses_capture_time_despite_later_delivery() {
+        val plan = fixturePlan().copy(departure = at("17:00:00"))
+        assertIs<FixVerdict.Accepted>(
+            classifyFix(
+                plan,
+                fixtureFix(capturedAt = at("17:00:00"), ageSeconds = 20),
+                CheckMode.USER_INITIATED,
+                at("17:00:20")
+            )
+        )
+        assertEquals(
+            FixVerdict.Rejected(CheckRejection.AFTER_DEPARTURE),
+            classifyFix(
+                plan,
+                fixtureFix(capturedAt = at("17:00:00.001")),
+                CheckMode.USER_INITIATED,
+                at("17:00:00.001")
+            )
+        )
+        assertEquals(
+            FixVerdict.Rejected(CheckRejection.AFTER_AUTOMATIC_WINDOW),
+            classifyFix(
+                plan,
+                fixtureFix(capturedAt = at("17:00:00")),
+                CheckMode.AUTOMATIC,
+                at("17:00:00")
+            )
+        )
+        assertIs<FixVerdict.Accepted>(
+            classifyFix(
+                plan.copy(departure = null),
+                fixtureFix(capturedAt = at("18:00:00")),
+                CheckMode.USER_INITIATED,
+                at("18:00:00")
+            )
+        )
+    }
+
+    @Test
     fun school_and_course_leave_is_day_off_and_preserves_underlying_attendance() {
         val evidence = AttendanceEvidence(
             AttendanceStatus.PRESENT,

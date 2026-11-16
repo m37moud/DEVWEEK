@@ -13,6 +13,8 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
@@ -108,6 +110,12 @@ internal fun encodeSchedule(schedule: WeeklySchedule): String = buildJsonObject 
     "graceMinutes",
     schedule.graceMinutes
 ); put("zoneId", schedule.zoneId)
+    put("departure", schedule.departure?.let { JsonPrimitive(it.toString()) } ?: JsonNull)
+    putJsonObject("departureOverrides") {
+        schedule.departureOverrides.forEach { (day, time) ->
+            put(day.name, time?.let { JsonPrimitive(it.toString()) } ?: JsonNull)
+        }
+    }
     putJsonObject("overrides") {
         schedule.overrides.forEach { (day, time) ->
             put(
@@ -129,6 +137,10 @@ internal fun decodeSchedule(text: String): WeeklySchedule {
             )
         }.toMap(),
         json.getValue("graceMinutes").jsonPrimitive.int,
-        json.getValue("zoneId").jsonPrimitive.content
+        json.getValue("zoneId").jsonPrimitive.content,
+        json["departure"]?.jsonPrimitive?.contentOrNull?.let(LocalTime::parse),
+        json["departureOverrides"]?.jsonObject?.map { (day, time) ->
+            DayOfWeek.valueOf(day) to time.jsonPrimitive.contentOrNull?.let(LocalTime::parse)
+        }?.toMap() ?: emptyMap()
     )
 }
