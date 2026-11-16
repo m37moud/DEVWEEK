@@ -40,7 +40,9 @@ import dev.daymark.presentation.features.plan.component.PlanPlaceActions
 import dev.daymark.presentation.features.plan.component.PlanPlaceCard
 import dev.daymark.presentation.features.plan.component.PlanPlaceUiState
 import dev.daymark.presentation.features.plan.component.PlanPreviewDialog
+import dev.daymark.presentation.features.plan.component.PlanRoutineActions
 import dev.daymark.presentation.features.plan.component.PlanRoutineCard
+import dev.daymark.presentation.features.plan.component.PlanRoutineUiState
 import dev.daymark.presentation.features.plan.component.PlanTimeOffCard
 import dev.daymark.presentation.features.plan.component.TimeOffEditorDialog
 import dev.daymark.resources.Res
@@ -186,42 +188,46 @@ fun PlanContent(
             }
 
             PlanRoutineCard(
-                category = draft.category,
-                schedule = draft.schedule,
-                busy = state.busy,
-                invalidInput = state.invalidInput,
-                result = state.result,
-                onCategoryChange = { newCategory ->
-                    actions.edit { it.copy(category = newCategory) }
-                },
-                onDayToggle = { day ->
-                    actions.edit {
-                        val days =
-                            if (day in it.schedule.days) it.schedule.days - day else it.schedule.days + day
-                        it.copy(
-                            schedule = it.schedule.copy(
-                                days = days,
-                                overrides = it.schedule.overrides.filterKeys { selected -> selected in days },
-                                departureOverrides = it.schedule.departureOverrides.filterKeys { selected -> selected in days }
+                state = PlanRoutineUiState(
+                    category = draft.category,
+                    schedule = draft.schedule,
+                    busy = state.busy,
+                    invalidInput = state.invalidInput,
+                    result = state.result
+                ),
+                actions = PlanRoutineActions(
+                    changeCategory = { newCategory ->
+                        actions.edit { it.copy(category = newCategory) }
+                    },
+                    toggleDay = { day ->
+                        actions.edit {
+                            val days =
+                                if (day in it.schedule.days) it.schedule.days - day else it.schedule.days + day
+                            it.copy(
+                                schedule = it.schedule.copy(
+                                    days = days,
+                                    overrides = it.schedule.overrides.filterKeys { selected -> selected in days },
+                                    departureOverrides = it.schedule.departureOverrides.filterKeys { selected -> selected in days }
+                                )
                             )
-                        )
-                    }
-                },
-                onPickArrival = { timeDay = "default" },
-                onGraceChange = { minutes ->
-                    actions.edit {
-                        it.copy(schedule = it.schedule.copy(graceMinutes = minutes))
-                    }
-                },
-                onPickDayOverride = { day -> timeDay = day.name },
-                onResetOverride = { day ->
-                    actions.edit {
-                        it.copy(schedule = it.schedule.copy(overrides = it.schedule.overrides - day))
-                    }
-                },
-                onPickZone = { chooseZone = true },
-                onReviewChanges = { actions.preview(draft) },
-                onScheduleChange = { schedule -> actions.edit { it.copy(schedule = schedule) } }
+                        }
+                    },
+                    pickArrival = { timeDay = "default" },
+                    changeGrace = { minutes ->
+                        actions.edit {
+                            it.copy(schedule = it.schedule.copy(graceMinutes = minutes))
+                        }
+                    },
+                    pickDayOverride = { day -> timeDay = day.name },
+                    resetDayOverride = { day ->
+                        actions.edit {
+                            it.copy(schedule = it.schedule.copy(overrides = it.schedule.overrides - day))
+                        }
+                    },
+                    pickZone = { chooseZone = true },
+                    reviewChanges = { actions.preview(draft) },
+                    changeSchedule = { schedule -> actions.edit { it.copy(schedule = schedule) } }
+                )
             )
 
             PlanPlaceCard(
@@ -329,27 +335,6 @@ fun PlanContent(
                 adjusting = false
             },
             onDismiss = { adjusting = false }
-        )
-    }
-}
-
-@Composable
-internal fun PlanResult(result: PlanMutationResult?) {
-    result?.let {
-        Text(
-            text = str(
-                when (it) {
-                    PlanMutationResult.Applied -> Res.string.plan_saved
-                    PlanMutationResult.StalePreview -> Res.string.plan_stale
-                    PlanMutationResult.InsufficientBalance -> Res.string.plan_insufficient
-                    PlanMutationResult.LocalSaveFailed -> Res.string.local_save_failed
-                    is PlanMutationResult.Invalid -> Res.string.plan_invalid
-                }
-            ),
-            color = if (it == PlanMutationResult.Applied)
-                MaterialTheme.colorScheme.primary
-            else
-                MaterialTheme.colorScheme.error
         )
     }
 }
