@@ -9,6 +9,7 @@ import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.models.attendance.CheckOutcome
 import dev.daymark.models.attendance.CheckRejection
 import dev.daymark.repository.Repository
+import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Clock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -86,6 +87,16 @@ class TodayViewModel(
                                 Unit
                             )
                             }
+                            day.plan.departure?.let { departure ->
+                                launch {
+                                    delay(
+                                        (departure + 1.nanoseconds - clock.now()).coerceAtLeast(
+                                            kotlin.time.Duration.ZERO
+                                        )
+                                    )
+                                    state.update { it.copy(canCheck = false) }
+                                }
+                            }
                             repository.attendance.observeDay(day.plan.key).collect { observed ->
                                 val stored = repository.attendance.loadDay(day.plan.key)
                                 val hiddenBaseline =
@@ -133,6 +144,7 @@ class TodayViewModel(
     private fun canCheck(value: TodayUiState, hasTimeOff: Boolean = false): Boolean {
         val plan = value.plan ?: return false
         return active.value && !value.busy && plan.isScheduled && !hasTimeOff && clock.now() >= plan.arrival &&
+                (plan.departure == null || clock.now() <= plan.departure) &&
                 value.outcome?.status !in listOf(
             AttendanceStatus.PRESENT,
             AttendanceStatus.LATE,
@@ -166,6 +178,8 @@ class TodayViewModel(
         if (expectedTrackerId != null && expectedTrackerId != plan.key.trackerId) return
         if (current.canCheck) checkAttendance()
         else if (clock.now() < plan.arrival) state.update { it.copy(error = CheckRejection.BEFORE_WINDOW) }
+        else if (plan.departure?.let { clock.now() > it } == true)
+            state.update { it.copy(error = CheckRejection.AFTER_DEPARTURE) }
     }
 
     fun openLocationSettings() = permissions.openSystemSettings()

@@ -98,6 +98,11 @@ class TodayViewModelTest {
             }
         }
 
+        override fun observeRange(
+            from: kotlinx.datetime.LocalDate,
+            through: kotlinx.datetime.LocalDate
+        ): kotlinx.coroutines.flow.Flow<dev.daymark.history.HistoryRange> = error("Unused")
+
         override fun observeMonth(year: Int, month: Int): Flow<HistoryMonth> = error("Not used")
         override suspend fun claimAutomatic(
             key: DayKey,
@@ -158,7 +163,12 @@ class TodayViewModelTest {
     fun dashboard_updates_only_while_today_is_active() = runTest {
         val clock = TestClock()
         val attendanceSource = Repository(clock)
-        val summaries = MutableStateFlow(TodayDashboard(ready = true, present = 1))
+        val summaries = MutableStateFlow(
+            TodayDashboard(
+                ready = true,
+                metrics = dev.daymark.history.HistoryMetrics(attendance = 1)
+            )
+        )
         val repository = object : TestRepository() {
             override val attendance = attendanceSource
             override val planReader = this@TodayViewModelTest.plans
@@ -173,19 +183,21 @@ class TodayViewModelTest {
 
         model.setActive(true)
         runCurrent()
-        assertEquals(1, model.uiState.value.dashboard.present)
-        summaries.value = summaries.value.copy(present = 2)
+        assertEquals(1, model.uiState.value.dashboard.metrics.attendance)
+        summaries.value =
+            summaries.value.copy(metrics = dev.daymark.history.HistoryMetrics(attendance = 2))
         runCurrent()
-        assertEquals(2, model.uiState.value.dashboard.present)
+        assertEquals(2, model.uiState.value.dashboard.metrics.attendance)
 
         model.setActive(false)
         runCurrent()
-        summaries.value = summaries.value.copy(present = 3)
+        summaries.value =
+            summaries.value.copy(metrics = dev.daymark.history.HistoryMetrics(attendance = 3))
         runCurrent()
-        assertEquals(2, model.uiState.value.dashboard.present)
+        assertEquals(2, model.uiState.value.dashboard.metrics.attendance)
         model.setActive(true)
         runCurrent()
-        assertEquals(3, model.uiState.value.dashboard.present)
+        assertEquals(3, model.uiState.value.dashboard.metrics.attendance)
     }
 
     @Test

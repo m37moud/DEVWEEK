@@ -21,6 +21,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.daymark.history.HistoryMetric
+import dev.daymark.history.HistoryMetrics
 import dev.daymark.models.TodayDashboard
 import dev.daymark.models.WeekDaySummary
 import dev.daymark.models.attendance.AttendanceSource
@@ -52,18 +54,24 @@ import kotlin.time.Instant
 
 private data class TodayActions(
     val checkAttendance: () -> Unit,
-    val openLocationSettings: () -> Unit
+    val openLocationSettings: () -> Unit,
+    val openMetric: (HistoryMetric, LocalDate) -> Unit
 )
 
 @Composable
-fun TodayScreen(model: TodayViewModel, displayName: String, onHistory: () -> Unit) {
+fun TodayScreen(
+    model: TodayViewModel,
+    displayName: String,
+    onHistory: () -> Unit,
+    onMetric: (HistoryMetric, LocalDate) -> Unit
+) {
     val state by model.uiState.collectAsStateWithLifecycle()
     LifecycleStartEffect(model) {
         model.setActive(true)
         onStopOrDispose { model.setActive(false) }
     }
-    val actions = remember(model) {
-        TodayActions(model::checkAttendance, model::openLocationSettings)
+    val actions = remember(model, onMetric) {
+        TodayActions(model::checkAttendance, model::openLocationSettings, onMetric)
     }
     TodayContent(state, displayName, onHistory, actions)
 }
@@ -136,11 +144,13 @@ private fun TodayContent(
                         modifier = Modifier.padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        TodayMonthMetrics(
-                            summary = summary,
-                            language = language,
-                            onHistory = onHistory
-                        )
+                        summary.date?.let { displayedDate ->
+                            TodayMonthMetrics(
+                                metrics = summary.metrics,
+                                onHistory = onHistory,
+                                onMetric = { actions.openMetric(it, displayedDate) }
+                            )
+                        }
 
                         TodayWeekStrip(
                             week = summary.week,
@@ -170,7 +180,7 @@ private fun TodayContent(
 @Preview(name = "Awaiting narrow large text", widthDp = 320, fontScale = 2f)
 @Composable
 private fun TodayScreenPreview() {
-    val actions = TodayActions({}, {})
+    val actions = TodayActions({}, {}, { _, _ -> })
     val sampleDate = LocalDate(2026, 10, 27)
     val plan = DayPlan(
         key = DayKey("preview-tracker", sampleDate),
@@ -201,9 +211,13 @@ private fun TodayScreenPreview() {
         ready = true,
         date = sampleDate,
         placeName = "Harbor Office",
-        present = 14,
-        late = 2,
-        absent = 1,
+        metrics = HistoryMetrics(
+            attendance = 16,
+            late = 2,
+            absent = 1,
+            leaveRest = 3,
+            holidays = 1
+        ),
         week = weekDays,
         nextAttendance = plan.copy(
             key = DayKey("preview-tracker", LocalDate(2026, 10, 30)),
@@ -240,7 +254,7 @@ private fun TodayScreenPreview() {
 @Preview(name = "Corrected narrow large text", widthDp = 320, fontScale = 2f)
 @Composable
 private fun TodayScreenCorrectedDarkPreview() {
-    val actions = TodayActions({}, {})
+    val actions = TodayActions({}, {}, { _, _ -> })
     val sampleDate = LocalDate(2026, 10, 27)
     val plan = DayPlan(
         key = DayKey("preview-tracker", sampleDate),
@@ -283,7 +297,7 @@ private fun TodayScreenCorrectedDarkPreview() {
 @Preview
 @Composable
 private fun TodayScreenErrorPreview() {
-    val actions = TodayActions({}, {})
+    val actions = TodayActions({}, {}, { _, _ -> })
     val sampleDate = LocalDate(2026, 10, 27)
     DaymarkTheme(ThemePreference.LIGHT) {
         TodayContent(

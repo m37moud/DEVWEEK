@@ -57,9 +57,12 @@ class TodayDashboardTest {
                 )
                 val first = reader.observe().first { it.ready }
                 assertEquals("Registered place", first.placeName)
-                assertEquals(1, first.present); assertEquals(0, first.late); assertEquals(
+                assertEquals(1, first.metrics.attendance); assertEquals(
                     0,
-                    first.absent
+                    first.metrics.late
+                ); assertEquals(
+                    0,
+                    first.metrics.absent
                 )
                 assertEquals(7, first.week.size)
                 assertEquals(
@@ -99,7 +102,7 @@ class TodayDashboardTest {
                     service.apply(command, service.preview(command).expectedRevision)
                 )
                 val off = reader.observe().first { it.ready }
-                assertEquals(0, off.present)
+                assertEquals(0, off.metrics.attendance)
                 assertEquals(fixtureDate.plus(1, DateTimeUnit.DAY), off.nextAttendance?.key?.date)
                 assertEquals(
                     AttendanceStatus.HOLIDAY,
