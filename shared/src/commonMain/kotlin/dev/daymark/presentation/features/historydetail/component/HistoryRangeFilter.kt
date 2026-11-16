@@ -56,11 +56,11 @@ import dev.daymark.resources.time_off_through
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.str
-import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Instant
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -118,7 +118,10 @@ internal fun HistoryRangeFilter(
                             label = "filter-from-date"
                         ) { targetFrom ->
                             Text(
-                                text = str(Res.string.time_off_from, DisplayFormats.date(targetFrom, language)),
+                                text = str(
+                                    Res.string.time_off_from,
+                                    DisplayFormats.date(targetFrom, language)
+                                ),
                                 style = MaterialTheme.typography.bodySmall,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -151,7 +154,10 @@ internal fun HistoryRangeFilter(
                             label = "filter-through-date"
                         ) { targetThrough ->
                             Text(
-                                text = str(Res.string.time_off_through, DisplayFormats.date(targetThrough, language)),
+                                text = str(
+                                    Res.string.time_off_through,
+                                    DisplayFormats.date(targetThrough, language)
+                                ),
                                 style = MaterialTheme.typography.bodySmall,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -230,6 +236,8 @@ internal fun HistoryRangeFilter(
             initialSelectedDateMillis = initial.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
         )
         DatePickerDialog(
+
+            shape = MaterialTheme.shapes.medium,
             onDismissRequest = { picker = null },
             confirmButton = {
                 TextButton(onClick = {
@@ -246,7 +254,8 @@ internal fun HistoryRangeFilter(
                 TextButton(onClick = {
                     picker = null
                 }) { Text(str(Res.string.cancel)) }
-            }
-        ) { DatePicker(dateState) }
+            },
+
+            ) { DatePicker(dateState) }
     }
 }

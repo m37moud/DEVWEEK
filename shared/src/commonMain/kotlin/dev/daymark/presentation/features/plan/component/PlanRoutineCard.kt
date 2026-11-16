@@ -1,19 +1,14 @@
 package dev.daymark.presentation.features.plan.component
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -21,21 +16,18 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
@@ -47,7 +39,6 @@ import dev.daymark.presentation.component.DepartureCutoffEditor
 import dev.daymark.presentation.component.WeekdayOverrides
 import dev.daymark.presentation.component.label
 import dev.daymark.presentation.component.localTimeLabel
-import dev.daymark.presentation.component.shortLabel
 import dev.daymark.resources.Res
 import dev.daymark.resources.arrival
 import dev.daymark.resources.attendance_days
@@ -55,31 +46,24 @@ import dev.daymark.resources.attendance_zone
 import dev.daymark.resources.grace
 import dev.daymark.resources.grace_minutes
 import dev.daymark.resources.local_save_failed
-import dev.daymark.resources.override_arrival
 import dev.daymark.resources.plan_insufficient
 import dev.daymark.resources.plan_invalid
 import dev.daymark.resources.plan_review
 import dev.daymark.resources.plan_saved
 import dev.daymark.resources.plan_stale
-import dev.daymark.resources.preview_no_dates
-import dev.daymark.resources.reset
 import dev.daymark.resources.schedule
 import dev.daymark.resources.setup_type
-import dev.daymark.resources.weekday_overrides
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LocalAppLanguage
-import dev.daymark.settings.ThemePreference
 import dev.daymark.settings.isolated
 import dev.daymark.settings.plural
 import dev.daymark.settings.str
-import dev.daymark.ui.theme.DaymarkTheme
 import kotlinx.datetime.DayOfWeek
-import kotlinx.datetime.LocalTime
 import kotlin.math.roundToInt
 
 @Composable
-internal fun PlanRoutineCard(
+fun PlanRoutineCard(
     category: TrackerCategory,
     schedule: WeeklySchedule,
     busy: Boolean,
@@ -239,7 +223,7 @@ internal fun PlanRoutineCard(
                 )
             }
 
-            DepartureCutoffEditor(schedule, busy, onScheduleChange)
+            DepartureCutoffEditor(schedule = schedule, busy = busy, onChange = onScheduleChange)
 
             WeekdayOverrides(
                 schedule = schedule,
@@ -318,40 +302,3 @@ internal fun PlanRoutineCard(
     }
 }
 
-
-@Preview
-@Composable
-private fun PlanRoutineCardPreview() {
-    val sampleSchedule = WeeklySchedule(
-        days = setOf(
-            DayOfWeek.MONDAY,
-            DayOfWeek.TUESDAY,
-            DayOfWeek.WEDNESDAY,
-            DayOfWeek.THURSDAY,
-            DayOfWeek.FRIDAY
-        ),
-        arrival = LocalTime(9, 0),
-        overrides = mapOf(DayOfWeek.FRIDAY to LocalTime(8, 30)),
-        graceMinutes = 10,
-        zoneId = "UTC",
-        departure = LocalTime(17, 0)
-    )
-    DaymarkTheme(ThemePreference.LIGHT) {
-        PlanRoutineCard(
-            category = TrackerCategory.WORK,
-            schedule = sampleSchedule,
-            busy = false,
-            invalidInput = false,
-            result = null,
-            onCategoryChange = {},
-            onDayToggle = {},
-            onPickArrival = {},
-            onGraceChange = {},
-            onPickDayOverride = {},
-            onResetOverride = {},
-            onPickZone = {},
-            onReviewChanges = {},
-            onScheduleChange = {}
-        )
-    }
-}
