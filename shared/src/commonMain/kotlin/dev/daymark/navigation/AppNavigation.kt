@@ -32,8 +32,8 @@ import androidx.navigation3.ui.NavDisplay
 import androidx.savedstate.serialization.SavedStateConfiguration
 import dev.daymark.app.TodayIntents
 import dev.daymark.history.HistoryMetric
-import dev.daymark.presentation.features.history.HistoryDetailScreen
-import dev.daymark.presentation.features.history.HistoryDetailViewModel
+import dev.daymark.presentation.features.historydetail.HistoryDetailScreen
+import dev.daymark.presentation.features.historydetail.HistoryDetailViewModel
 import dev.daymark.app.HostPlatform
 import dev.daymark.app.QuickCheckIntents
 import dev.daymark.app.QuickCheckRequest

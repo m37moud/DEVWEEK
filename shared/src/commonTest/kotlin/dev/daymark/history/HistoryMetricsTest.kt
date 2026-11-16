@@ -5,7 +5,7 @@ import dev.daymark.fixturePlan
 import dev.daymark.attendance.evaluateDay
 import dev.daymark.plan.TimeOffKind
 import dev.daymark.models.attendance.*
-import dev.daymark.presentation.features.history.HistoryDetailUiState
+import dev.daymark.presentation.features.historydetail.HistoryDetailUiState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration

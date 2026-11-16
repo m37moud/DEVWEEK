@@ -24,7 +24,7 @@ import dev.daymark.settings.str
 import dev.daymark.ui.theme.DaymarkTheme
 
 @Composable
-internal fun HistoryMetricsGrid(
+ fun HistoryMetricsGrid(
     metrics: HistoryMetrics,
     onMetric: (HistoryMetric) -> Unit,
     modifier: Modifier = Modifier
@@ -47,7 +47,7 @@ internal fun HistoryMetricsGrid(
 }
 
 @Composable
-private fun MonthKpiTile(
+ fun MonthKpiTile(
     metric: HistoryMetric,
     metrics: HistoryMetrics,
     onClick: () -> Unit,
@@ -83,18 +83,3 @@ private fun MonthKpiTile(
     }
 }
 
-@Preview
-@Preview(name = "Narrow large text", widthDp = 320, fontScale = 2f)
-@Composable
-private fun HistoryMetricsGridPreview() {
-    DaymarkTheme(ThemePreference.LIGHT) {
-        HistoryMetricsGrid(
-            HistoryMetrics(
-                attendance = 16,
-                late = 2,
-                absent = 1,
-                leaveRest = 3,
-                holidays = 1
-            ), {})
-    }
-}

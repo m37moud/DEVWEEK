@@ -2,7 +2,7 @@ package dev.daymark.history
 
 import dev.daymark.attendance.AttendanceRepository
 import dev.daymark.models.attendance.*
-import dev.daymark.presentation.features.history.HistoryDetailViewModel
+import dev.daymark.presentation.features.historydetail.HistoryDetailViewModel
 import dev.daymark.testRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals

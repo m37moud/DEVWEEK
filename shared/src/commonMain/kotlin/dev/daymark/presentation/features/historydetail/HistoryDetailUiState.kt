@@ -1,4 +1,4 @@
-package dev.daymark.presentation.features.history
+package dev.daymark.presentation.features.historydetail
 
 import dev.daymark.history.HistoryMetric
 import dev.daymark.history.HistoryRange

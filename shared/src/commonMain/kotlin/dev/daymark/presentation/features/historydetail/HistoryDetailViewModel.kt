@@ -1,4 +1,4 @@
-package dev.daymark.presentation.features.history
+package dev.daymark.presentation.features.historydetail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

@@ -223,7 +223,7 @@ internal fun viewModelModule() = module {
         )
     }
     viewModel { (metric: dev.daymark.history.HistoryMetric, initialDate: LocalDate) ->
-        dev.daymark.presentation.features.history.HistoryDetailViewModel(get(), metric, initialDate)
+        dev.daymark.presentation.features.historydetail.HistoryDetailViewModel(get(), metric, initialDate)
     }
     viewModel { (initialDate: LocalDate) ->
         val repository = get<Repository>()

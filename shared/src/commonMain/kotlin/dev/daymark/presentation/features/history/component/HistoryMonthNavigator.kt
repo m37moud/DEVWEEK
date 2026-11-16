@@ -49,9 +49,9 @@ internal fun HistoryMonthNavigator(
     history: HistoryMonth,
     language: AppLanguage,
     onSelectMonth: (Int, Int) -> Unit,
+    modifier: Modifier = Modifier,
     today: LocalDate = LocalDate(year, month, 1),
-    onMetric: (HistoryMetric) -> Unit = {},
-    modifier: Modifier = Modifier
+    onMetric: (HistoryMetric) -> Unit = {}
 ) {
     val metrics = historyMetrics(history.records, today)
     LaunchedEffect(metrics) {
