@@ -3,6 +3,7 @@ package dev.daymark.presentation.component
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,7 +17,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -29,7 +29,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
+import compose.icons.fontawesomeicons.solid.Clock
 import compose.icons.fontawesomeicons.solid.Info
+import compose.icons.fontawesomeicons.solid.Redo
 import dev.daymark.plan.WeeklySchedule
 import dev.daymark.resources.Res
 import dev.daymark.resources.departure_cutoff
@@ -53,37 +55,60 @@ fun DepartureCutoffEditor(
     appLanguage: AppLanguage = LocalAppLanguage.current,
 ) {
     var editing by remember { mutableStateOf<String?>(null) }
-    var isInfoShow by rememberSaveable { mutableStateOf(false) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+
+        DepartureCutoffTitle()
+
+        // Divider & Visual Legend Strip
+        HorizontalDivider(
+            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+        )
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(str(Res.string.departure_cutoff), style = MaterialTheme.typography.titleSmall)
-            IconButton(
-                onClick = { isInfoShow = !isInfoShow },
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.size(16.dp),
-            ) {
-                Icon(
-                    imageVector = FontAwesomeIcons.Solid.Info,
-                    contentDescription = str(Res.string.info)
-                )
-            }
-        }
-
-        AnimatedVisibility(visible = isInfoShow, label = "Departure Cutoff Info") {
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            OutlinedButton(
+                onClick = { editing = "default" },
+                enabled = !busy,
                 modifier = Modifier.fillMaxWidth()
+                    .weight(1f)
             ) {
-                Text(
-                    text = str(Res.string.departure_explanation),
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(12.dp)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = FontAwesomeIcons.Solid.Clock,
+                        contentDescription = "schedule",
+                        modifier = Modifier.size(24.dp)
+                    )
+
+                    Text(
+                        text = schedule.departure?.let {
+                            localTimeLabel(
+                                time = it,
+                                language = appLanguage
+                            )
+                        }
+                            ?: str(Res.string.departure_set))
+                }
+            }
+            AnimatedVisibility(visible = schedule.departure != null) {
+                OutlinedButton(
+                    onClick = { onChange(schedule.copy(departure = null)) },
+                    enabled = !busy,
+                ) {
+                    Icon(
+                        imageVector = FontAwesomeIcons.Solid.Redo,
+                        contentDescription = str(Res.string.departure_none),
+                        modifier = Modifier.size(16.dp)
+
+                    )
+
+                }
             }
         }
 
@@ -93,29 +118,13 @@ fun DepartureCutoffEditor(
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
         )
 
-        OutlinedButton(
-            onClick = { editing = "default" },
-            enabled = !busy,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(schedule.departure?.let { localTimeLabel(time = it, language = appLanguage) }
-                ?: str(Res.string.departure_set))
-        }
-        // Divider & Visual Legend Strip
-        HorizontalDivider(
-            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-        )
-
-        AnimatedVisibility(visible = schedule.departure != null) {
-            TextButton(onClick = { onChange(schedule.copy(departure = null)) }, enabled = !busy) {
-                Text(str(Res.string.departure_none))
-            }
-        }
         for (day in schedule.days.sortedBy { it.ordinal }) {
             val overridden = schedule.departureOverrides.containsKey(day)
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(str(day.label()), style = MaterialTheme.typography.labelLarge)
+                Text(
+                    text = str(day.label()),
+                    style = MaterialTheme.typography.labelLarge
+                )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
                         selected = !overridden, enabled = !busy,
@@ -159,6 +168,43 @@ fun DepartureCutoffEditor(
                     editing = null
                 },
                 onDismiss = { editing = null }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.DepartureCutoffTitle() {
+    var isInfoShow by rememberSaveable { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(str(Res.string.departure_cutoff), style = MaterialTheme.typography.titleSmall)
+        IconButton(
+            onClick = { isInfoShow = !isInfoShow },
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.size(16.dp),
+        ) {
+            Icon(
+                imageVector = FontAwesomeIcons.Solid.Info,
+                contentDescription = str(Res.string.info)
+            )
+        }
+    }
+
+    AnimatedVisibility(visible = isInfoShow, label = "Departure Cutoff Info") {
+        Surface(
+            shape = MaterialTheme.shapes.small,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = str(Res.string.departure_explanation),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(12.dp)
             )
         }
     }

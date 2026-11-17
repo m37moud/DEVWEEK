@@ -22,12 +22,12 @@ private fun SetupScheduleDeparturePreview() {
         Surface(modifier = Modifier.fillMaxSize()) {
             SetupSchedule(
                 schedule = WeeklySchedule(
-                    setOf(DayOfWeek.MONDAY),
-                    LocalTime(9, 0),
-                    emptyMap(),
-                    5,
-                    "UTC",
-                    LocalTime(17, 0)
+                    days = setOf(DayOfWeek.MONDAY),
+                    arrival = LocalTime(9, 0),
+                    overrides = emptyMap(),
+                    graceMinutes = 5,
+                    zoneId = "UTC",
+                    departure = LocalTime(17, 0)
                 ),
                 busy = false,
                 onScheduleChange = {}

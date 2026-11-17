@@ -27,7 +27,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
@@ -53,7 +52,6 @@ import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.isolated
 import dev.daymark.settings.plural
 import dev.daymark.settings.str
-import kotlin.math.roundToInt
 import kotlinx.datetime.DayOfWeek
 
 @Composable
@@ -117,8 +115,7 @@ fun SetupSchedule(
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
         )
 
-        DepartureCutoffEditor(schedule, busy, onScheduleChange)
-
+        //override attend weekday
         WeekdayOverrides(
             schedule = schedule,
             busy = busy,
@@ -127,6 +124,9 @@ fun SetupSchedule(
                 onScheduleChange(schedule.copy(overrides = schedule.overrides - day))
             }
         )
+        //*for leaving time
+        DepartureCutoffEditor(schedule = schedule, busy = busy, onChange = onScheduleChange)
+
 
         OutlinedButton(
             onClick = { chooseZone = true },

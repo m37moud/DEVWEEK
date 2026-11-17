@@ -1,5 +1,6 @@
 package dev.daymark.android.previews
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -12,12 +13,14 @@ import dev.daymark.ui.theme.DaymarkTheme
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalTime
 
-@Preview(name = "Departure cutoff large text", widthDp = 320, fontScale = 2f)
+@Preview(name = "Departure cutoff large text",
+//    widthDp = 320,
+    fontScale = 2f)
 @Composable
 private fun DepartureCutoffEditorPreview() {
     DaymarkTheme(preference = ThemePreference.LIGHT) {
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxSize(),
 
             ) {
             DepartureCutoffEditor(

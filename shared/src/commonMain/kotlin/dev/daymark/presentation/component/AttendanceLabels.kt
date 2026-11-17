@@ -1,13 +1,10 @@
 package dev.daymark.presentation.component
 
-import androidx.compose.runtime.getValue
 import dev.daymark.models.attendance.AttendanceSource
 import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.models.attendance.CheckRejection
 import dev.daymark.models.attendance.TrackerCategory
-import dev.daymark.presentation.component.label
 import dev.daymark.presentation.features.setup.SetupIssue
-import dev.daymark.resources.location_after_departure
 import dev.daymark.resources.Res
 import dev.daymark.resources.check_changed
 import dev.daymark.resources.check_denied
@@ -17,6 +14,7 @@ import dev.daymark.resources.friday
 import dev.daymark.resources.invalid_setup
 import dev.daymark.resources.load_failed
 import dev.daymark.resources.local_save_failed
+import dev.daymark.resources.location_after_departure
 import dev.daymark.resources.location_before_window
 import dev.daymark.resources.location_denied
 import dev.daymark.resources.location_disabled
@@ -71,11 +69,19 @@ internal fun SetupIssue.label(): StringResource = when (this) {
 
 internal fun localTimeLabel(time: LocalTime, language: AppLanguage): String {
     val zero = DisplayFormats.number(0, language).single()
+    val hour = time.hour % 12
+    val period = if (time.hour < 12) {
+        if (language == AppLanguage.AR) "ص" else "AM"
+    } else {
+        if (language == AppLanguage.AR) "م" else "PM"
+    }
     return isolated(
-        DisplayFormats.number(time.hour, language).padStart(2, zero) + ":" + DisplayFormats.number(
-            time.minute,
-            language
-        ).padStart(2, zero)
+        DisplayFormats.number(value = if (hour == 0) 12 else hour, language = language)
+            .padStart(2, zero) + ":" + DisplayFormats
+            .number(
+                value = time.minute,
+                language = language
+            ).padStart(2, zero) + " " + period
     )
 }
 

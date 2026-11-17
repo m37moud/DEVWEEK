@@ -25,7 +25,7 @@ internal fun ArrivalTimeDialog(
     val time = rememberTimePickerState(
         initialHour = initial.hour,
         initialMinute = initial.minute,
-        is24Hour = true
+        is24Hour = false
     )
     AlertDialog(
         onDismissRequest = onDismiss,
