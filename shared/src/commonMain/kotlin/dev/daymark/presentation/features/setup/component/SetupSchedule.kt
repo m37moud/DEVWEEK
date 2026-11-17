@@ -17,7 +17,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,16 +27,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Clock
 import dev.daymark.plan.WeeklySchedule
-import dev.daymark.presentation.component.DepartureCutoffEditor
 import dev.daymark.presentation.component.ArrivalTimeDialog
+import dev.daymark.presentation.component.DepartureCutoffEditor
+import dev.daymark.presentation.component.ValueSliderControl
+import dev.daymark.presentation.component.ValueSliderState
 import dev.daymark.presentation.component.WeekdayOverrides
 import dev.daymark.presentation.component.ZonePicker
 import dev.daymark.presentation.component.label
@@ -243,33 +241,19 @@ private fun GracePeriod(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Text(
-                    text = minutes,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            Slider(
-                value = schedule.graceMinutes.toFloat(),
-                onValueChange = { onChange(schedule.copy(graceMinutes = it.roundToInt())) },
-                enabled = !busy,
-                valueRange = 0f..120f,
-                steps = 119,
-                modifier = Modifier
-                    .testTag("setup-grace")
-                    .semantics {
-                        contentDescription = label
-                        stateDescription = minutes
-                    }
+            ValueSliderControl(
+                state = ValueSliderState(
+                    label = label,
+                    value = schedule.graceMinutes,
+                    formattedValue = minutes,
+                    min = 0,
+                    max = 120,
+                    step = 5,
+                    sliderSteps = 119,
+                    enabled = !busy,
+                    testTag = "setup-grace"
+                ),
+                onValueChange = { onChange(schedule.copy(graceMinutes = it)) }
             )
         }
     }

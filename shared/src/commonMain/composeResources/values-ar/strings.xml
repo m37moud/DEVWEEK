@@ -36,6 +36,8 @@
     <string name="reset">إعادة الضبط</string>
     <string name="save">حفظ</string>
     <string name="cancel">إلغاء</string>
+    <string name="increase">زيادة</string>
+    <string name="decrease">إنقاص</string>
     <string name="monday">الاثنين</string>
     <string name="tuesday">الثلاثاء</string>
     <string name="wednesday">الأربعاء</string>

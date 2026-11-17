@@ -19,20 +19,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.setup.SetupDraft
 import dev.daymark.presentation.component.RegisteredPlacePreview
+import dev.daymark.presentation.component.ValueSliderControl
+import dev.daymark.presentation.component.ValueSliderState
 import dev.daymark.presentation.component.isLocationIssue
 import dev.daymark.presentation.features.setup.SetupIssue
 import dev.daymark.presentation.features.setup.SetupUiState
@@ -191,36 +189,25 @@ private fun PlaceRadius(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = str(Res.string.place_ready, metres),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.testTag("setup-place-ready")
-                )
-                Text(
-                    text = radiusDescription,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Text(text = label, style = MaterialTheme.typography.labelMedium)
-            Slider(
-                value = place.radiusMetres.toFloat(),
-                onValueChange = { onPlaceChange(place.copy(radiusMetres = it.roundToInt())) },
-                enabled = !busy,
-                valueRange = 100f..500f,
-                steps = 7,
-                modifier = Modifier
-                    .testTag("setup-radius")
-                    .semantics {
-                        contentDescription = label
-                        stateDescription = radiusDescription
-                    }
+            Text(
+                text = str(Res.string.place_ready, metres),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.testTag("setup-place-ready")
+            )
+            ValueSliderControl(
+                state = ValueSliderState(
+                    label = label,
+                    value = place.radiusMetres,
+                    formattedValue = radiusDescription,
+                    min = 100,
+                    max = 500,
+                    step = 50,
+                    sliderSteps = 7,
+                    enabled = !busy,
+                    testTag = "setup-radius"
+                ),
+                onValueChange = { onPlaceChange(place.copy(radiusMetres = it)) }
             )
         }
     }

@@ -25,7 +25,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,6 +42,8 @@ import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.plan.WeeklySchedule
 import dev.daymark.presentation.component.DepartureCutoffEditor
+import dev.daymark.presentation.component.ValueSliderControl
+import dev.daymark.presentation.component.ValueSliderState
 import dev.daymark.presentation.component.WeekdayOverrides
 import dev.daymark.presentation.component.label
 import dev.daymark.presentation.component.localTimeLabel
@@ -295,43 +296,21 @@ private fun PlanRoutineGraceSlider(
         isolated(DisplayFormats.number(graceMinutes, language))
     )
 
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = graceLabel,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh
-            ) {
-                Text(
-                    text = graceMinutesText,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-            }
-        }
-        Slider(
-            value = graceMinutes.toFloat(),
-            onValueChange = { onGraceChange(it.roundToInt()) },
-            valueRange = 0f..120f,
-            steps = 119,
+    ValueSliderControl(
+        state = ValueSliderState(
+            label = graceLabel,
+            value = graceMinutes,
+            formattedValue = graceMinutesText,
+            min = 0,
+            max = 120,
+            step = 5,
+            sliderSteps = 119,
             enabled = !busy,
-            modifier = Modifier
-                .testTag("plan-grace")
-                .semantics {
-                    contentDescription = graceLabel
-                    stateDescription = graceMinutesText
-                }
-        )
-    }
+            testTag = "plan-grace"
+        ),
+        onValueChange = onGraceChange,
+        modifier = modifier
+    )
 }
 
 @Composable

@@ -16,20 +16,18 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.daymark.models.attendance.RegisteredPlace
-import dev.daymark.presentation.component.RegisteredPlacePreview
 import dev.daymark.presentation.component.PlaceAddressUiState
+import dev.daymark.presentation.component.RegisteredPlacePreview
+import dev.daymark.presentation.component.ValueSliderControl
+import dev.daymark.presentation.component.ValueSliderState
 import dev.daymark.presentation.component.label
 import dev.daymark.presentation.features.setup.SetupIssue
 import dev.daymark.resources.Res
@@ -103,41 +101,19 @@ internal fun PlanPlaceCard(
 
             RegisteredPlacePreview(place, state.address, state.placeName, Modifier.fillMaxWidth())
 
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = radiusLabel,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh
-                    ) {
-                        Text(
-                            text = radiusDescription,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-                Slider(
-                    value = place.radiusMetres.toFloat(),
-                    onValueChange = { actions.changeRadius(it.roundToInt()) },
-                    valueRange = 100f..500f,
-                    steps = 7,
-                    enabled = !state.busy,
-                    modifier = Modifier.semantics {
-                        contentDescription = radiusLabel
-                        stateDescription = radiusDescription
-                    }
-                )
-            }
+            ValueSliderControl(
+                state = ValueSliderState(
+                    label = radiusLabel,
+                    value = place.radiusMetres,
+                    formattedValue = radiusDescription,
+                    min = 100,
+                    max = 500,
+                    step = 50,
+                    sliderSteps = 7,
+                    enabled = !state.busy
+                ),
+                onValueChange = actions.changeRadius
+            )
 
             Button(
                 onClick = actions.registerCurrentPlace,
