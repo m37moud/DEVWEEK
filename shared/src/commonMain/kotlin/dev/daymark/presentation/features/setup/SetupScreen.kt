@@ -250,8 +250,8 @@ private fun SetupStepContent(
         SetupStep.SCHEDULE -> {
             state.draft.schedule?.let { schedule ->
                 SetupSchedule(
-                    schedule,
-                    state.busy
+                    schedule = schedule,
+                    busy = state.busy
                 ) { actions.updateDraft(state.draft.copy(schedule = it)) }
             }
             if (state.draft.category == TrackerCategory.WORK) {

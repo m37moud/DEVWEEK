@@ -20,20 +20,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.daymark.location.PlaceAddressRequest
-import dev.daymark.models.attendance.RegisteredPlace
-import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.plan.PlanChange
-import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.plan.TimeOffCommand
 import dev.daymark.models.plan.TimeOffEntry
 import dev.daymark.plan.TimeOffKind
-import dev.daymark.plan.WeeklySchedule
 import dev.daymark.presentation.component.ArrivalTimeDialog
-import dev.daymark.presentation.component.PlaceAddressUiState
 import dev.daymark.presentation.component.ZonePicker
 import dev.daymark.presentation.features.plan.component.BalanceAdjustDialog
 import dev.daymark.presentation.features.plan.component.PlanPlaceActions
@@ -47,26 +40,17 @@ import dev.daymark.presentation.features.plan.component.PlanTimeOffCard
 import dev.daymark.presentation.features.plan.component.TimeOffEditorDialog
 import dev.daymark.resources.Res
 import dev.daymark.resources.load_failed
-import dev.daymark.resources.local_save_failed
 import dev.daymark.resources.plan_effective
-import dev.daymark.resources.plan_insufficient
-import dev.daymark.resources.plan_invalid
-import dev.daymark.resources.plan_saved
-import dev.daymark.resources.plan_stale
 import dev.daymark.resources.plan_title
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LocalAppLanguage
-import dev.daymark.settings.ThemePreference
 import dev.daymark.settings.str
-import dev.daymark.ui.theme.DaymarkTheme
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
-import kotlin.time.Instant
 
 data class PlanActions(
     val edit: ((PlanChange) -> PlanChange) -> Unit,
@@ -115,9 +99,9 @@ fun PlanContent(
     state: PlanUiState,
     clock: Clock,
     initialTimeOffDate: LocalDate?,
-    actions: PlanActions
+    actions: PlanActions,
+    appLanguage: AppLanguage = LocalAppLanguage.current
 ) {
-    val language = LocalAppLanguage.current
     val draft = state.draft
     var chooseZone by remember { mutableStateOf(false) }
     var timeDay by remember { mutableStateOf<String?>(null) }
@@ -178,7 +162,7 @@ fun PlanContent(
                     Text(
                         text = str(
                             Res.string.plan_effective,
-                            DisplayFormats.date(effectiveDate, language)
+                            DisplayFormats.date(effectiveDate, appLanguage)
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

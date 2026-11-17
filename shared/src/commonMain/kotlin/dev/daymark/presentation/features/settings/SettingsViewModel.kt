@@ -187,7 +187,7 @@ class SettingsViewModel(
                 }; return@save
             }
         }
-        repository.settings.setAutomation(expectedTracker, enabled)
+        repository.settings.setAutomation(expectedTrackerId = expectedTracker, enabled = enabled)
         state.update { it.copy(permissionDenied = false, capabilities = permissions.current()) }
     }
 

@@ -72,6 +72,13 @@ class HistoryDetailViewModel(
         active.value = enabled
     }
 
+    fun beginCorrection() {
+        AppLogger.d("HistoryDetails", "Correction editor opened")
+        state.update {
+            it.copy(invalidCorrection = false, noteTooLong = false, savedKey = null)
+        }
+    }
+
     fun selectRange(from: LocalDate, through: LocalDate) {
         val invalid = from > through || state.value.range.firstDate?.let { from < it } == true
         state.update { it.copy(invalidRange = invalid) }

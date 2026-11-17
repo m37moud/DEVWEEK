@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -56,7 +57,7 @@ import kotlin.math.roundToInt
 import kotlinx.datetime.DayOfWeek
 
 @Composable
-internal fun SetupSchedule(
+fun SetupSchedule(
     schedule: WeeklySchedule,
     busy: Boolean,
     onScheduleChange: (WeeklySchedule) -> Unit
@@ -109,6 +110,13 @@ internal fun SetupSchedule(
         }
 
         GracePeriod(schedule, busy, onScheduleChange)
+
+        // Divider & Visual Legend Strip
+        HorizontalDivider(
+            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+        )
+
         DepartureCutoffEditor(schedule, busy, onScheduleChange)
 
         WeekdayOverrides(
@@ -260,25 +268,3 @@ private fun GracePeriod(
 }
 
 
-@androidx.compose.ui.tooling.preview.Preview(
-    name = "Schedule with departure",
-    widthDp = 320,
-    fontScale = 1.5f
-)
-@Composable
-private fun SetupScheduleDeparturePreview() {
-    dev.daymark.ui.theme.DaymarkTheme(dev.daymark.settings.ThemePreference.LIGHT) {
-        SetupSchedule(
-            schedule = WeeklySchedule(
-                setOf(DayOfWeek.MONDAY),
-                kotlinx.datetime.LocalTime(9, 0),
-                emptyMap(),
-                5,
-                "UTC",
-                kotlinx.datetime.LocalTime(17, 0)
-            ),
-            busy = false,
-            onScheduleChange = {}
-        )
-    }
-}

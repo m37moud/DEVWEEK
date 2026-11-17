@@ -42,7 +42,7 @@ private fun HistoryHolidayDetailPreview() {
                 ),
                 ready = true
             ),
-            actions = HistoryDetailActions({}, { _, _ -> }, {}, {})
+            actions = HistoryDetailActions({}, { _, _ -> }, {}, {}, {})
         )
     }
 }
@@ -64,7 +64,7 @@ private fun HistoryLateDetailDarkPreview() {
                 ),
                 ready = true
             ),
-            actions = HistoryDetailActions({}, { _, _ -> }, {}, {})
+            actions = HistoryDetailActions({}, { _, _ -> }, {}, {}, {})
         )
     }
 }
@@ -87,7 +87,7 @@ private fun HistoryAttendanceDetailArabicPreview() {
                     ),
                     ready = true
                 ),
-                actions = HistoryDetailActions({}, { _, _ -> }, {}, {})
+                actions = HistoryDetailActions({}, { _, _ -> }, {}, {}, {})
             )
         }
     }
@@ -110,7 +110,7 @@ private fun HistoryNarrowTextPreview() {
                 ),
                 ready = true
             ),
-            actions = HistoryDetailActions({}, { _, _ -> }, {}, {})
+            actions = HistoryDetailActions({}, { _, _ -> }, {}, {}, {})
         )
     }
 }

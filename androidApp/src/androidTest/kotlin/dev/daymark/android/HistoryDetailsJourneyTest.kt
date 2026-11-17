@@ -12,6 +12,8 @@ import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.models.attendance.Correction
 import dev.daymark.models.attendance.DayKey
 import dev.daymark.settings.LanguagePreference
+import dev.daymark.reporting.REPORT_TEXT_LIMIT
+import androidx.compose.ui.semantics.SemanticsProperties
 import java.util.UUID
 import java.io.File
 import java.io.FileOutputStream
@@ -79,6 +81,15 @@ class HistoryDetailsJourneyTest {
                 }
             compose.onNodeWithTag("history-record-2026-10-27").performClick()
             compose.onNodeWithText("Save").assertIsDisplayed()
+            compose.onNodeWithTag("correction-note")
+                .performTextInput("x".repeat(REPORT_TEXT_LIMIT + 1))
+            compose.onNodeWithTag("correction-save").performClick()
+            compose.onNodeWithTag("correction-note")
+                .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Error))
+            compose.onNodeWithText("Cancel").performClick()
+            compose.onNodeWithTag("history-record-2026-10-27").performClick()
+            compose.onNodeWithTag("correction-note")
+                .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Error))
             assertEquals(0, fixture.locationRequests)
         } finally {
             compose.runOnIdle { shown = false }

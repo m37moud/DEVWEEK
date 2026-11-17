@@ -221,6 +221,8 @@ internal fun HistoryCorrectionDialog(
 
                 // Secondary action: Edit time off
                 TextButton(
+                    modifier = Modifier.testTag("correction-time-off"),
+                    enabled = !busy,
                     onClick = {
                         onDismiss()
                         onEditTimeOff(record.plan.key.date)
