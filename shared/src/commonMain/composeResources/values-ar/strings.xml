@@ -23,6 +23,7 @@
     <string name="location_stale">قراءة الموقع قديمة. اطلب قراءة حديثة.</string>
     <string name="location_inaccurate">نحتاج إلى موقع أدق. حاول مجددًا في مكان مفتوح.</string>
     <string name="local_save_failed">تعذّر الحفظ على الهاتف. بيانات النموذج ما زالت موجودة؛ حاول مجددًا.</string>
+    <string name="permission_request_failed">تعذّر إكمال طلب الإذن. يرجى المحاولة مرة أخرى.</string>
     <string name="invalid_setup">أدخل اسمك وسجّل المكان وتحقق من الجدول ورصيد الأيام الصحيحة.</string>
     <string name="radius">نطاق التحقق</string>
     <string name="radius_metres">%1$s م</string>

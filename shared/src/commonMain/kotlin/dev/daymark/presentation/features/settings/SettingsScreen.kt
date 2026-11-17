@@ -23,7 +23,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,12 +39,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.daymark.app.HostPlatform
-import dev.daymark.models.settings.AppSettings
 import dev.daymark.presentation.features.settings.component.GoogleConnectionSection
 import dev.daymark.presentation.features.settings.component.ReportActions
 import dev.daymark.presentation.features.settings.component.SettingsPreferencesCard
@@ -55,6 +52,7 @@ import dev.daymark.presentation.features.settings.component.WidgetSetupActions
 import dev.daymark.presentation.features.settings.component.SettingsWidgetsCard
 import dev.daymark.resources.Res
 import dev.daymark.resources.local_save_failed
+import dev.daymark.resources.permission_request_failed
 import dev.daymark.resources.settings
 import dev.daymark.resources.result_notifications
 import dev.daymark.resources.result_notifications_help
@@ -64,10 +62,9 @@ import dev.daymark.settings.LanguagePreference
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.ThemePreference
 import dev.daymark.settings.str
-import dev.daymark.ui.theme.DaymarkTheme
 import dev.daymark.ui.theme.LocalConfigurationHealth
 
-private data class SettingsActions(
+data class SettingsActions(
     val addWidget: () -> Unit,
     val refreshWidget: () -> Unit,
     val setDisplayName: (String) -> Unit,
@@ -117,7 +114,7 @@ fun SettingsScreen(model: SettingsViewModel, platform: HostPlatform) {
 }
 
 @Composable
-private fun SettingsContent(
+fun SettingsContent(
     state: SettingsUiState,
     platform: HostPlatform,
     actions: SettingsActions
@@ -142,7 +139,7 @@ private fun SettingsContent(
         )
 
         AnimatedVisibility(
-            visible = state.storageError,
+            visible = state.storageError || state.permissionRequestFailed,
             enter = fadeIn() + expandVertically(),
             exit = fadeOut() + shrinkVertically()
         ) {
@@ -163,7 +160,10 @@ private fun SettingsContent(
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = str(Res.string.local_save_failed),
+                        text = str(
+                            if (state.storageError) Res.string.local_save_failed
+                            else Res.string.permission_request_failed
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onErrorContainer
                     )
@@ -268,67 +268,5 @@ private fun SettingsContent(
                 }
             }
         }
-    }
-}
-
-@Preview
-@Composable
-private fun SettingsScreenAndroidPreview() {
-    val sampleActions = SettingsActions(
-        addWidget = {},
-        refreshWidget = {},
-        setDisplayName = {},
-        setLanguage = {},
-        setTheme = {},
-        setAutomation = {},
-        setRemindersEnabled = {},
-        requestReminders = {},
-        setResultNotificationsEnabled = {},
-        openSystemSettings = {},
-        reports = ReportActions({}, {}, {}, {}, {}, {}, {}, {})
-    )
-    DaymarkTheme(ThemePreference.LIGHT) {
-        SettingsContent(
-            state = SettingsUiState(
-                ready = true,
-                resultNotificationsSupported = true,
-                widgetStatus = dev.daymark.widgets.WidgetSetupStatus.NOT_ADDED,
-                widgetCanPin = true,
-                settings = AppSettings(displayName = "Alex Lee")
-            ),
-            platform = HostPlatform.ANDROID,
-            actions = sampleActions
-        )
-    }
-}
-
-@Preview
-@Composable
-private fun SettingsScreenIosDarkPreview() {
-    val sampleActions = SettingsActions(
-        addWidget = {},
-        refreshWidget = {},
-        setDisplayName = {},
-        setLanguage = {},
-        setTheme = {},
-        setAutomation = {},
-        setRemindersEnabled = {},
-        requestReminders = {},
-        setResultNotificationsEnabled = {},
-        openSystemSettings = {},
-        reports = ReportActions({}, {}, {}, {}, {}, {}, {}, {})
-    )
-    DaymarkTheme(ThemePreference.DARK) {
-        SettingsContent(
-            state = SettingsUiState(
-                ready = true,
-                resultNotificationsSupported = true,
-                widgetStatus = dev.daymark.widgets.WidgetSetupStatus.ADDED,
-                settings = AppSettings(displayName = "Alex Lee", theme = ThemePreference.DARK),
-                reportBusy = true
-            ),
-            platform = HostPlatform.IOS,
-            actions = sampleActions
-        )
     }
 }

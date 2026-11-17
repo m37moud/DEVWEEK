@@ -15,6 +15,7 @@ data class SettingsUiState(
     val busy: Boolean = false,
     val automaticEnabled: Boolean = false,
     val permissionDenied: Boolean = false,
+    val permissionRequestFailed: Boolean = false,
     val capabilities: LocationCapabilities? = null,
     val invalidName: Boolean = false,
     val requestingReminderPermission: Boolean = false,

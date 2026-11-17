@@ -20,6 +20,7 @@
     <string name="location_stale">That location reading is too old. Request a fresh one.</string>
     <string name="location_inaccurate">A more accurate location is needed. Try again outdoors.</string>
     <string name="local_save_failed">Could not save on this phone. Your form is still here; try again.</string>
+    <string name="permission_request_failed">Could not complete the permission request. Please try again.</string>
     <string name="invalid_setup">Enter your name, register a place, and check the schedule and whole-day balance.</string>
     <string name="radius">Allowed radius</string>
     <string name="radius_metres">%1$s m</string>

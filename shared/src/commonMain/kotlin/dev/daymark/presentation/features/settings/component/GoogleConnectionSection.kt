@@ -118,7 +118,7 @@ import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.StringResource
 import kotlin.time.Instant
 
-internal data class ReportActions(
+data class ReportActions(
     val connectReport: () -> Unit,
     val reconnectReport: () -> Unit,
     val selectReport: (String) -> Unit,

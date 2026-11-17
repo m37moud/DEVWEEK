@@ -130,21 +130,18 @@ class SettingsViewModel(
 
     fun requestReminders() {
         if (state.value.busy || state.value.requestingReminderPermission) return
-        state.update { it.copy(requestingReminderPermission = true) }
+        state.update { it.copy(requestingReminderPermission = true, storageError = false) }
         viewModelScope.launch {
             try {
-                val allowed = suspendCancellableCoroutine { continuation ->
-                    reminders.requestPermission { granted ->
-                        if (continuation.isActive) continuation.resume(granted)
+                val allowed = requestPermission {
+                    suspendCancellableCoroutine<Boolean> { continuation ->
+                        reminders.requestPermission { granted ->
+                            if (continuation.isActive) continuation.resume(granted)
+                        }
                     }
-                }
+                } ?: return@launch
                 state.update { it.copy(reminderPermissionGranted = allowed) }
                 if (allowed) setRemindersEnabled(true)
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (failure: Exception) {
-                AppLogger.e("SettingsViewModel", "Reminder permission request failed", failure)
-                state.update { it.copy(storageError = true) }
             } finally {
                 state.update { it.copy(requestingReminderPermission = false) }
             }
@@ -154,11 +151,13 @@ class SettingsViewModel(
     fun setResultNotificationsEnabled(enabled: Boolean) = save {
         val notifications = resultNotifications ?: return@save
         if (enabled) {
-            val allowed = suspendCancellableCoroutine { continuation ->
-                notifications.requestPermission { granted ->
-                    if (continuation.isActive) continuation.resume(granted)
+            val allowed = requestPermission {
+                suspendCancellableCoroutine<Boolean> { continuation ->
+                    notifications.requestPermission { granted ->
+                        if (continuation.isActive) continuation.resume(granted)
+                    }
                 }
-            }
+            } ?: return@save
             state.update { it.copy(resultNotificationPermissionDenied = !allowed) }
             if (!allowed) return@save
         }
@@ -173,11 +172,15 @@ class SettingsViewModel(
         val expectedTracker = repository.settings.trackerIdentity() ?: return@save
         AppLogger.d(TAG ?: "SettingsViewModel", "Setting automation to $enabled")
         if (enabled) {
-            var capability = permissions.current()
-            if (!capability.foregroundGranted || !capability.preciseGranted) capability =
-                permissions.requestForeground()
-            if (capability.foregroundGranted && capability.preciseGranted && !capability.backgroundGranted) capability =
-                permissions.requestBackground()
+            val capability = requestPermission {
+                var capability = permissions.current()
+                if (!capability.foregroundGranted || !capability.preciseGranted) capability =
+                    permissions.requestForeground()
+                if (capability.foregroundGranted && capability.preciseGranted && !capability.backgroundGranted) capability =
+                    permissions.requestBackground()
+                capability
+            } ?: return@save
+            state.update { it.copy(capabilities = capability) }
             if (!capability.foregroundGranted || !capability.preciseGranted || !capability.backgroundGranted || !capability.servicesEnabled) {
                 state.update {
                     it.copy(
@@ -188,7 +191,7 @@ class SettingsViewModel(
             }
         }
         repository.settings.setAutomation(expectedTrackerId = expectedTracker, enabled = enabled)
-        state.update { it.copy(permissionDenied = false, capabilities = permissions.current()) }
+        state.update { it.copy(permissionDenied = false) }
     }
 
     fun connectReport() = reportAction { repository.reporting.connect() }
@@ -226,9 +229,23 @@ class SettingsViewModel(
         }
     }
 
+    // A failed native request has no reply; callers must skip the dependent save.
+    private suspend fun <T : Any> requestPermission(action: suspend () -> T): T? {
+        state.update { it.copy(permissionRequestFailed = false) }
+        return try {
+            action()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            AppLogger.e("SettingsViewModel", "Permission request failed", failure)
+            state.update { it.copy(permissionRequestFailed = true) }
+            null
+        }
+    }
+
     private fun save(action: suspend () -> Unit) {
         if (state.value.busy) return
-        state.update { it.copy(busy = true, storageError = false) }
+        state.update { it.copy(busy = true, storageError = false, permissionRequestFailed = false) }
         viewModelScope.launch {
             try {
                 action()
