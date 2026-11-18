@@ -156,15 +156,29 @@ private val reviewPreviewDraft = SetupDraft(
     placeName = "Office",
     place = RegisteredPlace(0.0, 0.0, 100, 1),
     schedule = WeeklySchedule(
-        days = setOf(DayOfWeek.MONDAY),
+        days = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY),
         arrival = LocalTime(9, 0),
-        overrides = emptyMap(),
+        overrides = mapOf(DayOfWeek.FRIDAY to LocalTime(8, 30)),
         graceMinutes = 5,
         zoneId = "UTC",
-        departure = LocalTime(17, 0)
+        departure = LocalTime(17, 0),
+        departureOverrides = mapOf(DayOfWeek.THURSDAY to LocalTime(16, 0))
     ),
+    openingBalanceText = "15",
     step = SetupStep.REVIEW
 )
+
+@Preview(name = "Review light")
+@Composable
+private fun SetupReviewLightPreview() {
+    SetupActionsPreview(ThemePreference.LIGHT, AppLanguage.EN, reviewPreviewDraft)
+}
+
+@Preview(name = "Review dark")
+@Composable
+private fun SetupReviewDarkPreview() {
+    SetupActionsPreview(ThemePreference.DARK, AppLanguage.EN, reviewPreviewDraft)
+}
 
 @Preview(name = "Review narrow large text", widthDp = 320, fontScale = 2f)
 @Composable
