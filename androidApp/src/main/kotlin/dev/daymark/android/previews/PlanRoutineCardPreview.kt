@@ -25,7 +25,8 @@ private val sampleSchedule = WeeklySchedule(
     overrides = mapOf(DayOfWeek.FRIDAY to LocalTime(8, 30)),
     graceMinutes = 10,
     zoneId = "UTC",
-    departure = LocalTime(17, 0)
+    departure = LocalTime(17, 0),
+    departureOverrides = mapOf(DayOfWeek.MONDAY to null)
 )
 
 private val emptyActions = PlanRoutineActions(

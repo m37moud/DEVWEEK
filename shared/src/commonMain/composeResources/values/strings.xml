@@ -28,6 +28,10 @@
     <string name="attendance_days">Attendance days</string>
     <string name="arrival">Default arrival</string>
     <string name="grace">Grace period</string>
+    <string name="reset_day_override">Remove %1$s override</string>
+    <string name="set_day_cutoff">Set %1$s cutoff</string>
+    <string name="no_day_cutoff">No cutoff on %1$s</string>
+    <string name="add_day_override">Add day to override</string>
     <string name="weekday_overrides">Weekday overrides</string>
     <string name="same_arrival">Use the default arrival</string>
     <string name="override_arrival">Set a different arrival</string>

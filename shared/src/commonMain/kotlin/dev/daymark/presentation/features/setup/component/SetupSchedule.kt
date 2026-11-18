@@ -58,7 +58,8 @@ import kotlinx.datetime.DayOfWeek
 fun SetupSchedule(
     schedule: WeeklySchedule,
     busy: Boolean,
-    onScheduleChange: (WeeklySchedule) -> Unit
+    onScheduleChange: (WeeklySchedule) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var chooseZone by rememberSaveable { mutableStateOf(false) }
     var picker by rememberSaveable { mutableStateOf<String?>(null) }
@@ -123,6 +124,11 @@ fun SetupSchedule(
             onResetOverride = { day ->
                 onScheduleChange(schedule.copy(overrides = schedule.overrides - day))
             }
+        )
+        // Divider & Visual Legend Strip
+        HorizontalDivider(
+            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
         )
         //*for leaving time
         DepartureCutoffEditor(schedule = schedule, busy = busy, onChange = onScheduleChange)

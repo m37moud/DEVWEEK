@@ -30,7 +30,8 @@ private fun DepartureCutoffEditorPreview() {
                     emptyMap(),
                     5,
                     "UTC",
-                    LocalTime(17, 0)
+                    LocalTime(17, 0),
+                    mapOf(DayOfWeek.MONDAY to null)
                 ),
                 busy = false, onChange = {}
             )

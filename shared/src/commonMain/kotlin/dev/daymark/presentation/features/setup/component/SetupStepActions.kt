@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -12,9 +13,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -39,11 +42,10 @@ import dev.daymark.presentation.features.setup.SetupUiState
 import dev.daymark.resources.Res
 import dev.daymark.resources.draft_saved
 import dev.daymark.resources.onboarding_back
-import dev.daymark.resources.onboarding_finish_customize
+import dev.daymark.resources.onboarding_preferences_failed
 import dev.daymark.resources.onboarding_unsaved
 import dev.daymark.resources.retry
 import dev.daymark.resources.start_tracking
-import dev.daymark.resources.onboarding_preferences_failed
 import dev.daymark.settings.str
 
 @Composable
@@ -79,48 +81,75 @@ internal fun SetupStepActions(state: SetupUiState, actions: OnboardingActions) {
                 SetupError(state.issue)
             }
             if (state.draft.step == SetupStep.REVIEW) {
-                Button(
-                    onClick = { actions.finish(SetupFinish.TODAY) },
-                    enabled = !state.interactionBusy,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .testTag("setup-start")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+//                    TextButton(
+//                        onClick = actions.back,
+//                        enabled = !state.interactionBusy,
+//                        modifier = Modifier
+//                            .heightIn(min = 48.dp)
+//                            .testTag("setup-back")
+//                    ) {
+//                        Text(str(Res.string.onboarding_back))
+//                    }
+                    OutlinedButton(
+                        onClick = actions.back,
+                        enabled = !state.interactionBusy,
+                        modifier = Modifier.heightIn(min = 48.dp)
+                            .testTag("setup-back"),
+                        contentPadding = PaddingValues(horizontal = 24.dp),
+                        elevation = ButtonDefaults.elevatedButtonElevation(10.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(str(Res.string.start_tracking))
+                        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                contentDescription = str(Res.string.onboarding_back),
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp).testTag("setup-back-icon")
+                            )
+                        }
                     }
+
+                    Button(
+                        onClick = { actions.finish(SetupFinish.TODAY) },
+                        enabled = !state.interactionBusy,
+                        modifier = Modifier
+//                            .fillMaxWidth()
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                            .testTag("setup-start")
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(str(Res.string.start_tracking))
+                        }
+                    }
+
                 }
-                OutlinedButton(
-                    onClick = { actions.finish(SetupFinish.CUSTOMIZE) },
-                    enabled = !state.interactionBusy,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .testTag("setup-customize")
-                ) {
-                    Text(str(Res.string.onboarding_finish_customize))
-                }
-                TextButton(
-                    onClick = actions.back,
-                    enabled = !state.interactionBusy,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 44.dp)
-                        .testTag("setup-back")
-                ) {
-                    Text(str(Res.string.onboarding_back))
-                }
+
+//                OutlinedButton(
+//                    onClick = { actions.finish(SetupFinish.CUSTOMIZE) },
+//                    enabled = !state.interactionBusy,
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .heightIn(min = 48.dp)
+//                        .testTag("setup-customize")
+//                ) {
+//                    Text(str(Res.string.onboarding_finish_customize))
+//                }
+
             } else {
-                SetupNavigationActions(state, actions)
+                SetupNavigationActions(state = state, actions = actions)
             }
         }
     }

@@ -51,7 +51,7 @@ import dev.daymark.settings.LanguagePreference
 import dev.daymark.settings.ThemePreference
 import kotlin.math.roundToInt
 
-internal data class SetupActions(
+data class SetupActions(
     val updateDraft: (SetupDraft) -> Unit,
     val registerPlace: () -> Unit,
     val openSettings: () -> Unit,

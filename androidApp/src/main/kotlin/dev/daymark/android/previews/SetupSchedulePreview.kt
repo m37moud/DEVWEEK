@@ -27,7 +27,8 @@ private fun SetupScheduleDeparturePreview() {
                     overrides = emptyMap(),
                     graceMinutes = 5,
                     zoneId = "UTC",
-                    departure = LocalTime(17, 0)
+                    departure = LocalTime(17, 0),
+                    departureOverrides = mapOf(DayOfWeek.MONDAY to null)
                 ),
                 busy = false,
                 onScheduleChange = {}

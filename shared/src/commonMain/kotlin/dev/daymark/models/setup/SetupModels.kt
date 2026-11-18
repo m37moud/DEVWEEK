@@ -11,7 +11,7 @@ data class SetupDraft(
     val placeName: String = "",
     val place: RegisteredPlace? = null,
     val schedule: WeeklySchedule? = null,
-    val openingBalanceText: String = "0",
+    val openingBalanceText: String = "",
     val step: SetupStep = SetupStep.WELCOME
 ) {
     override fun toString() = "SetupDraft(metadata=<redacted>)"

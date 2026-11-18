@@ -73,7 +73,7 @@ private fun SetupBackTransition(
         modifier = if (showBack) Modifier else Modifier.clearAndSetSemantics { }
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            SetupBackAction(state, onBack)
+            SetupBackAction(state = state, onBack = onBack)
             Spacer(Modifier.width(8.dp))
         }
     }

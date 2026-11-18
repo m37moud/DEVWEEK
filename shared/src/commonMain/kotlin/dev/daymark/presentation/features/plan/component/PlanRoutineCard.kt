@@ -132,17 +132,22 @@ fun PlanRoutineCard(
                 onGraceChange = actions.changeGrace
             )
 
-            DepartureCutoffEditor(
-                schedule = state.schedule,
-                busy = state.busy,
-                onChange = actions.changeSchedule
-            )
-
             WeekdayOverrides(
                 schedule = state.schedule,
                 busy = state.busy,
                 onPickDayOverride = actions.pickDayOverride,
                 onResetOverride = actions.resetDayOverride
+            )
+            // Divider & Visual Legend Strip
+            HorizontalDivider(
+                modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+            )
+
+            DepartureCutoffEditor(
+                schedule = state.schedule,
+                busy = state.busy,
+                onChange = actions.changeSchedule
             )
 
             PlanRoutineZoneButton(
