@@ -26,27 +26,33 @@ import dev.daymark.resources.adjust_balance
 import dev.daymark.resources.balance_help
 import dev.daymark.resources.balance_note
 import dev.daymark.resources.cancel
+import dev.daymark.resources.local_save_failed
 import dev.daymark.resources.opening_balance
 import dev.daymark.resources.save
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.str
 
+internal data class BalanceAdjustUiState(
+    val initialBalance: Int?,
+    val busy: Boolean,
+    val saveFailed: Boolean
+)
+
 @Composable
 internal fun BalanceAdjustDialog(
-    initialBalance: Int?,
-    busy: Boolean,
+    state: BalanceAdjustUiState,
     onSave: (String, String?) -> Unit,
     onDismiss: () -> Unit
 ) {
     val language = LocalAppLanguage.current
     var text by rememberSaveable {
-        mutableStateOf(DisplayFormats.number(initialBalance ?: 0, language))
+        mutableStateOf(DisplayFormats.number(state.initialBalance ?: 0, language))
     }
     var note by rememberSaveable { mutableStateOf("") }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!state.busy) onDismiss() },
         title = {
             Text(
                 text = str(Res.string.adjust_balance),
@@ -64,6 +70,7 @@ internal fun BalanceAdjustDialog(
                     value = text,
                     onValueChange = { text = it },
                     label = { Text(str(Res.string.opening_balance)) },
+                    enabled = !state.busy,
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
@@ -72,9 +79,17 @@ internal fun BalanceAdjustDialog(
                     value = note,
                     onValueChange = { note = it },
                     label = { Text(str(Res.string.balance_note)) },
+                    enabled = !state.busy,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                if (state.saveFailed) {
+                    Text(
+                        text = str(Res.string.local_save_failed),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
                 Text(
                     text = str(Res.string.balance_help),
                     style = MaterialTheme.typography.bodySmall,
@@ -84,14 +99,14 @@ internal fun BalanceAdjustDialog(
         },
         confirmButton = {
             Button(
-                enabled = !busy && parseWholeDays(text) != null,
+                enabled = !state.busy && parseWholeDays(text) != null,
                 onClick = { onSave(text, note.takeIf { it.isNotBlank() }) }
             ) {
                 Text(str(Res.string.save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, enabled = !state.busy) {
                 Text(str(Res.string.cancel))
             }
         }

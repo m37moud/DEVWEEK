@@ -17,17 +17,19 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.plan.PlanChange
 import dev.daymark.models.plan.TimeOffCommand
-import dev.daymark.models.plan.TimeOffEntry
 import dev.daymark.plan.TimeOffKind
 import dev.daymark.presentation.component.ArrivalTimeDialog
 import dev.daymark.presentation.component.ZonePicker
+import dev.daymark.presentation.features.plan.component.BalanceAdjustUiState
 import dev.daymark.presentation.features.plan.component.BalanceAdjustDialog
 import dev.daymark.presentation.features.plan.component.PlanPlaceActions
 import dev.daymark.presentation.features.plan.component.PlanPlaceCard
@@ -103,19 +105,29 @@ fun PlanContent(
     appLanguage: AppLanguage = LocalAppLanguage.current
 ) {
     val draft = state.draft
-    var chooseZone by remember { mutableStateOf(false) }
-    var timeDay by remember { mutableStateOf<String?>(null) }
-    var editOff by remember { mutableStateOf<TimeOffEntry?>(null) }
-    var addingOff by remember { mutableStateOf(false) }
-    var adjusting by remember { mutableStateOf(false) }
-    var handledInitialDate by remember { mutableStateOf(false) }
+    val savedCategory = state.plan?.current?.category ?: draft?.category
+    var chooseZone by rememberSaveable { mutableStateOf(false) }
+    var timeDay by rememberSaveable { mutableStateOf<String?>(null) }
+    var editOffId by rememberSaveable { mutableStateOf<String?>(null) }
+    val editOff = state.entries.firstOrNull { it.id == editOffId }
+    var timeOffStartDate by rememberSaveable { mutableStateOf<String?>(null) }
+    var addingOff by rememberSaveable { mutableStateOf(false) }
+    var adjusting by rememberSaveable { mutableStateOf(false) }
+    var handledInitialDate by rememberSaveable(initialTimeOffDate) { mutableStateOf(false) }
+
+    var balanceSubmitted by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(state.balanceSaveRevision) {
+        if (balanceSubmitted && state.result == PlanMutationResult.Applied) adjusting = false
+    }
 
     LaunchedEffect(state.ready, initialTimeOffDate) {
         if (state.ready && initialTimeOffDate != null && !handledInitialDate) {
             handledInitialDate = true
-            editOff = state.entries.sortedBy { if (it.kind == TimeOffKind.HOLIDAY) 0 else 1 }
-                .firstOrNull { initialTimeOffDate in it.from..it.through }
-            addingOff = editOff == null
+            editOffId = state.entries.sortedBy { if (it.kind == TimeOffKind.HOLIDAY) 0 else 1 }
+                .firstOrNull { initialTimeOffDate in it.from..it.through }?.id
+            timeOffStartDate = initialTimeOffDate.toString()
+            addingOff = editOffId == null
         }
     }
 
@@ -229,13 +241,19 @@ fun PlanContent(
             )
 
             PlanTimeOffCard(
-                category = draft.category,
+                category = savedCategory ?: draft.category,
                 availableBalance = state.availableBalance,
                 entries = state.entries,
                 busy = state.busy,
-                onAdjustBalance = { adjusting = true },
-                onAddTimeOff = { addingOff = true },
-                onEditEntry = { editOff = it }
+                onAdjustBalance = {
+                    balanceSubmitted = false
+                    adjusting = true
+                },
+                onAddTimeOff = {
+                    timeOffStartDate = null
+                    addingOff = true
+                },
+                onEditEntry = { editOffId = it.id }
             )
         }
     }
@@ -272,22 +290,24 @@ fun PlanContent(
         )
     }
 
-    if ((addingOff || editOff != null) && draft != null) {
+    if ((addingOff || editOff != null) && draft != null &&
+        state.preview == null && state.timeOffPreview == null
+    ) {
         val today = clock.now().toLocalDateTime(
             TimeZone.of(state.plan?.current?.schedule?.zoneId ?: draft.schedule.zoneId)
         ).date
         TimeOffEditorDialog(
             entry = editOff,
-            today = initialTimeOffDate ?: today,
-            category = draft.category,
+            today = timeOffStartDate?.let(LocalDate::parse) ?: today,
+            category = savedCategory ?: draft.category,
             busy = state.busy,
             onDismiss = {
                 addingOff = false
-                editOff = null
+                editOffId = null
             },
             onPreview = { command ->
                 addingOff = false
-                editOff = null
+                editOffId = null
                 actions.previewTimeOff(command)
             }
         )
@@ -297,7 +317,7 @@ fun PlanContent(
     if (preview != null) {
         PlanPreviewDialog(
             preview = preview,
-            category = draft?.category,
+            category = if (state.timeOffPreview != null) savedCategory else draft?.category,
             busy = state.busy,
             onConfirm = { revision ->
                 if (state.timeOffPreview != null) {
@@ -312,13 +332,17 @@ fun PlanContent(
 
     if (adjusting) {
         BalanceAdjustDialog(
-            initialBalance = state.availableBalance,
-            busy = state.busy,
+            state = BalanceAdjustUiState(
+                initialBalance = state.availableBalance,
+                busy = state.busy,
+                saveFailed = balanceSubmitted && !state.busy &&
+                        (state.storageError || state.result != null && state.result != PlanMutationResult.Applied)
+            ),
             onSave = { text, note ->
+                balanceSubmitted = true
                 actions.setAvailableBalance(text, note)
-                adjusting = false
             },
-            onDismiss = { adjusting = false }
+            onDismiss = { if (!state.busy) adjusting = false }
         )
     }
 }

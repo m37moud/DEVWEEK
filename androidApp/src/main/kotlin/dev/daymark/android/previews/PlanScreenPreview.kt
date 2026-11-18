@@ -5,6 +5,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import dev.daymark.location.PlaceAddressRequest
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.plan.PlanState
 import dev.daymark.models.plan.PlanChange
 import dev.daymark.models.plan.TimeOffEntry
 import dev.daymark.plan.TimeOffKind
@@ -64,6 +65,7 @@ private fun samplePlanState(): PlanUiState {
     )
     return PlanUiState(
         ready = true,
+        plan = PlanState(draft, null, null),
         draft = draft,
         placeAddress = PlaceAddressUiState(
             PlaceAddressRequest(draft.place.latitude, draft.place.longitude, AppLanguage.EN),
@@ -87,4 +89,19 @@ private fun samplePlanState(): PlanUiState {
             )
         )
     )
+}
+
+@Preview(name = "Unsaved School category keeps saved Work balance", widthDp = 360)
+@Composable
+private fun PlanScreenUnsavedCategoryPreview() {
+    val saved = samplePlanState()
+    val actions = PlanActions({}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {})
+    DaymarkTheme(ThemePreference.LIGHT) {
+        PlanContent(
+            saved.copy(draft = saved.draft?.copy(category = TrackerCategory.SCHOOL)),
+            Clock.System,
+            null,
+            actions
+        )
+    }
 }

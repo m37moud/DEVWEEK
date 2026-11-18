@@ -86,15 +86,6 @@ internal fun SetupStepActions(state: SetupUiState, actions: OnboardingActions) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-//                    TextButton(
-//                        onClick = actions.back,
-//                        enabled = !state.interactionBusy,
-//                        modifier = Modifier
-//                            .heightIn(min = 48.dp)
-//                            .testTag("setup-back")
-//                    ) {
-//                        Text(str(Res.string.onboarding_back))
-//                    }
                     OutlinedButton(
                         onClick = actions.back,
                         enabled = !state.interactionBusy,
@@ -117,7 +108,6 @@ internal fun SetupStepActions(state: SetupUiState, actions: OnboardingActions) {
                         onClick = { actions.finish(SetupFinish.TODAY) },
                         enabled = !state.interactionBusy,
                         modifier = Modifier
-//                            .fillMaxWidth()
                             .weight(1f)
                             .heightIn(min = 48.dp)
                             .testTag("setup-start")
@@ -137,16 +127,6 @@ internal fun SetupStepActions(state: SetupUiState, actions: OnboardingActions) {
 
                 }
 
-//                OutlinedButton(
-//                    onClick = { actions.finish(SetupFinish.CUSTOMIZE) },
-//                    enabled = !state.interactionBusy,
-//                    modifier = Modifier
-//                        .fillMaxWidth()
-//                        .heightIn(min = 48.dp)
-//                        .testTag("setup-customize")
-//                ) {
-//                    Text(str(Res.string.onboarding_finish_customize))
-//                }
 
             } else {
                 SetupNavigationActions(state = state, actions = actions)

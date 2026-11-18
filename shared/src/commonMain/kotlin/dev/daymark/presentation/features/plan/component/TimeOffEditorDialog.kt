@@ -24,7 +24,7 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -64,10 +64,25 @@ internal fun TimeOffEditorDialog(
     onPreview: (TimeOffCommand) -> Unit
 ) {
     val language = LocalAppLanguage.current
-    var from by remember { mutableStateOf(entry?.from ?: today) }
-    var through by remember { mutableStateOf(entry?.through ?: today) }
-    var kind by remember { mutableStateOf(entry?.kind ?: TimeOffKind.VACATION) }
-    var picker by remember { mutableStateOf<String?>(null) }
+    var fromDate by rememberSaveable(entry?.id) {
+        mutableStateOf(
+            (entry?.from ?: today).toString()
+        )
+    }
+    var throughDate by rememberSaveable(entry?.id) {
+        mutableStateOf(
+            (entry?.through ?: today).toString()
+        )
+    }
+    var kindName by rememberSaveable(entry?.id) {
+        mutableStateOf(
+            (entry?.kind ?: TimeOffKind.VACATION).name
+        )
+    }
+    var picker by rememberSaveable { mutableStateOf<String?>(null) }
+    val from = LocalDate.parse(fromDate)
+    val through = LocalDate.parse(throughDate)
+    val kind = TimeOffKind.valueOf(kindName)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -88,7 +103,7 @@ internal fun TimeOffEditorDialog(
                     for (option in TimeOffKind.entries) {
                         FilterChip(
                             selected = kind == option,
-                            onClick = { kind = option },
+                            onClick = { kindName = option.name },
                             label = {
                                 Text(
                                     str(
@@ -187,11 +202,11 @@ internal fun TimeOffEditorDialog(
                         val selected = Instant.fromEpochMilliseconds(millis)
                             .toLocalDateTime(TimeZone.UTC).date
                         if (picker == "from") {
-                            from = selected
-                            if (through < selected) through = selected
+                            fromDate = selected.toString()
+                            if (through < selected) throughDate = selected.toString()
                         } else {
-                            through = selected
-                            if (from > selected) from = selected
+                            throughDate = selected.toString()
+                            if (from > selected) fromDate = selected.toString()
                         }
                     }
                     picker = null

@@ -24,7 +24,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -60,7 +59,7 @@ fun DepartureCutoffEditor(
     modifier: Modifier = Modifier,
     appLanguage: AppLanguage = LocalAppLanguage.current,
 ) {
-    var editing by remember { mutableStateOf<String?>(null) }
+    var editing by rememberSaveable { mutableStateOf<String?>(null) }
     var isInfoShow by rememberSaveable { mutableStateOf(false) }
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {

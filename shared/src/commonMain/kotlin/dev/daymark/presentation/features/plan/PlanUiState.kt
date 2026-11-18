@@ -13,6 +13,7 @@ data class PlanUiState(
     val draft: PlanChange? = null,
     val entries: List<TimeOffEntry> = emptyList(),
     val availableBalance: Int? = null,
+    val balanceSaveRevision: Long = 0,
     val ready: Boolean = false,
     val busy: Boolean = false,
     val preview: TimeOffPreview? = null,

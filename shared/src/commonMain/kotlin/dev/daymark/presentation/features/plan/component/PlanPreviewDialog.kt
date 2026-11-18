@@ -84,7 +84,9 @@ internal fun PlanPreviewDialog(
                     }
                 }
 
-                if (category == TrackerCategory.WORK) {
+                if (category == TrackerCategory.WORK || preview.balanceDelta != 0 ||
+                    preview.changes.any { it.category == TrackerCategory.WORK }
+                ) {
                     item {
                         Surface(
                             shape = MaterialTheme.shapes.small,

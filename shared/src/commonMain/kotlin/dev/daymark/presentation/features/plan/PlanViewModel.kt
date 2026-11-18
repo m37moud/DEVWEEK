@@ -145,14 +145,28 @@ class PlanViewModel(
     }
 
     fun setAvailableBalance(text: String, note: String?) {
-        val value = parseWholeDays(text)
-        if (value == null) {
-            state.update { it.copy(invalidInput = true) }; return
+        val targetDays = parseWholeDays(text)
+        if (targetDays == null) {
+            state.update { it.copy(invalidInput = true) }
+            return
         }
-        launchAction {
-            val result = repository.timeOff.setAvailableBalance(value, note)
-            state.update { it.copy(result = result, invalidInput = false) }
+        launchAction { saveAvailableBalance(targetDays, note) }
+    }
+
+    private suspend fun saveAvailableBalance(targetDays: Int, note: String?) {
+        state.update { it.copy(result = null) }
+        AppLogger.d(TAG, "Balance save started")
+        val mutation = repository.timeOff.setAvailableBalance(targetDays, note)
+        state.update {
+            it.copy(
+                result = mutation,
+                invalidInput = false,
+                balanceSaveRevision = it.balanceSaveRevision +
+                        if (mutation == PlanMutationResult.Applied) 1 else 0
+            )
         }
+        if (mutation == PlanMutationResult.Applied) AppLogger.i(TAG, "Balance saved locally")
+        else AppLogger.i(TAG, "Balance save not applied")
     }
 
     fun registerCurrentPlace() = launchAction {
@@ -212,7 +226,8 @@ class PlanViewModel(
                 action()
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (failure: Exception) {
+                AppLogger.e(TAG, "Plan action failed", failure)
                 state.update { it.copy(storageError = true) }
             } finally {
                 state.update { it.copy(busy = false) }
