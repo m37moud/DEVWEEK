@@ -244,7 +244,6 @@ class SetupJourneyTest {
             compose.onAllNodesWithTag("setup-place-ready").fetchSemanticsNodes().isNotEmpty()
         }
         nextTo("setup-grace")
-        compose.onNodeWithTag("setup-opening-balance").performScrollTo().performTextReplacement("0")
         nextTo("setup-start")
     }
 
@@ -487,6 +486,7 @@ class SetupJourneyTest {
         runBlocking {
             val tracker = requireNotNull(db.profileDao().tracker())
             Assert.assertEquals("Local test", tracker.displayName)
+            Assert.assertEquals(0, tracker.openingBalance)
             Assert.assertNull(db.reportDao().binding(tracker.id))
             Assert.assertTrue(db.attendanceDao().days(tracker.id).isEmpty())
         }
@@ -498,7 +498,17 @@ class SetupJourneyTest {
         completionFailuresRemaining = 1
         reviewSetup()
         compose.runOnIdle { rejectDraftSave = true }
-        compose.onNodeWithTag("setup-back").performClick()
+        val pendingWrite = CompletableDeferred<Unit>()
+        draftWriteGate = pendingWrite
+        try {
+            compose.onNodeWithTag("setup-back").performClick()
+            for (section in listOf("Your profile", "Your place", "Your weekly schedule")) {
+                compose.onNodeWithContentDescription("Edit $section").assertIsNotEnabled()
+            }
+        } finally {
+            pendingWrite.complete(Unit)
+            draftWriteGate = null
+        }
         compose.waitUntil(10_000) {
             compose.onAllNodesWithTag("setup-save-retry").fetchSemanticsNodes().isNotEmpty()
         }

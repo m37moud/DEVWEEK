@@ -148,13 +148,14 @@
     <string name="profile_name">الاسم المعروض</string>
     <string name="invalid_name">أدخل اسمًا.</string>
     <string name="automation">التحقق التلقائي من الحضور</string>
-    <string name="automation_help">محاولة واحدة عند وقت الحضور. قد يؤخرها أندرويد أو يمنعها. يلزم السماح بالموقع الدقيق في المقدمة والخلفية. يُسجّل اليوم غيابًا إذا لم يُؤكّد بعد فترة السماح، ويمكنك تسجيل الحضور يدويًا لاحقًا.</string>
+    <string name="automation_help">محاولة واحدة عند وقت الحضور. قد يؤخرها أندرويد أو يمنعها. يلزم السماح بالموقع الدقيق في المقدمة والخلفية. يُسجّل اليوم غيابًا إذا لم يُؤكّد بعد فترة السماح. يمكنك تسجيل الحضور يدويًا باستخدام الموقع حتى الموعد النهائي للمغادرة، إن حددته. بعد ذلك، استخدم تصحيح الحضور.</string>
     <string name="automation_on">مفعّل</string>
     <string name="automation_off">غير مفعّل</string>
     <string name="automation_denied">يبقى التحقق التلقائي متوقفًا حتى تتوفر أذونات الموقع وخدماته. يمكنك تسجيل الحضور يدويًا.</string>
     <string name="enable_automation">تفعيل التحقق التلقائي</string>
     <string name="disable_automation">إيقاف التحقق التلقائي</string>
     <string name="ios_manual_help">على آيفون، تسجّل الحضور بنفسك. تفتح التذكيرات وزر الشاشة الرئيسية تحققًا جديدًا من الموقع.</string>
+    <string name="desktop_manual_help">على macOS، افتح Daymark لتسجيل الحضور يدويًا باستخدام موقعك.</string>
     <string name="reminder_horizon">تغطي التذكيرات الثلاثين يومًا القادمة. أعد فتح التطبيق لتحديثها.</string>
     <string name="reminders_off">التذكيرات متوقفة</string>
     <string name="disable_reminders">إيقاف التذكيرات</string>

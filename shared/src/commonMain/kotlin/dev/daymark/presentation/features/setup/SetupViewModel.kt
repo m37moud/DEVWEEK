@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dev.daymark.app.SetupDraftLoad
 import dev.daymark.app.SetupStep
 import dev.daymark.app.invalidStep
+import dev.daymark.app.openingBalanceDays
 import dev.daymark.app.restoredStep
 import dev.daymark.location.LocationFailure
 import dev.daymark.location.LocationGateway
@@ -25,7 +26,6 @@ import dev.daymark.models.setup.SetupCommand
 import dev.daymark.models.setup.SetupDraft
 import dev.daymark.models.setup.SetupResult
 import dev.daymark.plan.WeeklySchedule
-import dev.daymark.plan.parseWholeDays
 import dev.daymark.presentation.component.registrationIssue
 import dev.daymark.repository.Repository
 import dev.daymark.repository.SettingsStorageException
@@ -440,7 +440,7 @@ class SetupViewModel(
         placeName = placeName,
         place = requireNotNull(place),
         schedule = requireNotNull(schedule),
-        openingBalance = if (category == TrackerCategory.WORK) requireNotNull(parseWholeDays(openingBalanceText)) else 0
+        openingBalance = requireNotNull(openingBalanceDays())
     )
 
     private suspend fun completeSetup(command: SetupCommand) {

@@ -141,13 +141,14 @@
     <string name="profile_name">Display name</string>
     <string name="invalid_name">Enter a name.</string>
     <string name="automation">Automatic attendance check</string>
-    <string name="automation_help">One best-effort check at arrival. Android may delay or block it. Precise foreground and background location are required. An unconfirmed day becomes Absent after the grace period; you can check manually later.</string>
+    <string name="automation_help">One best-effort check at arrival. Android may delay or block it. Precise foreground and background location are required. An unconfirmed day becomes Absent after the grace period. You can check in manually by GPS through the departure cutoff, if set. After the cutoff, use an attendance correction.</string>
     <string name="automation_on">Automatic check enabled</string>
     <string name="automation_off">Automatic check disabled</string>
     <string name="automation_denied">Automatic checking stays off until the required location permissions and services are available. Manual attendance is still available.</string>
     <string name="enable_automation">Enable automatic check</string>
     <string name="disable_automation">Disable automatic check</string>
     <string name="ios_manual_help">On iPhone, check-in is user initiated. Reminders and the home-screen button open a fresh location check.</string>
+    <string name="desktop_manual_help">On macOS, open Daymark to check in manually using your location.</string>
     <string name="reminder_horizon">Reminders cover the next 30 calendar days. Reopen Daymark to refresh them.</string>
     <string name="reminders_off">Reminders are off</string>
     <string name="disable_reminders">Turn off reminders</string>

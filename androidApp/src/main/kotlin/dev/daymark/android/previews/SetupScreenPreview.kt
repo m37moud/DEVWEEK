@@ -155,8 +155,14 @@ private val reviewPreviewDraft = SetupDraft(
     category = TrackerCategory.WORK,
     placeName = "Office",
     place = RegisteredPlace(0.0, 0.0, 100, 1),
-    schedule = WeeklySchedule(setOf(DayOfWeek.MONDAY), LocalTime(9, 0), emptyMap(), 5, "UTC"),
-    openingBalanceText = "12",
+    schedule = WeeklySchedule(
+        days = setOf(DayOfWeek.MONDAY),
+        arrival = LocalTime(9, 0),
+        overrides = emptyMap(),
+        graceMinutes = 5,
+        zoneId = "UTC",
+        departure = LocalTime(17, 0)
+    ),
     step = SetupStep.REVIEW
 )
 

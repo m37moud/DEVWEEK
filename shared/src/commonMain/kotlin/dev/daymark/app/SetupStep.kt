@@ -25,9 +25,14 @@ sealed interface SetupDraftLoad {
 internal fun SetupDraft.invalidStep(now: Instant): SetupStep? = when {
     displayName.isBlank() || exceedsReportTextLimit(displayName) || category == null -> SetupStep.PROFILE
     placeName.isBlank() || place == null -> SetupStep.PLACE
-    schedule == null || (category == TrackerCategory.WORK && parseWholeDays(openingBalanceText) == null) -> SetupStep.SCHEDULE
+    schedule == null || openingBalanceDays() == null -> SetupStep.SCHEDULE
     schedule.firstSetupArrival(now, category, place) == null -> SetupStep.SCHEDULE
     else -> null
+}
+
+internal fun SetupDraft.openingBalanceDays(): Int? = when {
+    category != TrackerCategory.WORK || openingBalanceText.isBlank() -> 0
+    else -> parseWholeDays(openingBalanceText)
 }
 
 internal fun SetupDraft.restoredStep(now: Instant): SetupStep {

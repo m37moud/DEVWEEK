@@ -569,7 +569,7 @@ class SetupViewModelTest {
                         "Place",
                         null,
                         fixtureSchedule(),
-                        "12"
+                        openingBalanceText = ""
                     )
                 )
                 vm.useCurrentLocation()
@@ -582,8 +582,10 @@ class SetupViewModelTest {
                 vm.useCurrentLocation()
                 vm.uiState.first { it.placeRegistrationRevision == 2L && !it.busy }
                 vm.submit()
+                assertNull(vm.uiState.value.issue)
                 vm.uiState.first { it.completed }
                 val tracker = requireNotNull(db.profileDao().tracker())
+                assertEquals(0, tracker.openingBalance)
                 assertNull(db.reportDao().binding(tracker.id))
                 assertFalse(tracker.automaticEnabled)
             } finally {
