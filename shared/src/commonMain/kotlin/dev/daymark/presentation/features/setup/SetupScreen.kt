@@ -39,7 +39,6 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 import dev.daymark.app.HostPlatform
 import dev.daymark.app.SetupStep
 import dev.daymark.models.attendance.TrackerCategory
-import dev.daymark.navigation.SetupFinish
 import dev.daymark.presentation.features.settings.component.SettingsPreferencesCard
 import dev.daymark.presentation.features.setup.component.OnboardingProgress
 import dev.daymark.presentation.features.setup.component.OnboardingStep
@@ -70,15 +69,14 @@ data class OnboardingActions(
     val retrySave: () -> Unit,
     val reset: () -> Unit,
     val retryPreferences: () -> Unit,
-    val finish: (SetupFinish) -> Unit
+    val finish: () -> Unit
 )
 
 @Composable
 fun SetupScreen(
     viewModel: SetupViewModel,
     platform: HostPlatform,
-    appLanguage: AppLanguage = LocalAppLanguage.current,
-    onFinish: (SetupFinish) -> Unit
+    appLanguage: AppLanguage = LocalAppLanguage.current
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val place = state.draft.place
@@ -111,17 +109,15 @@ fun SetupScreen(
         retryLoad = viewModel::retryLoad,
         retrySave = viewModel::retrySave,
         reset = viewModel::resetDraft,
-        retryPreferences = viewModel::retryPreferences
-    ) { destination ->
-        if (!viewModel.uiState.value.interactionBusy && !viewModel.uiState.value.completed) {
+        retryPreferences = viewModel::retryPreferences,
+        finish = {
             keyboard?.hide()
-            onFinish(destination)
             viewModel.submit()
         }
-    }
+    )
     NavigationBackHandler(
         state = rememberNavigationEventState(NavigationEventInfo.None),
-        isBackEnabled = state.draft.step != SetupStep.WELCOME && !state.interactionBusy,
+        isBackEnabled = state.draft.step != SetupStep.WELCOME && !state.interactionBusy && !state.completed,
         onBackCompleted = viewModel::back
     )
     OnboardingLayout(state = state, actions = controls) {
@@ -190,7 +186,7 @@ fun OnboardingLayout(
             }
         }
         if (state.ready) {
-            SetupStepActions(state, actions)
+            SetupStepActions(state = state, actions = actions)
         }
     }
 }

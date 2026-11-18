@@ -232,13 +232,13 @@
     <string name="onboarding_get_started">ابدأ الإعداد</string>
     <string name="onboarding_next">التالي</string>
     <string name="onboarding_back">السابق</string>
-    <string name="onboarding_finish_customize">إنهاء وتخصيص</string>
+    <string name="setup_completion_failed">تعذّر إكمال الإعداد. حاول مرة أخرى.</string>
     <string name="onboarding_step">الخطوة %1$s من %2$s</string>
     <string name="onboarding_edit_section">تعديل %1$s</string>
     <string name="onboarding_unsaved">لم تُحفظ التغييرات بعد</string>
     <string name="onboarding_reset">إعادة ضبط مسودة الإعداد</string>
     <string name="onboarding_reset_confirmation">هل تريد حذف مسودة الإعداد غير القابلة للقراءة والبدء مجددًا؟ سيُحتفظ بتفضيلات اللغة والمظهر.</string>
-    <string name="onboarding_extras_help">ابدأ التتبع الآن، أو اختر إنهاء وتخصيص لإعداد الأذونات الاختيارية وتقارير Google والويدجت في الإعدادات. يمكنك العودة إلى هذه الخيارات في أي وقت.</string>
+    <string name="onboarding_extras_help">بعد بدء المتابعة، يمكنك إدارة الأذونات الاختيارية وتقارير Google والويدجت من الإعدادات.</string>
     <string name="onboarding_widget_title">ويدجت الشاشة الرئيسية</string>
     <string name="onboarding_widget_help">أضف دايمارك من قائمة الويدجت في الشاشة الرئيسية. على Android، اضغط مطولًا على مساحة فارغة واختر الويدجت. على iPhone، حرّر الشاشة الرئيسية واختر إضافة ويدجت. اضغط على الويدجت لفتح دايمارك والتحقق من الحضور بقراءة موقع حديثة؛ لا يؤكد الويدجت الحضور بنفسه.</string>
     <string name="widget_help_android">المس مع الاستمرار مساحة فارغة في الشاشة الرئيسية، واختر عناصر الواجهة (Widgets)، ثم حدد دايمارك. اضغط على عنصر الواجهة لفتح دايمارك والتحقق من الحضور بقراءة موقع حديثة؛ لا يؤكد عنصر الواجهة الحضور بنفسه.</string>

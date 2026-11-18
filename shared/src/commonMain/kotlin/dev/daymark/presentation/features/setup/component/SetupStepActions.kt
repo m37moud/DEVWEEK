@@ -5,22 +5,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,19 +26,15 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import dev.daymark.app.SetupStep
-import dev.daymark.navigation.SetupFinish
 import dev.daymark.presentation.component.isLocationIssue
 import dev.daymark.presentation.features.setup.OnboardingActions
 import dev.daymark.presentation.features.setup.SetupIssue
 import dev.daymark.presentation.features.setup.SetupUiState
 import dev.daymark.resources.Res
 import dev.daymark.resources.draft_saved
-import dev.daymark.resources.onboarding_back
 import dev.daymark.resources.onboarding_preferences_failed
 import dev.daymark.resources.onboarding_unsaved
 import dev.daymark.resources.retry
-import dev.daymark.resources.start_tracking
 import dev.daymark.settings.str
 
 @Composable
@@ -62,7 +51,9 @@ internal fun SetupStepActions(state: SetupUiState, actions: OnboardingActions) {
                 .padding(horizontal = 20.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            SetupSaveStatus(state, actions.retrySave)
+            if (state.issue != SetupIssue.COMPLETION_FAILED) {
+                SetupSaveStatus(state, actions.retrySave)
+            }
             if (state.preferencesError) {
                 Text(
                     str(Res.string.onboarding_preferences_failed),
@@ -80,57 +71,7 @@ internal fun SetupStepActions(state: SetupUiState, actions: OnboardingActions) {
             if (state.issue != null && !state.issue.isLocationIssue()) {
                 SetupError(state.issue)
             }
-            if (state.draft.step == SetupStep.REVIEW) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = actions.back,
-                        enabled = !state.interactionBusy,
-                        modifier = Modifier.heightIn(min = 48.dp)
-                            .testTag("setup-back"),
-                        contentPadding = PaddingValues(horizontal = 24.dp),
-                        elevation = ButtonDefaults.elevatedButtonElevation(10.dp)
-                    ) {
-                        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                contentDescription = str(Res.string.onboarding_back),
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp).testTag("setup-back-icon")
-                            )
-                        }
-                    }
-
-                    Button(
-                        onClick = { actions.finish(SetupFinish.TODAY) },
-                        enabled = !state.interactionBusy,
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 48.dp)
-                            .testTag("setup-start")
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(str(Res.string.start_tracking))
-                        }
-                    }
-
-                }
-
-
-            } else {
-                SetupNavigationActions(state = state, actions = actions)
-            }
+            SetupNavigationActions(state = state, actions = actions)
         }
     }
 }

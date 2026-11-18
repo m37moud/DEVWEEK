@@ -46,6 +46,8 @@ final class SetupJourneyTests: XCTestCase {
             XCTAssertTrue(node("setup-next").waitForExistence(timeout: 10))
         }
         node("setup-next").tap()
+        XCTAssertTrue(node("settings-language-system").waitForExistence(timeout: 10))
+        node("setup-next").tap()
         XCTAssertTrue(node("setup-name").waitForExistence(timeout: 10))
     }
 
@@ -95,10 +97,13 @@ final class SetupJourneyTests: XCTestCase {
                       "Configure a simulator location before running this native journey")
         node("setup-next").tap()
         XCTAssertTrue(node("setup-grace").waitForExistence(timeout: 10))
+        replaceText(scrollTo("setup-opening-balance"), with: "0")
         node("setup-next").tap()
-        XCTAssertTrue(node("setup-customize").waitForExistence(timeout: 10))
+        XCTAssertTrue(node("setup-start").waitForExistence(timeout: 10))
         completedOnboarding = true
-        node("setup-customize").tap()
+        node("setup-start").tap()
+        XCTAssertTrue(node("today-root").waitForExistence(timeout: 20))
+        node("nav-settings").tap()
         XCTAssertTrue(node("settings-root").waitForExistence(timeout: 20))
         scrollTo("settings-theme-dark").tap()
         scrollTo("settings-theme-light").tap()

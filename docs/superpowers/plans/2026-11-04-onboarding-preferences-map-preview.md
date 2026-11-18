@@ -12,6 +12,10 @@ Keep the current Welcome → Profile → Place → Schedule → Review flow, dra
 recovery/reset, edit/back actions, and Today/Customize completion destinations.
 Remove onboarding-only preference state and the inactive top-bar shortcuts.
 
+On 18 November 2026, the user approved Start tracking as the sole completion
+action. Setup opens Today after local tracker creation succeeds. Optional
+configuration is available through the Settings tab.
+
 ## Preview contract
 
 On the Place step, render the persisted registered position automatically using

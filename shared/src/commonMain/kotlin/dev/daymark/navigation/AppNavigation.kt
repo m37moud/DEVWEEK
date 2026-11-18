@@ -90,8 +90,6 @@ data object SettingsRoute : NavKey
 @SerialName("dev.daymark.navigation.HistoryDetailRoute")
 data class HistoryDetailRoute(val metric: HistoryMetric, val year: Int, val month: Int) : NavKey
 
-enum class SetupFinish { TODAY, CUSTOMIZE }
-
 internal val navigationConfig = SavedStateConfiguration {
     serializersModule = SerializersModule {
         polymorphic(NavKey::class) {
@@ -113,7 +111,6 @@ internal val navigationConfig = SavedStateConfiguration {
 fun AppNavigation(appModel: AppViewModel, platform: HostPlatform, tracker: TrackerSummary?) {
     val stack =
         rememberNavBackStack(navigationConfig, if (tracker == null) SetupRoute else TodayRoute)
-    var setupFinish by remember { mutableStateOf<SetupFinish?>(null) }
     var pendingCheck by remember { mutableStateOf<QuickCheckRequest?>(null) }
     fun go(route: NavKey) {
         if (route != TodayRoute) pendingCheck = null
@@ -142,11 +139,9 @@ fun AppNavigation(appModel: AppViewModel, platform: HostPlatform, tracker: Track
     }
     LaunchedEffect(tracker?.id) {
         if (tracker == null) {
-            setupFinish = null
             go(SetupRoute)
         } else if (stack.lastOrNull() == SetupRoute) {
-            go(if (setupFinish == SetupFinish.CUSTOMIZE) SettingsRoute else TodayRoute)
-            setupFinish = null
+            go(TodayRoute)
         }
     }
     LaunchedEffect(appModel, tracker?.id) {
@@ -196,7 +191,7 @@ fun AppNavigation(appModel: AppViewModel, platform: HostPlatform, tracker: Track
             entryProvider = entryProvider {
                 entry<SetupRoute> {
                     val model = koinViewModel<SetupViewModel>()
-                    SetupScreen(model, platform) { setupFinish = it }
+                    SetupScreen(model, platform)
                 }
                 entry<TodayRoute> {
                     val model = koinViewModel<TodayViewModel>()

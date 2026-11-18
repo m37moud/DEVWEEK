@@ -26,6 +26,7 @@ import dev.daymark.resources.location_unavailable
 import dev.daymark.resources.monday
 import dev.daymark.resources.saturday
 import dev.daymark.resources.school
+import dev.daymark.resources.setup_completion_failed
 import dev.daymark.resources.source_automatic
 import dev.daymark.resources.source_correction
 import dev.daymark.resources.source_manual
@@ -65,6 +66,7 @@ internal fun SetupIssue.label(): StringResource = when (this) {
     SetupIssue.LOCATION_DISABLED -> Res.string.location_disabled; SetupIssue.LOCATION_TIMEOUT -> Res.string.location_timeout
     SetupIssue.LOCATION_UNAVAILABLE -> Res.string.location_unavailable; SetupIssue.LOCATION_STALE -> Res.string.location_stale
     SetupIssue.LOCATION_INACCURATE -> Res.string.location_inaccurate; SetupIssue.LOCAL_SAVE_FAILED -> Res.string.local_save_failed
+    SetupIssue.COMPLETION_FAILED -> Res.string.setup_completion_failed
 }
 
 internal fun localTimeLabel(time: LocalTime, language: AppLanguage): String {
@@ -85,8 +87,11 @@ internal fun localTimeLabel(time: LocalTime, language: AppLanguage): String {
     )
 }
 
-internal fun SetupIssue.isLocationIssue() =
-    this != SetupIssue.INVALID_INPUT && this != SetupIssue.LOCAL_SAVE_FAILED
+internal fun SetupIssue.isLocationIssue() = when (this) {
+    SetupIssue.INVALID_INPUT, SetupIssue.LOCAL_SAVE_FAILED, SetupIssue.COMPLETION_FAILED -> false
+    SetupIssue.LOCATION_DENIED, SetupIssue.LOCATION_DISABLED, SetupIssue.LOCATION_TIMEOUT,
+    SetupIssue.LOCATION_UNAVAILABLE, SetupIssue.LOCATION_STALE, SetupIssue.LOCATION_INACCURATE -> true
+}
 
 internal fun AttendanceStatus.label(): StringResource = when (this) {
     AttendanceStatus.SCHEDULED -> Res.string.status_scheduled

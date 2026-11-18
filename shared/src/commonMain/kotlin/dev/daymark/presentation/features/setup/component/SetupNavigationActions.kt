@@ -21,26 +21,30 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import dev.daymark.app.SetupStep
 import dev.daymark.presentation.features.setup.OnboardingActions
+import dev.daymark.presentation.features.setup.SetupIssue
 import dev.daymark.presentation.features.setup.SetupUiState
 import dev.daymark.resources.Res
 import dev.daymark.resources.onboarding_back
 import dev.daymark.resources.onboarding_get_started
 import dev.daymark.resources.onboarding_next
+import dev.daymark.resources.retry
+import dev.daymark.resources.start_tracking
 import dev.daymark.settings.str
 
 // shortcut: M3 1.9 motion specs are internal; use theme specs when they become public.
@@ -54,7 +58,7 @@ internal fun SetupNavigationActions(state: SetupUiState, actions: OnboardingActi
     val effectsSpec = if (reduced) snap() else ActionEffectsSpec
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         SetupBackTransition(state, actions.back, spatialSpec, effectsSpec)
-        SetupAdvanceAction(state, actions.advance, effectsSpec, Modifier.weight(1f))
+        SetupPrimaryAction(state, actions, effectsSpec, Modifier.weight(1f))
     }
 }
 
@@ -83,16 +87,15 @@ private fun SetupBackTransition(
 private fun SetupBackAction(state: SetupUiState, onBack: () -> Unit) {
     OutlinedButton(
         onClick = onBack,
-        enabled = !state.interactionBusy && state.draft.step != SetupStep.WELCOME,
+        enabled = !state.interactionBusy && !state.completed && state.draft.step != SetupStep.WELCOME,
         modifier = Modifier.heightIn(min = 48.dp).testTag("setup-back"),
-        contentPadding = PaddingValues(horizontal = 24.dp),
+        contentPadding = PaddingValues(horizontal = 8.dp),
         elevation = ButtonDefaults.elevatedButtonElevation(10.dp)
     ) {
         Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                 contentDescription = str(Res.string.onboarding_back),
-                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(18.dp).testTag("setup-back-icon")
             )
         }
@@ -100,18 +103,24 @@ private fun SetupBackAction(state: SetupUiState, onBack: () -> Unit) {
 }
 
 @Composable
-private fun SetupAdvanceAction(
+private fun SetupPrimaryAction(
     state: SetupUiState,
-    onAdvance: () -> Unit,
+    actions: OnboardingActions,
     effectsSpec: FiniteAnimationSpec<Float>,
     modifier: Modifier
 ) {
+    val isReview = state.draft.step == SetupStep.REVIEW
     Button(
-        onClick = onAdvance,
-        enabled = !state.interactionBusy,
-        modifier = modifier.heightIn(min = 48.dp).testTag("setup-next")
+        onClick = if (isReview) actions.finish else actions.advance,
+        enabled = !state.interactionBusy && !state.completed,
+        modifier = modifier.heightIn(min = 48.dp).testTag(if (isReview) "setup-start" else "setup-next")
     ) {
-        SetupAdvanceContent(state.draft.step, effectsSpec)
+        if (isReview) {
+            val label = if (state.issue == SetupIssue.COMPLETION_FAILED) Res.string.retry else Res.string.start_tracking
+            SetupPrimaryLabel(str(label), leadingIcon = Icons.Default.Check)
+        } else {
+            SetupAdvanceContent(state.draft.step, effectsSpec)
+        }
     }
 }
 
@@ -123,25 +132,28 @@ private fun SetupAdvanceContent(step: SetupStep, effectsSpec: FiniteAnimationSpe
         animationSpec = effectsSpec,
         label = "setup-primary-label"
     ) { showingWelcome ->
-        SetupAdvanceLabel(
-            str(if (showingWelcome) Res.string.onboarding_get_started else Res.string.onboarding_next),
-            if (showingWelcome == welcome) Modifier else Modifier.clearAndSetSemantics { }
+        SetupPrimaryLabel(
+            label = str(if (showingWelcome) Res.string.onboarding_get_started else Res.string.onboarding_next),
+            modifier = if (showingWelcome == welcome) Modifier else Modifier.clearAndSetSemantics { },
+            trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight
         )
     }
 }
 
 @Composable
-private fun SetupAdvanceLabel(label: String, modifier: Modifier) {
+private fun SetupPrimaryLabel(
+    label: String,
+    modifier: Modifier = Modifier,
+    leadingIcon: ImageVector? = null,
+    trailingIcon: ImageVector? = null
+) {
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        leadingIcon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(18.dp)) }
         Text(label)
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
-        )
+        trailingIcon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(18.dp)) }
     }
 }

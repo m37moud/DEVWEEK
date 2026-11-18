@@ -4,22 +4,28 @@ import dev.daymark.data.local.RoomDatabaseTransactions
 
 import android.animation.ValueAnimator
 import android.os.ParcelFileDescriptor
+import androidx.room3.useReaderConnection
 import androidx.compose.ui.unit.dp
 import dev.daymark.app.SetupStep
 import dev.daymark.data.local.setup.SetupService
+import dev.daymark.models.setup.SetupCommand
 import dev.daymark.models.setup.SetupDraft
+import dev.daymark.models.setup.SetupResult
 import dev.daymark.repository.SetupDataSource
 import dev.daymark.repository.SetupStorageException
 import kotlinx.coroutines.CompletableDeferred
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.findViewTreeViewModelStoreOwner
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.daymark.app.App
@@ -60,6 +66,7 @@ class SetupJourneyTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val name = "setup-ui-${UUID.randomUUID()}.db"
     private lateinit var db: DaymarkDatabase
+    private lateinit var hostViewModels: ViewModelStore
     private val clock = object : Clock {
         override fun now() = Instant.parse("2026-10-27T08:00:00Z")
     }
@@ -69,6 +76,8 @@ class SetupJourneyTest {
     private var locationCalls = 0
     private var draftWriteGate: CompletableDeferred<Unit>? = null
     private var rejectDraftSave = false
+    private var completionFailuresRemaining = 0
+    private var completionAttempts = 0
     private var shown by mutableStateOf(true)
     private var graph by mutableStateOf<AppGraph?>(null)
     private val permissions = object : LocationPermissionPort {
@@ -99,6 +108,15 @@ class SetupJourneyTest {
                     )
                 )
                 object : SetupDataSource by storage {
+                    override suspend fun complete(command: SetupCommand): SetupResult {
+                        completionAttempts++
+                        if (completionFailuresRemaining > 0) {
+                            completionFailuresRemaining--
+                            return SetupResult.LocalSaveFailed
+                        }
+                        return storage.complete(command)
+                    }
+
                     override suspend fun saveDraft(draft: SetupDraft, session: String): Boolean {
                         draftWriteGate?.await()
                         if (rejectDraftSave) throw SetupStorageException(IllegalStateException("Test save failure"))
@@ -159,6 +177,8 @@ class SetupJourneyTest {
         graph = graph()
         compose.setContent {
             val density = LocalDensity.current
+            val hostOwner = checkNotNull(LocalView.current.findViewTreeViewModelStoreOwner())
+            SideEffect { hostViewModels = hostOwner.viewModelStore }
             CompositionLocalProvider(
                 LocalDensity provides Density(
                     density.density,
@@ -188,6 +208,15 @@ class SetupJourneyTest {
         }
     }
 
+    private fun reopenDatabase() {
+        compose.runOnIdle { shown = false }
+        compose.runOnIdle { hostViewModels.clear() }
+        graph?.close()
+        db.close()
+        db = openAndroidDatabase(context, name)
+        compose.runOnIdle { graph = graph(); shown = true }
+    }
+
     private fun enterProfile() {
         nextTo("settings-language-system")
         nextTo("setup-name")
@@ -215,6 +244,7 @@ class SetupJourneyTest {
             compose.onAllNodesWithTag("setup-place-ready").fetchSemanticsNodes().isNotEmpty()
         }
         nextTo("setup-grace")
+        compose.onNodeWithTag("setup-opening-balance").performScrollTo().performTextReplacement("0")
         nextTo("setup-start")
     }
 
@@ -250,10 +280,7 @@ class SetupJourneyTest {
             ).observeDraft()
                 .first { it is SetupDraftLoad.Loaded && it.draft.displayName == "أحمد / Ahmed" }
         }
-        compose.runOnIdle { shown = false }
-        compose.waitForIdle()
-        db.close(); db = openAndroidDatabase(context, name)
-        compose.runOnIdle { graph = graph(); shown = true }
+        reopenDatabase()
         compose.waitUntil(10_000) {
             compose.onAllNodesWithTag("setup-place-name").fetchSemanticsNodes().isNotEmpty()
         }
@@ -467,18 +494,55 @@ class SetupJourneyTest {
     }
 
     @Test
-    fun customize_opens_settings_once_and_cold_launch_returns_to_today() {
+    fun completion_retry_creates_tracker_and_opens_today() {
+        completionFailuresRemaining = 1
         reviewSetup()
-        compose.onNodeWithTag("setup-customize").performClick()
+        compose.runOnIdle { rejectDraftSave = true }
+        compose.onNodeWithTag("setup-back").performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("setup-save-retry").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.runOnIdle { rejectDraftSave = false }
+        compose.onNodeWithTag("setup-start").performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodes(hasTestTag("setup-start") and hasText("Try again") and isEnabled())
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("setup-error").assertTextEquals("Could not finish setup. Try again.")
+        compose.onNodeWithTag("setup-save-retry").assertDoesNotExist()
+        compose.onNodeWithTag("today-root").assertDoesNotExist()
+        runBlocking {
+            Assert.assertNull(db.profileDao().tracker())
+            Assert.assertNotNull(db.profileDao().setting("setup-draft"))
+        }
+
+        compose.onNodeWithTag("setup-start").assertTextEquals("Try again").performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("today-root").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.runOnIdle { Assert.assertEquals(2, completionAttempts) }
+        runBlocking {
+            Assert.assertEquals("Local test", db.profileDao().tracker()?.displayName)
+            val trackerCount = db.useReaderConnection { connection ->
+                connection.usePrepared("SELECT COUNT(*) FROM trackers") { statement ->
+                    check(statement.step())
+                    statement.getInt(0)
+                }
+            }
+            Assert.assertEquals(1, trackerCount)
+        }
+    }
+
+    @Test
+    fun settings_is_reachable_after_setup_and_cold_launch_returns_to_today() {
+        reviewSetup()
+        startTrackingAndOpenSettings()
         compose.waitUntil(10_000) {
             compose.onAllNodesWithTag("settings-name").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("settings-widget-guidance").performScrollTo().assertIsDisplayed()
         Assert.assertEquals(0, googleCalls)
-        compose.runOnIdle { shown = false }
-        compose.waitForIdle()
-        db.close(); db = openAndroidDatabase(context, name)
-        compose.runOnIdle { graph = graph(); shown = true }
+        reopenDatabase()
         compose.waitUntil(10_000) {
             compose.onAllNodesWithTag("today-root").fetchSemanticsNodes().isNotEmpty()
         }
@@ -560,7 +624,7 @@ class SetupJourneyTest {
         compose.onNodeWithTag("language-en").assertDoesNotExist()
         compose.onNodeWithTag("theme-dark").assertDoesNotExist()
         reviewSetup()
-        compose.onNodeWithTag("setup-customize").performClick()
+        startTrackingAndOpenSettings()
         compose.waitUntil(10_000) {
             compose.onAllNodesWithTag("settings-language-ar").fetchSemanticsNodes().isNotEmpty()
         }
@@ -574,10 +638,7 @@ class SetupJourneyTest {
             compose.onAllNodes(hasTestTag("settings-theme-dark") and isSelected())
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        compose.runOnIdle { shown = false }
-        compose.waitForIdle()
-        db.close(); db = openAndroidDatabase(context, name)
-        compose.runOnIdle { graph = graph(); shown = true }
+        reopenDatabase()
         compose.waitUntil(10_000) {
             compose.onAllNodesWithTag("today-root").fetchSemanticsNodes().isNotEmpty()
         }
@@ -589,6 +650,14 @@ class SetupJourneyTest {
             Assert.assertEquals(LanguagePreference.AR, saved.language)
             Assert.assertEquals(ThemePreference.DARK, saved.theme)
         }
+    }
+
+    private fun startTrackingAndOpenSettings() {
+        compose.onNodeWithTag("setup-start").performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("today-root").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("nav-settings").performClick()
     }
 
     @Test
@@ -671,16 +740,51 @@ class SetupJourneyTest {
                 compose.waitForIdle()
                 compose.onNodeWithTag("setup-next").assertIsDisplayed().assertIsEnabled()
                 compose.onNodeWithTag("setup-heading").performScrollTo().assertIsDisplayed()
-                val capture =
-                    InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
-                val output =
-                    java.io.File(
-                        context.getExternalFilesDir(null),
-                        "onboarding-${language.name}-${theme.name}.png"
-                    )
-                output.outputStream()
-                    .use { capture.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                captureOnboardingScreenshot("onboarding-${language.name}-${theme.name}")
             }
         }
+    }
+
+    @Test
+    fun review_actions_fit_in_both_languages_and_themes_at_large_text() {
+        reviewSetup()
+        compose.runOnIdle { fontScale = 2f }
+        val languageLabels = listOf(
+            Triple(LanguagePreference.EN, "Back", "Start tracking"),
+            Triple(LanguagePreference.AR, "السابق", "ابدأ المتابعة")
+        )
+        for ((language, backLabel, startLabel) in languageLabels) {
+            for (theme in listOf(ThemePreference.LIGHT, ThemePreference.DARK)) {
+                runBlocking { graph!!.settings.update(language = language, theme = theme) }
+                compose.waitUntil(10_000) {
+                    compose.onAllNodes(hasTestTag("setup-back") and hasContentDescription(backLabel))
+                        .fetchSemanticsNodes().isNotEmpty()
+                }
+                compose.onNodeWithTag("setup-back").assertContentDescriptionEquals(backLabel)
+                    .assertIsEnabled().assertHeightIsAtLeast(48.dp)
+                compose.onNodeWithTag("setup-start").assertIsEnabled().assertHeightIsAtLeast(48.dp)
+                val label = compose.onNodeWithText(startLabel, useUnmergedTree = true)
+                label.assertIsDisplayed()
+                val layouts = mutableListOf<TextLayoutResult>()
+                label.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+                val layout = layouts.single()
+                val lastLine = layout.lineCount - 1
+                Assert.assertEquals(startLabel.length, layout.getLineEnd(lastLine))
+                Assert.assertFalse(layout.didOverflowHeight)
+                // Semantics can rebuild the paragraph at the constraint width even when the label wraps its text.
+                val widestLine = (0..lastLine).maxOf { line ->
+                    layout.getLineRight(line) - layout.getLineLeft(line)
+                }
+                Assert.assertTrue("$language $theme label clips horizontally", widestLine <= layout.size.width + 1f)
+                captureOnboardingScreenshot("onboarding-review-${language.name}-${theme.name}")
+            }
+        }
+    }
+
+    private fun captureOnboardingScreenshot(name: String) {
+        val capture = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        val output = java.io.File(context.getExternalFilesDir(null), "$name.png")
+        output.outputStream()
+            .use { capture.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
     }
 }

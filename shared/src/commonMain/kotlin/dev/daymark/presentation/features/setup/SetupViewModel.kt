@@ -252,7 +252,7 @@ class SetupViewModel(
     }
 
     fun retrySave() {
-        if (!canEdit()) return
+        if (!canEdit() || state.value.issue != SetupIssue.LOCAL_SAVE_FAILED) return
         val pending = state.value.pendingStep
         state.update { it.copy(issue = null, busy = pending != null) }
         enqueueDraft(state.value.draft.copy(step = pending ?: state.value.draft.step))
@@ -416,38 +416,52 @@ class SetupViewModel(
     fun submit() {
         if (!canEdit()) return
         val draft = state.value.draft
-        val balance =
-            if (draft.category == TrackerCategory.WORK) parseWholeDays(draft.openingBalanceText) else 0
         val invalid = draft.invalidStep(clock.now())
         if (invalid != null) {
             showInvalid(invalid)
             return
         }
-        val category = requireNotNull(draft.category)
-        val place = requireNotNull(draft.place)
-        val schedule = requireNotNull(draft.schedule)
-        val openingBalance = requireNotNull(balance)
+        val command = draft.toSetupCommand()
         revision++
-        state.update { it.copy(busy = true, issue = null) }
-        viewModelScope.launch {
-            try {
-                when (repository.setup.complete(
-                    SetupCommand(
-                        draft.displayName,
-                        category,
-                        draft.placeName,
-                        place,
-                        schedule,
-                        openingBalance
-                    )
-                )) {
-                    SetupResult.Completed -> state.update { it.copy(completed = true) }
-                    SetupResult.Invalid -> showInvalid(SetupStep.SCHEDULE)
-                    SetupResult.LocalSaveFailed -> state.update { it.copy(issue = SetupIssue.LOCAL_SAVE_FAILED) }
+        state.update {
+            it.copy(
+                busy = true,
+                pendingStep = null,
+                issue = it.issue.takeIf { issue -> issue == SetupIssue.COMPLETION_FAILED }
+            )
+        }
+        AppLogger.d("SetupViewModel", "Starting setup completion")
+        viewModelScope.launch { completeSetup(command) }
+    }
+
+    private fun SetupDraft.toSetupCommand(): SetupCommand = SetupCommand(
+        displayName = displayName,
+        category = requireNotNull(category),
+        placeName = placeName,
+        place = requireNotNull(place),
+        schedule = requireNotNull(schedule),
+        openingBalance = if (category == TrackerCategory.WORK) requireNotNull(parseWholeDays(openingBalanceText)) else 0
+    )
+
+    private suspend fun completeSetup(command: SetupCommand) {
+        try {
+            when (repository.setup.complete(command)) {
+                SetupResult.Completed -> {
+                    state.update { it.copy(completed = true, issue = null) }
+                    AppLogger.i("SetupViewModel", "Setup completed")
                 }
-            } finally {
-                state.update { it.copy(busy = it.pendingStep != null) }
+
+                SetupResult.Invalid -> showInvalid(SetupStep.SCHEDULE)
+                SetupResult.LocalSaveFailed -> {
+                    state.update { it.copy(issue = SetupIssue.COMPLETION_FAILED) }
+                    AppLogger.e("SetupViewModel", "Setup completion failed")
+                }
             }
+        } catch (cancelled: CancellationException) {
+            AppLogger.d("SetupViewModel", "Setup completion cancelled")
+            throw cancelled
+        } finally {
+            state.update { it.copy(busy = it.pendingStep != null) }
         }
     }
 }
