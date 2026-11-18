@@ -1,4 +1,4 @@
-package dev.daymark.presentation.features.plan.component
+package dev.daymark.presentation.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,8 +27,6 @@ import dev.daymark.resources.Res
 import dev.daymark.resources.cancel
 import dev.daymark.resources.no_confirmed_time
 import dev.daymark.resources.plan_effective
-import dev.daymark.resources.plan_insufficient
-import dev.daymark.resources.plan_invalid
 import dev.daymark.resources.preview_after
 import dev.daymark.resources.preview_balance
 import dev.daymark.resources.preview_before
@@ -84,8 +82,10 @@ internal fun PlanPreviewDialog(
                     }
                 }
 
-                if (category == TrackerCategory.WORK || preview.balanceDelta != 0 ||
-                    preview.changes.any { it.category == TrackerCategory.WORK }
+                val balanceKnown = preview.rejection == null ||
+                        preview.rejection == PlanRejection.INSUFFICIENT_BALANCE
+                if (balanceKnown && (category == TrackerCategory.WORK || preview.balanceDelta != 0 ||
+                            preview.changes.any { it.category == TrackerCategory.WORK })
                 ) {
                     item {
                         Surface(
@@ -115,12 +115,7 @@ internal fun PlanPreviewDialog(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = str(
-                                    if (preview.rejection == PlanRejection.INSUFFICIENT_BALANCE)
-                                        Res.string.plan_insufficient
-                                    else
-                                        Res.string.plan_invalid
-                                ),
+                                text = str(preview.rejection.message()),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                                 modifier = Modifier.padding(12.dp)
@@ -193,7 +188,7 @@ internal fun PlanPreviewDialog(
                     }
                 }
 
-                if (preview.affectedDays.isEmpty()) {
+                if (preview.affectedDays.isEmpty() && preview.rejection == null) {
                     item {
                         Text(
                             text = str(Res.string.preview_no_dates),

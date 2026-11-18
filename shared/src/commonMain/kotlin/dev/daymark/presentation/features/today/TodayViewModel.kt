@@ -4,10 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.daymark.attendance.evaluateDay
 import dev.daymark.location.LocationPermissionPort
+import dev.daymark.logging.AppLogger
 import dev.daymark.models.attendance.AttendanceSource
 import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.models.attendance.CheckOutcome
 import dev.daymark.models.attendance.CheckRejection
+import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.plan.PlanMutationResult
+import dev.daymark.plan.parseWholeDays
 import dev.daymark.repository.Repository
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Clock
@@ -24,10 +28,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -52,6 +58,7 @@ class TodayViewModel(
     private var check: Job? = null
 
     init {
+        observeVacationBalance()
         viewModelScope.launch {
             active.flatMapLatest { enabled ->
                 if (enabled) repository.dashboard.observe() else emptyFlow()
@@ -112,6 +119,7 @@ class TodayViewModel(
                                     val next = old.copy(
                                         date = day.plan.key.date,
                                         plan = day.plan,
+                                        activeCategory = context.category,
                                         outcome = outcome,
                                         ready = true,
                                         error = if (sameDay) old.error else null
@@ -222,5 +230,59 @@ class TodayViewModel(
                 }
             }
         }
+    }
+
+    private fun observeVacationBalance() = viewModelScope.launch {
+        state.map { it.active && it.ready && it.activeCategory == TrackerCategory.WORK }
+            .distinctUntilChanged()
+            .flatMapLatest { shouldObserve ->
+                if (!shouldObserve) emptyFlow() else flow {
+                    emitAll(repository.timeOff.observeVacationBalance())
+                }.catch { failure ->
+                    if (failure is CancellationException) throw failure
+                    AppLogger.e(TAG, "Vacation balance load failed", failure)
+                    updateVacationBalance { it.copy(loadFailed = true) }
+                }
+            }.collect { summary ->
+                updateVacationBalance { it.copy(summary = summary, loadFailed = false) }
+            }
+    }
+
+    private fun updateVacationBalance(change: (TodayVacationBalanceUiState) -> TodayVacationBalanceUiState) {
+        state.update { it.copy(vacationBalance = change(it.vacationBalance)) }
+    }
+
+    fun setAvailableBalance(text: String, note: String?) {
+        val targetDays = parseWholeDays(text) ?: return
+        if (state.value.vacationBalance.saving) return
+        updateVacationBalance { it.copy(saving = true, saveResult = null) }
+        viewModelScope.launch {
+            try {
+                saveAvailableBalance(targetDays, note)
+            } finally {
+                updateVacationBalance { it.copy(saving = false) }
+            }
+        }
+    }
+
+    private suspend fun saveAvailableBalance(targetDays: Int, note: String?) {
+        AppLogger.d(TAG, "Balance save started")
+        val mutation = try {
+            repository.timeOff.setAvailableBalance(targetDays, note)
+        } catch (failure: CancellationException) {
+            throw failure
+        } catch (failure: Exception) {
+            AppLogger.e(TAG, "Balance save failed", failure)
+            PlanMutationResult.LocalSaveFailed
+        }
+        val applied = mutation == PlanMutationResult.Applied
+        updateVacationBalance {
+            it.copy(saveResult = mutation, saveRevision = it.saveRevision + if (applied) 1 else 0)
+        }
+        if (applied) AppLogger.i(TAG, "Balance saved locally")
+    }
+
+    private companion object {
+        const val TAG = "TodayViewModel"
     }
 }

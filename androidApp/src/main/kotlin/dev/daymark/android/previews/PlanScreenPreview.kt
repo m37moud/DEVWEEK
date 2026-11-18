@@ -2,7 +2,6 @@ package dev.daymark.android.previews
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
-import dev.daymark.location.PlaceAddressRequest
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.plan.PlanState
@@ -10,11 +9,9 @@ import dev.daymark.models.plan.PlanChange
 import dev.daymark.models.plan.TimeOffEntry
 import dev.daymark.plan.TimeOffKind
 import dev.daymark.plan.WeeklySchedule
-import dev.daymark.presentation.component.PlaceAddressUiState
 import dev.daymark.presentation.features.plan.PlanActions
 import dev.daymark.presentation.features.plan.PlanContent
 import dev.daymark.presentation.features.plan.PlanUiState
-import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.ThemePreference
 import dev.daymark.ui.theme.DaymarkTheme
 import kotlinx.datetime.DayOfWeek
@@ -29,7 +26,7 @@ import kotlin.time.Instant
 @Composable
 private fun PlanScreenLightPreview() {
     val actions =
-        PlanActions({ _ -> }, { _ -> }, { _ -> }, { _ -> }, { _ -> }, {}, { _, _ -> }, {}, {})
+        PlanActions({}, {}, {})
     DaymarkTheme(ThemePreference.LIGHT) {
         PlanContent(samplePlanState(), Clock.System, null, actions)
     }
@@ -39,7 +36,7 @@ private fun PlanScreenLightPreview() {
 @Composable
 private fun PlanScreenDarkPreview() {
     val actions =
-        PlanActions({ _ -> }, { _ -> }, { _ -> }, { _ -> }, { _ -> }, {}, { _, _ -> }, {}, {})
+        PlanActions({}, {}, {})
     DaymarkTheme(ThemePreference.DARK) {
         PlanContent(samplePlanState(), Clock.System, null, actions)
     }
@@ -66,12 +63,6 @@ private fun samplePlanState(): PlanUiState {
     return PlanUiState(
         ready = true,
         plan = PlanState(draft, null, null),
-        draft = draft,
-        placeAddress = PlaceAddressUiState(
-            PlaceAddressRequest(draft.place.latitude, draft.place.longitude, AppLanguage.EN),
-            "Market Street, San Francisco, California, United States"
-        ),
-        availableBalance = 12,
         entries = listOf(
             TimeOffEntry(
                 "sample-1",
@@ -89,19 +80,4 @@ private fun samplePlanState(): PlanUiState {
             )
         )
     )
-}
-
-@Preview(name = "Unsaved School category keeps saved Work balance", widthDp = 360)
-@Composable
-private fun PlanScreenUnsavedCategoryPreview() {
-    val saved = samplePlanState()
-    val actions = PlanActions({}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {})
-    DaymarkTheme(ThemePreference.LIGHT) {
-        PlanContent(
-            saved.copy(draft = saved.draft?.copy(category = TrackerCategory.SCHOOL)),
-            Clock.System,
-            null,
-            actions
-        )
-    }
 }

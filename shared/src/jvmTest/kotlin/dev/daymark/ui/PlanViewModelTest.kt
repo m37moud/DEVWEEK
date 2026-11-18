@@ -11,7 +11,6 @@ import dev.daymark.data.local.plan.RoomPlanReader
 import dev.daymark.data.local.plan.TimeOffService
 import dev.daymark.data.seedDatabase
 import dev.daymark.fixtureDate
-import dev.daymark.fixtureFix
 import dev.daymark.location.LocationCapabilities
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationPermissionPort
@@ -20,6 +19,8 @@ import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.plan.TimeOffCommand
 import dev.daymark.plan.TimeOffKind
 import dev.daymark.presentation.features.plan.PlanViewModel
+import dev.daymark.presentation.features.settings.AttendanceSettingsViewModel
+import dev.daymark.presentation.features.setup.SetupIssue
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -36,13 +37,13 @@ import kotlinx.datetime.toLocalDateTime
 
 class PlanViewModelTest {
     private val permissions = object : LocationPermissionPort {
-        override fun current() = LocationCapabilities(true, true, true, true)
+        override fun current() = LocationCapabilities(false, false, false, true)
         override suspend fun requestForeground() = current()
         override suspend fun requestBackground() = current()
         override fun openSystemSettings() = Unit
     }
     private val location = object : LocationGateway {
-        override suspend fun requestFix(budget: Duration) = fixtureFix()
+        override suspend fun requestFix(budget: Duration): Nothing = error("GPS requested after permission denial")
     }
 
     @Test
@@ -79,7 +80,7 @@ class PlanViewModelTest {
                     clock
                 )
             )
-            val model = PlanViewModel(
+            val model = AttendanceSettingsViewModel(
                 repository = dev.daymark.testRepository(
                     plansSource = PlanService(
                         db.profileDao(),
@@ -130,7 +131,12 @@ class PlanViewModelTest {
             )
             model.edit { it.copy(schedule = it.schedule.copy(overrides = emptyMap())) }
             assertTrue(model.uiState.value.draft!!.schedule.overrides.isEmpty())
-            model.preview(draft.copy(schedule = draft.schedule.copy(arrival = LocalTime(9, 30))))
+            model.preview(
+                draft.copy(
+                    schedule = draft.schedule.copy(arrival = LocalTime(9, 30)),
+                    place = draft.place.copy(radiusMetres = 150)
+                )
+            )
             val preview = model.uiState.first { !it.busy && it.preview != null }.preview!!
             assertEquals(LocalDate(2026, 10, 28), preview.effectiveFrom)
             model.confirm(preview.expectedRevision)
@@ -148,6 +154,8 @@ class PlanViewModelTest {
                 LocalTime(9, 30),
                 reader.day(LocalDate(2026, 10, 28)).plan.arrival.toLocalDateTime(TimeZone.UTC).time
             )
+            assertEquals(150, reader.day(LocalDate(2026, 10, 28)).plan.place.radiusMetres)
+            assertEquals(draft.place.radiusMetres, repo.loadCurrentDay(clock.now())!!.plan.place.radiusMetres)
             model.preview(draft)
             val stale = model.uiState.first { !it.busy && it.preview != null }.preview!!
             off.setAvailableBalance(11, null)
@@ -159,6 +167,11 @@ class PlanViewModelTest {
             assertTrue(model.uiState.value.invalidInput)
             model.edit { it.copy(place = it.place.copy(radiusMetres = 99)) }
             assertTrue(model.uiState.value.invalidInput)
+            val savedPlace = model.uiState.value.plan?.pending?.place
+            model.registerCurrentPlace()
+            model.uiState.first { !it.busy && it.locationIssue == SetupIssue.LOCATION_DENIED }
+            assertEquals(savedPlace, model.uiState.value.draft?.place)
+            assertEquals(before, db.profileDao().tracker()!!.changeRevision)
         } finally {
             db.close(); folder.toFile().deleteRecursively()
         }
@@ -215,8 +228,6 @@ class PlanViewModelTest {
                         )
                     )
                 ),
-                location = location,
-                permissions = permissions,
                 clock = clock,
                 scope = backgroundScope
             )

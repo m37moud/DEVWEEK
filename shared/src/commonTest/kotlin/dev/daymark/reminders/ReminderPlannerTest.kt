@@ -1,5 +1,6 @@
 package dev.daymark.reminders
 
+import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.at
 import dev.daymark.fixturePlan
 import dev.daymark.fixtureSchedule
@@ -26,7 +27,7 @@ class ReminderPlannerTest {
         val leave = mutableMapOf<LocalDate, TimeOffKind>()
         val confirmed = mutableSetOf<LocalDate>()
         override suspend fun context() =
-            ScheduleContext(fixturePlan().key.trackerId, schedule.zoneId, at("08:00:00"), false)
+            ScheduleContext(fixturePlan().key.trackerId, schedule.zoneId, at("08:00:00"), false, TrackerCategory.WORK)
 
         override suspend fun day(date: LocalDate) =
             PlannedDay(fixturePlan(schedule, date), leave[date], date in confirmed, false)

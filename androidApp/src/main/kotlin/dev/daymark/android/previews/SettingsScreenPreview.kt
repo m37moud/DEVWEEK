@@ -3,7 +3,14 @@ package dev.daymark.android.previews
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import dev.daymark.app.HostPlatform
+import dev.daymark.models.attendance.RegisteredPlace
+import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.plan.PlanChange
+import dev.daymark.models.plan.PlanState
 import dev.daymark.models.settings.AppSettings
+import dev.daymark.presentation.features.settings.AttendanceSettingsUiState
+import dev.daymark.presentation.features.settings.component.AttendanceSettingsActions
+import dev.daymark.presentation.features.settings.component.AttendanceSettingsContent
 import dev.daymark.presentation.features.settings.SettingsActions
 import dev.daymark.presentation.features.settings.SettingsContent
 import dev.daymark.presentation.features.settings.SettingsUiState
@@ -39,7 +46,7 @@ private fun SettingsScreenAndroidPreview() {
             ),
             platform = HostPlatform.ANDROID,
             actions = sampleActions
-        )
+        ) { AttendanceSettingsSample() }
     }
 }
 
@@ -70,6 +77,16 @@ private fun SettingsScreenIosDarkPreview() {
             ),
             platform = HostPlatform.IOS,
             actions = sampleActions
-        )
+        ) { AttendanceSettingsSample() }
     }
+}
+
+
+@Composable
+private fun AttendanceSettingsSample() {
+    val saved = PlanChange(sampleSchedule, TrackerCategory.WORK, RegisteredPlace(30.04, 31.24, 150, 1))
+    AttendanceSettingsContent(
+        state = AttendanceSettingsUiState(plan = PlanState(saved, null, null), draft = saved, ready = true),
+        actions = AttendanceSettingsActions({}, {}, {}, {}, {}, {})
+    )
 }

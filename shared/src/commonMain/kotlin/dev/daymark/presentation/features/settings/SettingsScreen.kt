@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.daymark.app.HostPlatform
+import dev.daymark.presentation.features.settings.component.AttendanceSettingsSection
 import dev.daymark.presentation.features.settings.component.GoogleConnectionSection
 import dev.daymark.presentation.features.settings.component.ReportActions
 import dev.daymark.presentation.features.settings.component.SettingsPreferencesCard
@@ -63,6 +64,7 @@ import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.ThemePreference
 import dev.daymark.settings.str
 import dev.daymark.ui.theme.LocalConfigurationHealth
+import org.koin.compose.viewmodel.koinViewModel
 
 data class SettingsActions(
     val addWidget: () -> Unit,
@@ -79,7 +81,11 @@ data class SettingsActions(
 )
 
 @Composable
-fun SettingsScreen(model: SettingsViewModel, platform: HostPlatform) {
+fun SettingsScreen(
+    model: SettingsViewModel = koinViewModel(),
+    platform: HostPlatform,
+    attendance: AttendanceSettingsViewModel = koinViewModel(),
+) {
     val state by model.uiState.collectAsStateWithLifecycle()
     LifecycleStartEffect(model) {
         model.refreshPermissions()
@@ -110,14 +116,15 @@ fun SettingsScreen(model: SettingsViewModel, platform: HostPlatform) {
             )
         )
     }
-    SettingsContent(state, platform, actions)
+    SettingsContent(state, platform, actions) { AttendanceSettingsSection(attendance) }
 }
 
 @Composable
 fun SettingsContent(
     state: SettingsUiState,
     platform: HostPlatform,
-    actions: SettingsActions
+    actions: SettingsActions,
+    attendanceContent: @Composable () -> Unit = {}
 ) {
     val language = LocalAppLanguage.current
     val health = LocalConfigurationHealth.current
@@ -223,6 +230,8 @@ fun SettingsContent(
                         onSetRemindersEnabled = actions.setRemindersEnabled,
                         onRequestReminders = actions.requestReminders
                     )
+
+                    attendanceContent()
 
                     if (state.resultNotificationsSupported) {
                         val notificationLabel = str(Res.string.result_notifications)

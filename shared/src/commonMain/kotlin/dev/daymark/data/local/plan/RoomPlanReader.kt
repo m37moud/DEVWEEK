@@ -4,6 +4,7 @@ import dev.daymark.data.local.DatabaseTransactions
 import dev.daymark.models.attendance.AttendanceSource
 import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.models.attendance.AutomaticState
+import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.plan.PlanReader
 import dev.daymark.plan.PlannedDay
 import dev.daymark.plan.ScheduleContext
@@ -23,8 +24,11 @@ class RoomPlanReader(
         snapshot = store
         return store?.let {
             ScheduleContext(
-                it.tracker.id, it.active.schedule().zoneId,
-                kotlin.time.Instant.parse(it.tracker.trackingStartsAt), it.tracker.automaticEnabled
+                trackerId = it.tracker.id,
+                zoneId = it.active.schedule().zoneId,
+                trackingStartsAt = kotlin.time.Instant.parse(it.tracker.trackingStartsAt),
+                automaticEnabled = it.tracker.automaticEnabled,
+                category = TrackerCategory.valueOf(it.active.category)
             )
         }
     }

@@ -1,4 +1,4 @@
-package dev.daymark.presentation.features.plan.component
+package dev.daymark.presentation.features.settings.component
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -42,7 +42,6 @@ import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.isolated
 import dev.daymark.settings.str
-import kotlin.math.roundToInt
 
 internal data class PlanPlaceUiState(
     val place: RegisteredPlace,

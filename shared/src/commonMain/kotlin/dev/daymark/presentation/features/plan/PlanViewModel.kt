@@ -2,22 +2,10 @@ package dev.daymark.presentation.features.plan
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dev.daymark.location.LocationFailure
-import dev.daymark.location.LocationGateway
-import dev.daymark.location.LocationPermissionPort
-import dev.daymark.location.LocationResult
-import dev.daymark.location.PlaceAddressRequest
 import dev.daymark.logging.AppLogger
-import dev.daymark.models.attendance.RegisteredPlace
-import dev.daymark.models.plan.PlanChange
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.plan.TimeOffCommand
-import dev.daymark.plan.parseWholeDays
-import dev.daymark.presentation.component.placeAddressStates
-import dev.daymark.presentation.component.registrationIssue
-import dev.daymark.presentation.features.setup.SetupIssue
 import dev.daymark.repository.Repository
-import dev.daymark.settings.AppLanguage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,105 +15,36 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.seconds
 
 class PlanViewModel(
     private val repository: Repository,
-    private val location: LocationGateway,
-    private val permissions: LocationPermissionPort,
     val clock: Clock,
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 ) : ViewModel(scope) {
-    private val TAG = PlanViewModel::class.simpleName ?: "PlanViewModel"
     private val state = MutableStateFlow(PlanUiState())
     val uiState = state.asStateFlow()
-
-    suspend fun showPlaceAddress(place: RegisteredPlace, language: AppLanguage) {
-        val request = PlaceAddressRequest(place.latitude, place.longitude, language)
-        repository.placeAddressStates(request).collect { address ->
-            state.update { it.copy(placeAddress = address) }
-        }
-    }
-
-    private var pendingPlan: PlanChange? = null
     private var pendingOff: TimeOffCommand? = null
 
     init {
         viewModelScope.launch {
-            combine(
-                repository.plans.observePlan(),
-                repository.timeOff.observeEntries(),
-                repository.timeOff.observeAvailableBalance()
-            ) { plan, entries, balance ->
-                state.update {
-                    it.copy(
-                        plan = plan,
-                        draft = it.draft ?: plan?.let { p -> p.pending ?: p.current },
-                        entries = entries,
-                        availableBalance = balance,
-                        ready = true,
-                        storageError = false
-                    )
-                }
+            combine(repository.plans.observePlan(), repository.timeOff.observeEntries()) { plan, entries ->
+                state.update { it.copy(plan = plan, entries = entries, ready = true) }
             }.catch { error ->
                 if (error is CancellationException) throw error
+                AppLogger.e(TAG, "Time off load failed", error)
                 state.update { it.copy(ready = true, storageError = true) }
             }.collect()
-        }
-    }
-
-    fun edit(change: (PlanChange) -> PlanChange) {
-        if (state.value.busy) return
-        val before = state.value.draft ?: return
-        try {
-            val after = change(before)
-            pendingPlan = null
-            state.update {
-                it.copy(
-                    draft = after,
-                    preview = null,
-                    invalidInput = false,
-                    result = null,
-                    locationIssue = null
-                )
-            }
-        } catch (_: IllegalArgumentException) {
-            state.update { it.copy(invalidInput = true) }
-        }
-    }
-
-    fun preview(command: PlanChange) = launchAction {
-        pendingPlan = command
-        val preview = repository.plans.previewChange(command)
-        state.update { it.copy(preview = preview, timeOffPreview = null, result = null) }
-    }
-
-    fun confirm(expectedRevision: Long) = launchAction {
-        val command = pendingPlan
-        val shown = state.value.preview
-        val result =
-            if (command == null || shown == null || shown.expectedRevision != expectedRevision) PlanMutationResult.StalePreview
-            else repository.plans.applyChange(command, expectedRevision)
-        pendingPlan = null
-        state.update { it.copy(result = result, preview = null) }
-        if (result == PlanMutationResult.Applied) {
-            val saved = repository.plans.observePlan().first()
-            state.update {
-                it.copy(
-                    plan = saved,
-                    draft = saved?.let { p -> p.pending ?: p.current })
-            }
         }
     }
 
     fun previewTimeOff(command: TimeOffCommand) = launchAction {
         pendingOff = command
         val preview = repository.timeOff.preview(command)
-        state.update { it.copy(timeOffPreview = preview, preview = null, result = null) }
+        preview.rejection?.let { AppLogger.i(TAG, "Time off preview rejected: ${it.name}") }
+        state.update { it.copy(timeOffPreview = preview, result = null) }
     }
 
     fun confirmTimeOff(expectedRevision: Long) = launchAction {
@@ -140,98 +59,28 @@ class PlanViewModel(
 
     fun cancelPreview() {
         if (state.value.busy) return
-        pendingPlan = null; pendingOff = null
-        state.update { it.copy(preview = null, timeOffPreview = null) }
+        pendingOff = null
+        state.update { it.copy(timeOffPreview = null) }
     }
 
-    fun setAvailableBalance(text: String, note: String?) {
-        val targetDays = parseWholeDays(text)
-        if (targetDays == null) {
-            state.update { it.copy(invalidInput = true) }
-            return
-        }
-        launchAction { saveAvailableBalance(targetDays, note) }
-    }
-
-    private suspend fun saveAvailableBalance(targetDays: Int, note: String?) {
-        state.update { it.copy(result = null) }
-        AppLogger.d(TAG, "Balance save started")
-        val mutation = repository.timeOff.setAvailableBalance(targetDays, note)
-        state.update {
-            it.copy(
-                result = mutation,
-                invalidInput = false,
-                balanceSaveRevision = it.balanceSaveRevision +
-                        if (mutation == PlanMutationResult.Applied) 1 else 0
-            )
-        }
-        if (mutation == PlanMutationResult.Applied) AppLogger.i(TAG, "Balance saved locally")
-        else AppLogger.i(TAG, "Balance save not applied")
-    }
-
-    fun registerCurrentPlace() = launchAction {
-        var capability = permissions.current()
-        if (!capability.foregroundGranted || !capability.preciseGranted) capability =
-            permissions.requestForeground()
-        val issue = when {
-            !capability.foregroundGranted || !capability.preciseGranted -> SetupIssue.LOCATION_DENIED
-            !capability.servicesEnabled -> SetupIssue.LOCATION_DISABLED
-            else -> null
-        }
-        if (issue != null) {
-            state.update { it.copy(locationIssue = issue) }; return@launchAction
-        }
-        val fix = location.requestFix(30.seconds)
-        if (fix !is LocationResult.Fix) {
-            val reason = (fix as LocationResult.Failure).reason
-            state.update {
-                it.copy(
-                    locationIssue = when (reason) {
-                        LocationFailure.PERMISSION_DENIED -> SetupIssue.LOCATION_DENIED
-                        LocationFailure.SERVICES_DISABLED -> SetupIssue.LOCATION_DISABLED
-                        LocationFailure.TIMEOUT -> SetupIssue.LOCATION_TIMEOUT
-                        else -> SetupIssue.LOCATION_UNAVAILABLE
-                    }
-                )
-            }; return@launchAction
-        }
-        val failure = registrationIssue(fix = fix, now = clock.now())
-        if (failure != null) state.update { it.copy(locationIssue = failure) }
-        else {
-            val draft = state.value.draft ?: return@launchAction
-            pendingPlan = null
-            state.update {
-                it.copy(
-                    draft = draft.copy(
-                        place = RegisteredPlace(
-                            fix.latitude,
-                            fix.longitude,
-                            draft.place.radiusMetres,
-                            draft.place.version
-                        )
-                    ),
-                    preview = null, locationIssue = null,
-                    placeRegistrationRevision = it.placeRegistrationRevision + 1
-                )
-            }
-        }
-    }
-
-    fun openLocationSettings() = permissions.openSystemSettings()
     private fun launchAction(action: suspend () -> Unit) {
         if (state.value.busy) return
-        state.update { it.copy(busy = true, storageError = false) }
+        state.update { it.copy(busy = true) }
         viewModelScope.launch {
             try {
                 action()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                AppLogger.e(TAG, "Plan action failed", failure)
-                state.update { it.copy(storageError = true) }
+                AppLogger.e(TAG, "Time off action failed", failure)
+                state.update { it.copy(result = PlanMutationResult.LocalSaveFailed, timeOffPreview = null) }
             } finally {
                 state.update { it.copy(busy = false) }
             }
         }
+    }
+
+    private companion object {
+        const val TAG = "PlanViewModel"
     }
 }

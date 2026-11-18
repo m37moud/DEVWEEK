@@ -9,7 +9,6 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -23,11 +22,18 @@ import dev.daymark.models.plan.PlanState
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.plan.TimeOffCommand
 import dev.daymark.models.plan.TimeOffPreview
+import dev.daymark.models.plan.PlanRejection
+import dev.daymark.models.plan.VacationBalanceSummary
 import dev.daymark.plan.TimeOffKind
 import dev.daymark.plan.WeeklySchedule
 import dev.daymark.presentation.features.plan.PlanActions
 import dev.daymark.presentation.features.plan.PlanContent
 import dev.daymark.presentation.features.plan.PlanUiState
+import dev.daymark.presentation.features.today.TodayActions
+import dev.daymark.presentation.features.today.TodayContent
+import dev.daymark.presentation.features.today.TodayUiState
+import dev.daymark.presentation.features.today.TodayVacationBalanceUiState
+import dev.daymark.presentation.features.today.component.TodayVacationBalance
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.ThemePreference
 import dev.daymark.settings.WithPlatformLocale
@@ -68,13 +74,6 @@ class PlanEditingTest {
     }
 
     @Test
-    fun unsavedCategoryDoesNotHideSavedWorkBalance() {
-        showPlan(sampleState().copy(draft = plan.copy(category = TrackerCategory.SCHOOL)))
-        compose.onNodeWithContentDescription("Adjust available balance")
-            .performScrollTo().assertIsDisplayed()
-    }
-
-    @Test
     fun historyDateIsUsedOnlyForInitialEditor() {
         var previewed: TimeOffCommand? = null
         showPlan(sampleState(), actions { previewed = it }, historyDate)
@@ -104,19 +103,9 @@ class PlanEditingTest {
 
     @Test
     fun balanceEditorStaysOpenWhileSaving() {
-        var state by mutableStateOf(sampleState())
-        val actions =
-            actions().copy(setAvailableBalance = { _, _ -> state = state.copy(busy = true) })
-        applyAppLocale(AppLanguage.EN)
-        compose.setContent {
-            WithPlatformLocale(AppLanguage.EN) {
-                DaymarkTheme(ThemePreference.LIGHT) {
-                    PlanContent(state, clock, null, actions)
-                }
-            }
-        }
-        compose.onNodeWithContentDescription("Adjust available balance")
-            .performScrollTo().performClick()
+        var state by mutableStateOf(balanceState())
+        showBalance({ state }) { _, _ -> state = state.copy(saving = true) }
+        compose.onNodeWithText("Adjust available balance").performClick()
         compose.onNodeWithText("Save").performClick()
         compose.onNodeWithText("Adjustment note (optional)").assertIsDisplayed()
     }
@@ -175,27 +164,18 @@ class PlanEditingTest {
 
     @Test
     fun balanceFailureRetainsInputAndAcknowledgementClosesDialog() {
-        var state by mutableStateOf(sampleState())
+        var state by mutableStateOf(balanceState())
         var attemptedBalance: String? = null
         var attemptedNote: String? = null
         var attempts = 0
-        val actions = actions().copy(setAvailableBalance = { balance, note ->
+        showBalance({ state }) { balance, note ->
             attemptedBalance = balance
             attemptedNote = note
             attempts++
-            state = if (attempts == 1) state.copy(result = PlanMutationResult.LocalSaveFailed)
-            else state.copy(result = PlanMutationResult.Applied, balanceSaveRevision = 1)
-        })
-        applyAppLocale(AppLanguage.EN)
-        compose.setContent {
-            WithPlatformLocale(AppLanguage.EN) {
-                DaymarkTheme(ThemePreference.LIGHT) {
-                    PlanContent(state, clock, null, actions)
-                }
-            }
+            state = if (attempts == 1) state.copy(saveResult = PlanMutationResult.LocalSaveFailed)
+            else state.copy(saveResult = PlanMutationResult.Applied, saveRevision = 1)
         }
-        compose.onNodeWithContentDescription("Adjust available balance")
-            .performScrollTo().performClick()
+        compose.onNodeWithText("Adjust available balance").performClick()
         compose.onNodeWithText("Adjustment note (optional)")
             .performTextReplacement("Test adjustment")
         compose.onNodeWithText("Save").performClick()
@@ -213,10 +193,9 @@ class PlanEditingTest {
     }
 
     @Test
-    fun timeOffPreviewShowsBalanceDespiteUnsavedSchoolCategory() {
+    fun workTimeOffPreviewShowsBalance() {
         showPlan(
             sampleState().copy(
-                draft = plan.copy(category = TrackerCategory.SCHOOL),
                 timeOffPreview = TimeOffPreview(1, emptyList(), emptyList(), -1, 9, null)
             )
         )
@@ -224,12 +203,66 @@ class PlanEditingTest {
             .assertIsDisplayed()
     }
 
+    @Test
+    fun preTrackingPreviewExplainsTheDateCutoff() {
+        showPlan(
+            sampleState().copy(
+                timeOffPreview = TimeOffPreview(
+                    1, emptyList(), emptyList(), 0, 10, PlanRejection.OUTSIDE_TRACKED_PERIOD
+                )
+            )
+        )
+        compose.onNodeWithText("This date range starts before you began tracking attendance.")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun todayShowsVacationBalanceOnlyForTheActiveWorkCategory() {
+        var category by mutableStateOf(TrackerCategory.SCHOOL)
+        compose.setContent {
+            DaymarkTheme(ThemePreference.LIGHT) {
+                TodayContent(
+                    state = TodayUiState(
+                        ready = true,
+                        activeCategory = category,
+                        vacationBalance = balanceState()
+                    ),
+                    displayName = "Alex",
+                    onHistory = {},
+                    actions = TodayActions({}, {}, { _, _ -> }, { _, _ -> })
+                )
+            }
+        }
+        compose.onNodeWithTag("today-vacation-balance").assertDoesNotExist()
+        compose.runOnIdle { category = TrackerCategory.COURSE }
+        compose.onNodeWithTag("today-vacation-balance").assertDoesNotExist()
+        compose.runOnIdle { category = TrackerCategory.WORK }
+        compose.onNodeWithTag("today-vacation-balance").performScrollTo().assertIsDisplayed()
+    }
+
+    private fun balanceState() =
+        TodayVacationBalanceUiState(summary = VacationBalanceSummary(10, 0, 10))
+
+    private fun showBalance(
+        state: () -> TodayVacationBalanceUiState,
+        onSave: (String, String?) -> Unit
+    ) {
+        applyAppLocale(AppLanguage.EN)
+        compose.setContent {
+            WithPlatformLocale(AppLanguage.EN) {
+                DaymarkTheme(ThemePreference.LIGHT) {
+                    TodayVacationBalance(state(), onSave)
+                }
+            }
+        }
+    }
+
     private fun sampleState() = PlanUiState(
-        plan = PlanState(plan, null, null), draft = plan, ready = true, availableBalance = 10
+        plan = PlanState(plan, null, null), ready = true
     )
 
     private fun actions(onPreview: (TimeOffCommand) -> Unit = {}) = PlanActions(
-        {}, {}, {}, onPreview, {}, {}, { _, _ -> }, {}, {}
+        onPreview, {}, {}
     )
 
     private fun showPlan(

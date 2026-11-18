@@ -15,7 +15,7 @@ import dev.daymark.models.plan.PlanRejection
 import dev.daymark.models.plan.TimeOffEntry
 import dev.daymark.models.plan.TimeOffPreview
 import dev.daymark.plan.TimeOffKind
-import dev.daymark.plan.availableVacationDays
+import dev.daymark.plan.vacationBalanceSummary
 import dev.daymark.plan.resolveDay
 import dev.daymark.plan.timeOffOn
 import kotlin.time.Instant
@@ -88,13 +88,14 @@ internal data class PlanningStore(
     fun balance(
         off: List<TimeOffEntry> = entries,
         expectations: List<PlanVersionEntity> = versions
-    ): Int =
-        availableVacationDays(tracker.openingBalance, adjustments.map { it.delta }, off) {
-            plan(
-                it,
-                expectations
-            )
-        }
+    ): Int = balanceSummary(off, expectations).remainingDays
+
+    fun balanceSummary(
+        off: List<TimeOffEntry> = entries,
+        expectations: List<PlanVersionEntity> = versions
+    ) = vacationBalanceSummary(tracker.openingBalance, adjustments.map { it.delta }, off) {
+        plan(it, expectations)
+    }
 
     fun outcome(
         date: LocalDate,

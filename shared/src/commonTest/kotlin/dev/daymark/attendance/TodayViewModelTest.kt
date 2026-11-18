@@ -2,6 +2,7 @@
 
 package dev.daymark.attendance
 
+import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.TestRepository
 import dev.daymark.models.TodayDashboard
 import dev.daymark.repository.DashboardDataSource
@@ -27,11 +28,15 @@ import dev.daymark.models.attendance.DayOutcome
 import dev.daymark.models.attendance.FixVerdict
 import dev.daymark.models.attendance.HistoryMonth
 import dev.daymark.models.attendance.StoredDay
+import dev.daymark.models.plan.PlanMutationResult
+import dev.daymark.models.plan.VacationBalanceSummary
 import dev.daymark.plan.PlanReader
 import dev.daymark.plan.PlannedDay
 import dev.daymark.plan.ScheduleContext
 import dev.daymark.plan.TimeOffKind
 import dev.daymark.presentation.features.today.TodayViewModel
+import dev.daymark.repository.TimeOffDataSource
+import dev.daymark.testRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -153,7 +158,7 @@ class TodayViewModelTest {
     }
     private val plans = object : PlanReader {
         override suspend fun context() =
-            ScheduleContext(fixturePlan().key.trackerId, "UTC", at("08:00:00"), true)
+            ScheduleContext(fixturePlan().key.trackerId, "UTC", at("08:00:00"), true, TrackerCategory.WORK)
 
         override suspend fun day(date: LocalDate) =
             PlannedDay(fixturePlan(date = date), null, false, false)
@@ -198,6 +203,55 @@ class TodayViewModelTest {
         model.setActive(true)
         runCurrent()
         assertEquals(3, model.uiState.value.dashboard.metrics.attendance)
+    }
+
+    @Test
+    fun vacation_balance_observes_only_while_active_and_acknowledges_only_applied_saves() = runTest {
+        val summaries = MutableStateFlow(VacationBalanceSummary(10, 0, 10))
+        var reply = CompletableDeferred<PlanMutationResult>()
+        val clock = TestClock()
+        val timeOff = object : TimeOffDataSource by TestRepository().timeOff {
+            override fun observeVacationBalance() = summaries
+            override suspend fun setAvailableBalance(targetDays: Int, note: String?) = reply.await()
+        }
+        val repository = testRepository(
+            attendanceSource = Repository(clock),
+            planReaderSource = plans,
+            timeOffSource = timeOff
+        )
+        val model = TodayViewModel(repository, permissions, clock, backgroundScope, initiallyActive = false)
+        runCurrent()
+        assertNull(model.uiState.value.vacationBalance.summary)
+
+        model.setActive(true)
+        runCurrent()
+        assertEquals(summaries.value, model.uiState.value.vacationBalance.summary)
+        model.setAvailableBalance("12", null)
+        runCurrent()
+        assertTrue(model.uiState.value.vacationBalance.saving)
+        assertEquals(0L, model.uiState.value.vacationBalance.saveRevision)
+        reply.complete(PlanMutationResult.LocalSaveFailed)
+        runCurrent()
+        assertEquals(PlanMutationResult.LocalSaveFailed, model.uiState.value.vacationBalance.saveResult)
+        assertEquals(0L, model.uiState.value.vacationBalance.saveRevision)
+        assertNull(model.uiState.value.error)
+
+        reply = CompletableDeferred()
+        model.setAvailableBalance("12", null)
+        runCurrent()
+        assertNull(model.uiState.value.vacationBalance.saveResult)
+        reply.complete(PlanMutationResult.Applied)
+        runCurrent()
+        assertEquals(1L, model.uiState.value.vacationBalance.saveRevision)
+
+        model.setActive(false)
+        runCurrent()
+        summaries.value = VacationBalanceSummary(10, 0, 12)
+        runCurrent()
+        assertEquals(10, model.uiState.value.vacationBalance.summary?.remainingDays)
+        model.setActive(true)
+        runCurrent()
+        assertEquals(summaries.value, model.uiState.value.vacationBalance.summary)
     }
 
     @Test
@@ -305,7 +359,8 @@ class TodayViewModelTest {
                 fixturePlan().key.trackerId,
                 "UTC",
                 Instant.parse("2026-10-28T09:00:00Z"),
-                true
+                true,
+                TrackerCategory.WORK
             )
 
             override suspend fun day(date: LocalDate) = plans.day(date)
@@ -498,7 +553,8 @@ class TodayViewModelTest {
                 fixturePlan().key.trackerId,
                 "UTC",
                 Instant.parse("2026-10-28T09:00:00Z"),
-                false
+                false,
+                TrackerCategory.WORK
             )
 
             override suspend fun day(date: LocalDate) = plans.day(date)

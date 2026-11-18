@@ -34,6 +34,7 @@ import dev.daymark.models.plan.PlanChange
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.plan.PlanRejection
 import dev.daymark.models.plan.TimeOffCommand
+import dev.daymark.models.plan.VacationBalanceSummary
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -138,6 +139,21 @@ class TimeOffTransactionTest {
             save(service, vacation)
             assertEquals(10, service.observeAvailableBalance().first())
             assertEquals(1, service.observeEntries().first().size)
+        }
+    }
+
+    @Test
+    fun vacation_summary_counts_booked_days_once_and_preserves_the_original_balance() = runTest {
+        withStore { db, _, service ->
+            val tracker = requireNotNull(db.profileDao().tracker())
+            db.profileDao().putTracker(tracker.copy(openingBalance = 20))
+            save(service, TimeOffCommand.Add(TimeOffKind.VACATION, date("2026-10-28"), date("2026-11-06")))
+            save(service, TimeOffCommand.Add(TimeOffKind.VACATION, date("2026-11-02"), date("2026-11-03")))
+            save(service, TimeOffCommand.Add(TimeOffKind.HOLIDAY, date("2026-11-04"), date("2026-11-04")))
+            assertEquals(VacationBalanceSummary(20, 7, 13), service.observeVacationBalance().first())
+            assertIs<PlanMutationResult.Applied>(service.setAvailableBalance(15, null))
+            assertEquals(VacationBalanceSummary(20, 7, 15), service.observeVacationBalance().first())
+            assertEquals(15, service.observeAvailableBalance().first())
         }
     }
 

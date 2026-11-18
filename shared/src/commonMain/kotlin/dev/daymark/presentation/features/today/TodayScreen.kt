@@ -12,72 +12,70 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.daymark.history.HistoryMetric
-import dev.daymark.history.HistoryMetrics
-import dev.daymark.models.TodayDashboard
-import dev.daymark.models.WeekDaySummary
-import dev.daymark.models.attendance.AttendanceSource
-import dev.daymark.models.attendance.AttendanceStatus
-import dev.daymark.models.attendance.CheckRejection
-import dev.daymark.models.attendance.DayKey
-import dev.daymark.models.attendance.DayOutcome
-import dev.daymark.models.attendance.DayPlan
-import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.attendance.TrackerCategory
-import dev.daymark.models.reporting.ReportHealth
 import dev.daymark.presentation.features.today.component.TodayErrorCallout
 import dev.daymark.presentation.features.today.component.TodayHeroCard
 import dev.daymark.presentation.features.today.component.TodayMonthMetrics
 import dev.daymark.presentation.features.today.component.TodayNextAttendanceBanner
 import dev.daymark.presentation.features.today.component.TodayReportStatus
+import dev.daymark.presentation.features.today.component.TodayVacationBalance
 import dev.daymark.presentation.features.today.component.TodayWeekStrip
 import dev.daymark.resources.Res
 import dev.daymark.resources.load_failed
+import dev.daymark.resources.time_off
 import dev.daymark.resources.welcome_name
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LocalAppLanguage
-import dev.daymark.settings.ThemePreference
 import dev.daymark.settings.isolated
 import dev.daymark.settings.str
-import dev.daymark.ui.theme.DaymarkTheme
 import kotlinx.datetime.LocalDate
-import kotlin.time.Instant
+import org.koin.compose.viewmodel.koinViewModel
 
-private data class TodayActions(
+data class TodayActions(
     val checkAttendance: () -> Unit,
     val openLocationSettings: () -> Unit,
-    val openMetric: (HistoryMetric, LocalDate) -> Unit
+    val openMetric: (HistoryMetric, LocalDate) -> Unit,
+    val adjustVacationBalance: (String, String?) -> Unit,
+    val editTimeOff: ((LocalDate) -> Unit)? = null
 )
 
 @Composable
 fun TodayScreen(
-    model: TodayViewModel,
+    model: TodayViewModel = koinViewModel(),
     displayName: String,
     onHistory: () -> Unit,
-    onMetric: (HistoryMetric, LocalDate) -> Unit
+    onMetric: (HistoryMetric, LocalDate) -> Unit,
+    onEditTimeOff: ((LocalDate) -> Unit)? = null
 ) {
     val state by model.uiState.collectAsStateWithLifecycle()
     LifecycleStartEffect(model) {
         model.setActive(true)
         onStopOrDispose { model.setActive(false) }
     }
-    val actions = remember(model, onMetric) {
-        TodayActions(model::checkAttendance, model::openLocationSettings, onMetric)
+    val actions = remember(model, onMetric, onEditTimeOff) {
+        TodayActions(
+            checkAttendance = model::checkAttendance,
+            openLocationSettings = model::openLocationSettings,
+            openMetric = onMetric,
+            adjustVacationBalance = model::setAvailableBalance,
+            editTimeOff = onEditTimeOff
+        )
     }
     TodayContent(state, displayName, onHistory, actions)
 }
 
 @Composable
-private fun TodayContent(
+fun TodayContent(
     state: TodayUiState,
     displayName: String,
     onHistory: () -> Unit,
@@ -127,6 +125,17 @@ private fun TodayContent(
             )
         }
 
+        val displayedDate = state.date
+        val editTimeOff = actions.editTimeOff
+        if (displayedDate != null && state.ready && editTimeOff != null) {
+            TextButton(
+                onClick = { editTimeOff(displayedDate) },
+                modifier = Modifier.testTag("today-time-off-action")
+            ) {
+                Text(str(Res.string.time_off))
+            }
+        }
+
         dashboard.takeIf { summaryReady }?.let { summary ->
             if (summary.failed) {
                 Text(
@@ -169,148 +178,13 @@ private fun TodayContent(
             }
         }
 
+        if (state.ready && state.activeCategory == TrackerCategory.WORK) {
+            TodayVacationBalance(state.vacationBalance, actions.adjustVacationBalance)
+        }
+
         TodayReportStatus(
             report = report,
             language = language
-        )
-    }
-}
-
-@Preview
-@Preview(name = "Awaiting narrow large text", widthDp = 320, fontScale = 2f)
-@Composable
-private fun TodayScreenPreview() {
-    val actions = TodayActions({}, {}, { _, _ -> })
-    val sampleDate = LocalDate(2026, 10, 27)
-    val plan = DayPlan(
-        key = DayKey("preview-tracker", sampleDate),
-        category = TrackerCategory.WORK,
-        arrival = Instant.fromEpochMilliseconds(1793084400000),
-        deadline = Instant.fromEpochMilliseconds(1793084700000),
-        zoneId = "Africa/Cairo",
-        scheduleVersion = 1L,
-        place = RegisteredPlace(30.0, 31.0, 100, 1L),
-        isScheduled = true
-    )
-    val weekDays = (26..31).map { dayNumber ->
-        val date = LocalDate(2026, 10, dayNumber)
-        WeekDaySummary(
-            date = date,
-            status = when (dayNumber) {
-                26 -> AttendanceStatus.PRESENT
-                27 -> AttendanceStatus.AWAITING_CHECK
-                28 -> AttendanceStatus.HOLIDAY
-                29 -> AttendanceStatus.VACATION
-                30 -> AttendanceStatus.SCHEDULED
-                else -> AttendanceStatus.DAY_OFF
-            },
-            planned = dayNumber > 27
-        )
-    }
-    val dashboard = TodayDashboard(
-        ready = true,
-        date = sampleDate,
-        placeName = "Harbor Office",
-        metrics = HistoryMetrics(
-            attendance = 16,
-            late = 2,
-            absent = 1,
-            leaveRest = 3,
-            holidays = 1
-        ),
-        week = weekDays,
-        nextAttendance = plan.copy(
-            key = DayKey("preview-tracker", LocalDate(2026, 10, 30)),
-            arrival = Instant.fromEpochMilliseconds(1793343600000),
-            deadline = Instant.fromEpochMilliseconds(1793343900000)
-        )
-    )
-
-    DaymarkTheme(ThemePreference.LIGHT) {
-        TodayContent(
-            state = TodayUiState(
-                ready = true,
-                active = true,
-                date = sampleDate,
-                plan = plan,
-                canCheck = true,
-                outcome = DayOutcome(
-                    status = AttendanceStatus.AWAITING_CHECK,
-                    source = AttendanceSource.NONE,
-                    confirmedAt = null,
-                    offReason = null
-                ),
-                dashboard = dashboard,
-                report = ReportHealth()
-            ),
-            displayName = "Alex",
-            onHistory = {},
-            actions = actions
-        )
-    }
-}
-
-@Preview
-@Preview(name = "Corrected narrow large text", widthDp = 320, fontScale = 2f)
-@Composable
-private fun TodayScreenCorrectedDarkPreview() {
-    val actions = TodayActions({}, {}, { _, _ -> })
-    val sampleDate = LocalDate(2026, 10, 27)
-    val plan = DayPlan(
-        key = DayKey("preview-tracker", sampleDate),
-        category = TrackerCategory.WORK,
-        arrival = Instant.fromEpochMilliseconds(1793084400000),
-        deadline = Instant.fromEpochMilliseconds(1793084700000),
-        zoneId = "Africa/Cairo",
-        scheduleVersion = 1L,
-        place = RegisteredPlace(30.0, 31.0, 100, 1L),
-        isScheduled = true
-    )
-    DaymarkTheme(ThemePreference.DARK) {
-        TodayContent(
-            state = TodayUiState(
-                ready = true,
-                active = true,
-                date = sampleDate,
-                plan = plan,
-                canCheck = false,
-                outcome = DayOutcome(
-                    status = AttendanceStatus.PRESENT,
-                    source = AttendanceSource.MANUAL_CORRECTION,
-                    confirmedAt = Instant.fromEpochMilliseconds(1793084520000),
-                    offReason = null
-                ),
-                dashboard = TodayDashboard(
-                    ready = true,
-                    date = sampleDate,
-                    placeName = "Harbor Office"
-                ),
-                report = ReportHealth()
-            ),
-            displayName = "Alex",
-            onHistory = {},
-            actions = actions
-        )
-    }
-}
-
-@Preview
-@Composable
-private fun TodayScreenErrorPreview() {
-    val actions = TodayActions({}, {}, { _, _ -> })
-    val sampleDate = LocalDate(2026, 10, 27)
-    DaymarkTheme(ThemePreference.LIGHT) {
-        TodayContent(
-            state = TodayUiState(
-                ready = true,
-                active = true,
-                date = sampleDate,
-                error = CheckRejection.LOCATION_DENIED,
-                dashboard = TodayDashboard(ready = true)
-            ),
-            displayName = "Alex",
-            onHistory = {},
-            actions = actions
         )
     }
 }

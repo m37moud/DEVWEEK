@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.presentation.component.attendanceGlyph
@@ -57,9 +58,21 @@ internal fun TodayHeroCard(
     val outcome = state.outcome
     val status = outcome?.status
     val cardBorder = when (status) {
-        AttendanceStatus.PRESENT -> BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
-        AttendanceStatus.LATE -> BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f))
-        AttendanceStatus.ABSENT -> BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f))
+        AttendanceStatus.PRESENT -> BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+        )
+
+        AttendanceStatus.LATE -> BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f)
+        )
+
+        AttendanceStatus.ABSENT -> BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.error.copy(alpha = 0.4f)
+        )
+
         else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     }
 
@@ -95,6 +108,7 @@ internal fun TodayHeroCard(
                             AttendanceStatus.ABSENT -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
                             AttendanceStatus.DAY_OFF, AttendanceStatus.HOLIDAY, AttendanceStatus.VACATION ->
                                 MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+
                             else -> MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.onSurfaceVariant
                         }
 
@@ -156,7 +170,11 @@ internal fun TodayHeroCard(
                                 Text(
                                     text = str(
                                         Res.string.confirmed_at,
-                                        DisplayFormats.time(confirmedTime, state.plan.zoneId, language)
+                                        DisplayFormats.time(
+                                            confirmedTime,
+                                            state.plan.zoneId,
+                                            language
+                                        )
                                     ),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -172,14 +190,25 @@ internal fun TodayHeroCard(
                                 TimeMetricCard(
                                     text = str(
                                         Res.string.arrival_at,
-                                        DisplayFormats.time(state.plan.arrival, state.plan.zoneId, language)
-                                    ),
-                                    modifier = Modifier.weight(1f)
-                                )
+                                        DisplayFormats.time(
+                                            state.plan.arrival,
+                                            state.plan.zoneId,
+                                            language
+                                        ),
+
+                                        ),
+                                    modifier = Modifier.weight(1f),
+
+
+                                    )
                                 TimeMetricCard(
                                     text = str(
                                         Res.string.deadline_at,
-                                        DisplayFormats.time(state.plan.deadline, state.plan.zoneId, language)
+                                        DisplayFormats.time(
+                                            state.plan.deadline,
+                                            state.plan.zoneId,
+                                            language
+                                        )
                                     ),
                                     modifier = Modifier.weight(1f)
                                 )
@@ -264,7 +293,8 @@ private fun TimeMetricCard(
             text = text,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
         )
     }
 }

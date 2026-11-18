@@ -39,6 +39,7 @@ import dev.daymark.plan.PlanReader
 import dev.daymark.presentation.features.app.AppViewModel
 import dev.daymark.presentation.features.history.HistoryViewModel
 import dev.daymark.presentation.features.plan.PlanViewModel
+import dev.daymark.presentation.features.settings.AttendanceSettingsViewModel
 import dev.daymark.presentation.features.settings.SettingsViewModel
 import dev.daymark.presentation.features.setup.SetupViewModel
 import dev.daymark.presentation.features.today.TodayViewModel
@@ -211,7 +212,8 @@ internal fun viewModelModule() = module {
     viewModel { AppViewModel(get()) }
     viewModel { SetupViewModel(get(), get(), get(), get()) }
     viewModel { TodayViewModel(get(), get(), get(), initiallyActive = false) }
-    viewModel { PlanViewModel(get(), get(), get(), get()) }
+    viewModel { PlanViewModel(get(), get()) }
+    viewModel { AttendanceSettingsViewModel(get(), get(), get(), get()) }
     factory<WidgetSetupPort> { createWidgetSetupPort() }
     viewModel {
         SettingsViewModel(

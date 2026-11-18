@@ -1,8 +1,12 @@
 # Plan and Settings
 
-Plan edits the selected weekdays, common arrival, individual weekday overrides, grace, saved place/radius, attendance time zone and tracker category. Setup and Plan share a searchable IANA zone picker; a new reading changes the draft place only. Saving a reviewed plan activates a new immutable version on the next attendance-zone day. Today's and historical snapshots stay intact.
+## Approved screen placement amendment · 18 November 2026
 
-Time-off previews list resulting outcomes and the exact vacation balance delta. Add, replace and remove operate on the tracked period, including historical dates. History carries its selected local date to Plan and opens the matching holiday/vacation entry, with holidays first when overlays overlap. A date without an entry opens a new time-off form. Corrections also expose this date-specific action. Work shows whole-day balance adjustments; school/course hide the balance.
+This amends the Today, Plan, and Settings screen placement in [section 7 of the frozen design](../superpowers/reviews/2026-10-27-attendance-mvp/01-design-v1-frozen.md#7-product-experience-and-approved-visual-direction), incorporated by [design v2](../superpowers/reviews/2026-10-27-attendance-mvp/04-promoted-design-v2.md).
+
+- **Settings** contains the weekly schedule, tracker category, zone, and registered place with its radius, next to Tracking. One review covers both cards. A foreground location reading changes the draft only. A confirmed plan starts on the next attendance-zone day. Today's and historical expectations stay intact.
+- **Plan** opens **Time off**. Add, edit, and remove work across the tracked period, including past dates. Reviews show attendance outcomes and vacation balance impact. A new single-day entry follows the chosen From date until an end date is selected. A range starting before tracking began gets a specific rejection. Today and History open the editor for the selected date. When entries overlap, the editor opens the holiday first.
+- **Today** shows Original balance, Used, and Remaining for Work below the attendance summary. Used includes eligible future vacation booked against the balance. Remaining includes any balance adjustment, which can be recorded from the same card. The three figures come from one local snapshot.
 
 The controller retains the reviewed command/revision and clears its preview after apply or a stale result. It does not silently retry a stale confirmation. Invalid values, storage failures and insufficient balance remain distinct from a successful local save. Location registration uses the same freshness/accuracy validation as setup, with one bounded foreground request.
 

@@ -45,6 +45,7 @@ import dev.daymark.presentation.features.history.HistoryViewModel
 import dev.daymark.presentation.features.plan.PlanScreen
 import dev.daymark.presentation.features.plan.PlanViewModel
 import dev.daymark.presentation.features.settings.SettingsScreen
+import dev.daymark.presentation.features.settings.AttendanceSettingsViewModel
 import dev.daymark.presentation.features.settings.SettingsViewModel
 import dev.daymark.presentation.features.setup.SetupScreen
 import dev.daymark.presentation.features.setup.SetupViewModel
@@ -191,7 +192,7 @@ fun AppNavigation(appModel: AppViewModel, platform: HostPlatform, tracker: Track
             entryProvider = entryProvider {
                 entry<SetupRoute> {
                     val model = koinViewModel<SetupViewModel>()
-                    SetupScreen(model, platform)
+                    SetupScreen(platform = platform)
                 }
                 entry<TodayRoute> {
                     val model = koinViewModel<TodayViewModel>()
@@ -207,6 +208,7 @@ fun AppNavigation(appModel: AppViewModel, platform: HostPlatform, tracker: Track
                         model,
                         tracker?.displayName.orEmpty(),
                         onHistory = appModel::showHistory,
+                        onEditTimeOff = { date -> go(PlanRoute(date.toString())) },
                         onMetric = { metric, displayedDate ->
                             stack.add(
                                 HistoryDetailRoute(
@@ -223,7 +225,7 @@ fun AppNavigation(appModel: AppViewModel, platform: HostPlatform, tracker: Track
                         parametersOf(LocalDate(route.year, route.month, 1))
                     }
                     HistoryScreen(
-                        model,
+                        model = model,
                         onBack = { go(TodayRoute) },
                         onEditTimeOff = { date -> go(PlanRoute(date.toString())) },
                         onMetric = { metric ->
@@ -241,12 +243,14 @@ fun AppNavigation(appModel: AppViewModel, platform: HostPlatform, tracker: Track
                         onEditTimeOff = { date -> go(PlanRoute(date.toString())) })
                 }
                 entry<PlanRoute> { route ->
-                    val model = koinViewModel<PlanViewModel>()
-                    PlanScreen(model, model.clock, route.timeOffDate?.let(LocalDate::parse))
+                    PlanScreen(
+                        initialTimeOffDate = route.timeOffDate?.let(LocalDate::parse)
+                    )
                 }
                 entry<SettingsRoute> {
-                    val model = koinViewModel<SettingsViewModel>()
-                    SettingsScreen(model, platform)
+                    SettingsScreen(
+                        platform = platform,
+                    )
                 }
             })
     }

@@ -1,4 +1,4 @@
-package dev.daymark.presentation.features.plan.component
+package dev.daymark.presentation.features.today.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,7 +27,7 @@ import dev.daymark.resources.balance_help
 import dev.daymark.resources.balance_note
 import dev.daymark.resources.cancel
 import dev.daymark.resources.local_save_failed
-import dev.daymark.resources.opening_balance
+import dev.daymark.resources.vacation_balance_remaining
 import dev.daymark.resources.save
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LocalAppLanguage
@@ -69,7 +69,7 @@ internal fun BalanceAdjustDialog(
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
-                    label = { Text(str(Res.string.opening_balance)) },
+                    label = { Text(str(Res.string.vacation_balance_remaining)) },
                     enabled = !state.busy,
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

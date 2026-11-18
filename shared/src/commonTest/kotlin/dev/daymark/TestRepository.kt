@@ -2,6 +2,9 @@ package dev.daymark
 
 import dev.daymark.attendance.AttendanceRepository
 import dev.daymark.models.TodayDashboard
+import dev.daymark.models.plan.TimeOffCommand
+import dev.daymark.models.plan.TimeOffEntry
+import dev.daymark.models.plan.VacationBalanceSummary
 import dev.daymark.models.reporting.ReportHealth
 import dev.daymark.plan.PlanReader
 import dev.daymark.reminders.ReminderPort
@@ -14,7 +17,17 @@ open class TestRepository : Repository {
     override val attendance: AttendanceRepository get() = error("Unexpected attendance access")
     override val checks: AttendanceChecks get() = error("Unexpected check access")
     override val plans: PlanDataSource get() = error("Unexpected plan access")
-    override val timeOff: TimeOffDataSource get() = error("Unexpected time off access")
+    override val timeOff: TimeOffDataSource = object : TimeOffDataSource {
+        override fun observeEntries() = flowOf(emptyList<TimeOffEntry>())
+        override fun observeVacationBalance() = flowOf<VacationBalanceSummary?>(null)
+        override fun observeAvailableBalance() = flowOf<Int?>(null)
+        override suspend fun preview(command: TimeOffCommand): Nothing = error("Unexpected time off preview")
+        override suspend fun apply(command: TimeOffCommand, expectedRevision: Long): Nothing =
+            error("Unexpected time off change")
+
+        override suspend fun setAvailableBalance(targetDays: Int, note: String?): Nothing =
+            error("Unexpected balance adjustment")
+    }
     override val planReader: PlanReader get() = error("Unexpected schedule access")
     override val setup: SetupDataSource get() = error("Unexpected setup access")
     override val settings: SettingsDataSource get() = error("Unexpected settings access")
@@ -53,7 +66,7 @@ fun testRepository(
     override val attendance get() = requireNotNull(attendanceSource)
     override val checks get() = requireNotNull(checksSource)
     override val plans get() = requireNotNull(plansSource)
-    override val timeOff get() = requireNotNull(timeOffSource)
+    override val timeOff get() = timeOffSource ?: super.timeOff
     override val planReader get() = requireNotNull(planReaderSource)
     override val setup get() = requireNotNull(setupSource)
     override val settings get() = requireNotNull(settingsSource)

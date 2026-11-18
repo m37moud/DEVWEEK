@@ -1,5 +1,6 @@
 package dev.daymark.plan
 
+import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.at
 import dev.daymark.fixtureDate
 import dev.daymark.fixturePlan
@@ -18,7 +19,7 @@ class NextAttendanceTest {
         var calls = 0
         val skipped = mutableMapOf<LocalDate, Int>()
         override suspend fun context() =
-            ScheduleContext(fixturePlan().key.trackerId, "UTC", start, enabled)
+            ScheduleContext(fixturePlan().key.trackerId, "UTC", start, enabled, TrackerCategory.WORK)
 
         override suspend fun day(date: LocalDate): PlannedDay {
             calls++
@@ -71,7 +72,7 @@ class NextAttendanceTest {
     fun no_available_occurrence_is_bounded() = runTest {
         val reader = object : PlanReader {
             override suspend fun context() =
-                ScheduleContext(fixturePlan().key.trackerId, "UTC", at("08:00:00"), true)
+                ScheduleContext(fixturePlan().key.trackerId, "UTC", at("08:00:00"), true, TrackerCategory.WORK)
 
             override suspend fun day(date: LocalDate) =
                 PlannedDay(fixturePlan(date = date).copy(isScheduled = false), null, false, false)

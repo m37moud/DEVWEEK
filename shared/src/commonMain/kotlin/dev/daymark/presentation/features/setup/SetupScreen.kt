@@ -61,6 +61,7 @@ import dev.daymark.resources.schedule
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.str
+import org.koin.compose.viewmodel.koinViewModel
 
 data class OnboardingActions(
     val advance: () -> Unit,
@@ -74,8 +75,8 @@ data class OnboardingActions(
 
 @Composable
 fun SetupScreen(
-    viewModel: SetupViewModel,
     platform: HostPlatform,
+    viewModel: SetupViewModel = koinViewModel(),
     appLanguage: AppLanguage = LocalAppLanguage.current
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()

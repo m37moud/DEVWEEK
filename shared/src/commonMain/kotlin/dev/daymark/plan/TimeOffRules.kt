@@ -3,6 +3,7 @@ package dev.daymark.plan
 import dev.daymark.models.attendance.DayPlan
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.plan.TimeOffEntry
+import dev.daymark.models.plan.VacationBalanceSummary
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
@@ -40,13 +41,20 @@ fun availableVacationDays(
     entries: List<TimeOffEntry>,
     planForDate: (LocalDate) -> DayPlan
 ): Int {
+    return vacationBalanceSummary(opening, adjustments, entries, planForDate).remainingDays
+}
+
+internal fun vacationBalanceSummary(
+    opening: Int,
+    adjustments: List<Int>,
+    entries: List<TimeOffEntry>,
+    planForDate: (LocalDate) -> DayPlan
+): VacationBalanceSummary {
     require(opening >= 0)
-    val value = opening.toLong() + adjustments.sumOf { it.toLong() } - eligibleVacationDates(
-        entries,
-        planForDate
-    ).size
-    require(value in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong())
-    return value.toInt()
+    val usedDays = eligibleVacationDates(entries, planForDate).size
+    val remainingDays = opening.toLong() + adjustments.sumOf { it.toLong() } - usedDays
+    require(remainingDays in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong())
+    return VacationBalanceSummary(opening, usedDays, remainingDays.toInt())
 }
 
 fun parseWholeDays(text: String): Int? {

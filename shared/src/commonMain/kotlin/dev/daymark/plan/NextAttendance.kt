@@ -2,6 +2,7 @@ package dev.daymark.plan
 
 import dev.daymark.models.attendance.DayKey
 import dev.daymark.models.attendance.DayPlan
+import dev.daymark.models.attendance.TrackerCategory
 import kotlin.time.Instant
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -14,7 +15,8 @@ data class ScheduleContext(
     val trackerId: String,
     val zoneId: String,
     val trackingStartsAt: Instant,
-    val automaticEnabled: Boolean
+    val automaticEnabled: Boolean,
+    val category: TrackerCategory
 )
 
 data class PlannedDay(

@@ -14,6 +14,7 @@ import dev.daymark.models.plan.PlanState
 import dev.daymark.models.plan.TimeOffCommand
 import dev.daymark.models.plan.TimeOffEntry
 import dev.daymark.models.plan.TimeOffPreview
+import dev.daymark.models.plan.VacationBalanceSummary
 import dev.daymark.models.reporting.ConnectionResult
 import dev.daymark.models.reporting.ReportHealth
 import dev.daymark.models.settings.AppSettings
@@ -42,6 +43,7 @@ interface PlanDataSource {
 
 interface TimeOffDataSource {
     fun observeEntries(): Flow<List<TimeOffEntry>>
+    fun observeVacationBalance(): Flow<VacationBalanceSummary?>
     fun observeAvailableBalance(): Flow<Int?>
     suspend fun preview(command: TimeOffCommand): TimeOffPreview
     suspend fun apply(command: TimeOffCommand, expectedRevision: Long): PlanMutationResult

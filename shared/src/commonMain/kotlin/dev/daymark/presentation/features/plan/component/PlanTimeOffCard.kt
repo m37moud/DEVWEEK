@@ -1,30 +1,23 @@
 package dev.daymark.presentation.features.plan.component
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
@@ -32,9 +25,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -53,18 +44,13 @@ import dev.daymark.models.plan.TimeOffEntry
 import dev.daymark.plan.TimeOffKind
 import dev.daymark.resources.Res
 import dev.daymark.resources.add_time_off
-import dev.daymark.resources.adjust_balance
-import dev.daymark.resources.available_balance
-import dev.daymark.resources.balance_help
 import dev.daymark.resources.edit
-import dev.daymark.resources.preview_no_dates
+import dev.daymark.resources.time_off_empty
 import dev.daymark.resources.status_day_off
 import dev.daymark.resources.status_holiday
 import dev.daymark.resources.status_vacation
-import dev.daymark.resources.time_off
 import dev.daymark.resources.time_off_from
 import dev.daymark.resources.time_off_through
-import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.ThemePreference
@@ -77,14 +63,11 @@ import kotlinx.datetime.LocalDate
 @Composable
 internal fun PlanTimeOffCard(
     category: TrackerCategory,
-    availableBalance: Int?,
     entries: List<TimeOffEntry>,
     busy: Boolean,
-    onAdjustBalance: () -> Unit,
     onAddTimeOff: () -> Unit,
     onEditEntry: (TimeOffEntry) -> Unit,
-    modifier: Modifier = Modifier,
-    appLanguage: AppLanguage = LocalAppLanguage.current
+    modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -103,25 +86,6 @@ internal fun PlanTimeOffCard(
                 ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            AnimatedVisibility(
-                visible = category == TrackerCategory.WORK,
-                enter = expandVertically(
-                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
-                ) + fadeIn(),
-                exit = shrinkVertically(
-                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
-                ) + fadeOut()
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    PlanTimeOffBalanceBanner(
-                        availableBalance = availableBalance,
-                        busy = busy,
-                        onAdjustBalance = onAdjustBalance
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
-            }
-
             PlanTimeOffHeader(
                 busy = busy,
                 onAddTimeOff = onAddTimeOff
@@ -165,28 +129,7 @@ private fun PlanTimeOffHeader(
     onAddTimeOff: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    FlowRow(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        itemVerticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.DateRange,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(22.dp)
-            )
-            Text(
-                text = str(Res.string.time_off),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+    Column(modifier = modifier.fillMaxWidth()) {
         Button(
             onClick = onAddTimeOff,
             enabled = !busy,
@@ -201,98 +144,6 @@ private fun PlanTimeOffHeader(
                 text = str(Res.string.add_time_off),
                 modifier = Modifier.padding(start = 6.dp)
             )
-        }
-    }
-}
-
-@Composable
-private fun PlanTimeOffBalanceBanner(
-    availableBalance: Int?,
-    busy: Boolean,
-    onAdjustBalance: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val language = LocalAppLanguage.current
-    val balanceCount = availableBalance ?: 0
-
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        AnimatedContent(
-                            targetState = balanceCount,
-                            transitionSpec = {
-                                if (targetState > initialState) {
-                                    (slideInVertically { it } + fadeIn()).togetherWith(
-                                        slideOutVertically { -it } + fadeOut()
-                                    )
-                                } else {
-                                    (slideInVertically { -it } + fadeIn()).togetherWith(
-                                        slideOutVertically { it } + fadeOut()
-                                    )
-                                }.using(SizeTransform(clip = false))
-                            },
-                            label = "balance-count-animation"
-                        ) { count ->
-                            Text(
-                                text = DisplayFormats.number(count, language),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
-                }
-
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = str(
-                            Res.string.available_balance,
-                            DisplayFormats.number(balanceCount, language)
-                        ),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = str(Res.string.balance_help),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            IconButton(
-                onClick = onAdjustBalance,
-                enabled = !busy,
-                modifier = Modifier.padding(start = 6.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = str(Res.string.adjust_balance),
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
         }
     }
 }
@@ -465,7 +316,7 @@ private fun PlanTimeOffEmptyState(
                 }
             }
             Text(
-                text = str(Res.string.preview_no_dates),
+                text = str(Res.string.time_off_empty),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -496,10 +347,8 @@ private fun PlanTimeOffCardWorkPreview() {
     DaymarkTheme(preference = ThemePreference.LIGHT) {
         PlanTimeOffCard(
             category = TrackerCategory.WORK,
-            availableBalance = 14,
             entries = sampleEntries,
             busy = false,
-            onAdjustBalance = {},
             onAddTimeOff = {},
             onEditEntry = {}
         )
@@ -512,10 +361,8 @@ private fun PlanTimeOffCardEmptyDarkPreview() {
     DaymarkTheme(preference = ThemePreference.DARK) {
         PlanTimeOffCard(
             category = TrackerCategory.WORK,
-            availableBalance = 5,
             entries = emptyList(),
             busy = false,
-            onAdjustBalance = {},
             onAddTimeOff = {},
             onEditEntry = {}
         )

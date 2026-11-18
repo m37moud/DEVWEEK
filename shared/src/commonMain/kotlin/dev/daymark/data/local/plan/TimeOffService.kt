@@ -18,6 +18,7 @@ import dev.daymark.models.plan.TimeOffCommand
 import dev.daymark.models.plan.TimeOffDayChange
 import dev.daymark.models.plan.TimeOffEntry
 import dev.daymark.models.plan.TimeOffPreview
+import dev.daymark.models.plan.VacationBalanceSummary
 import dev.daymark.plan.dates
 import dev.daymark.repository.TimeOffDataSource
 import kotlin.time.Clock
@@ -45,11 +46,14 @@ class TimeOffService(
         }
 
     override fun observeAvailableBalance(): Flow<Int?> =
+        observeVacationBalance().map { it?.remainingDays }
+
+    override fun observeVacationBalance(): Flow<VacationBalanceSummary?> =
         profileDao.observeTracker().flatMapLatest { tracker ->
             if (tracker == null) flowOf(null) else dirtyProjectionDao.observeDirtyProjections(
                 tracker.id
             ).map {
-                transactions.withReadTransaction { snapshots.load(clock.now())?.balance() }
+                transactions.withReadTransaction { snapshots.load(clock.now())?.balanceSummary() }
             }
         }
 

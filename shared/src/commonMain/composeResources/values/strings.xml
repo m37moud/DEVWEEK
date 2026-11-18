@@ -118,13 +118,12 @@
     <string name="time_off_edit_help">Attendance corrections cannot replace a day off, holiday, or vacation. Manage its dates in Plan.</string>
     <string name="location_before_window">The attendance window has not started.</string>
     <string name="check_no_tracker">Complete setup to track attendance.</string>
-    <string name="plan_title">Your attendance plan</string>
     <string name="plan_review">Review changes</string>
     <string name="plan_invalid">Check the selected days, times, radius and available balance.</string>
     <string name="plan_saved">Saved on this phone.</string>
     <string name="plan_stale">Your records changed. Review a fresh preview before saving.</string>
     <string name="plan_insufficient">There are not enough vacation days for this change.</string>
-    <string name="plan_effective">Schedule changes start on %1$s. Today and past records keep their saved plan.</string>
+    <string name="plan_effective">Plan changes start on %1$s. Today and past records keep their saved plan.</string>
     <string name="time_off">Time off</string>
     <string name="add_time_off">Add time off</string>
     <string name="time_off_from">From · %1$s</string>
@@ -135,7 +134,6 @@
     <string name="preview_balance">Balance change · %1$s days. Available after · %2$s days.</string>
     <string name="preview_day">%1$s · %2$s</string>
     <string name="preview_no_dates">No saved attendance dates change.</string>
-    <string name="available_balance">Available vacation · %1$s days</string>
     <string name="adjust_balance">Adjust available balance</string>
     <string name="balance_note">Adjustment note (optional)</string>
     <string name="profile_name">Display name</string>
@@ -292,4 +290,12 @@
     <string name="history_late_basis">Late time is measured from scheduled arrival. Manual corrections keep the status you chose.</string>
     <string name="history_scheduled_arrival">Scheduled arrival: %1$s</string>
     <string name="apply_range">Apply date range</string>
+    <string name="vacation_balance">Vacation balance</string>
+    <string name="vacation_balance_original">Original balance</string>
+    <string name="vacation_balance_used">Used</string>
+    <string name="vacation_balance_remaining">Remaining</string>
+    <string name="time_off_before_tracking">This date range starts before you began tracking attendance.</string>
+    <string name="time_off_empty">No time off entries yet.</string>
+    <string name="vacation_balance_load_failed">Could not load the vacation balance.</string>
+    <string name="plan_storage_failed">Could not save these changes on this phone. Try again.</string>
 </resources>

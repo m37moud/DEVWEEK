@@ -80,6 +80,7 @@ internal fun TimeOffEditorDialog(
         )
     }
     var picker by rememberSaveable { mutableStateOf<String?>(null) }
+    var throughSelected by rememberSaveable(entry?.id) { mutableStateOf(false) }
     val from = LocalDate.parse(fromDate)
     val through = LocalDate.parse(throughDate)
     val kind = TimeOffKind.valueOf(kindName)
@@ -119,7 +120,7 @@ internal fun TimeOffEditorDialog(
 
                 OutlinedButton(
                     onClick = { picker = "from" },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().testTag("time-off-from")
                 ) {
                     Icon(
                         imageVector = Icons.Default.DateRange,
@@ -136,7 +137,7 @@ internal fun TimeOffEditorDialog(
 
                 OutlinedButton(
                     onClick = { picker = "through" },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().testTag("time-off-through")
                 ) {
                     Icon(
                         imageVector = Icons.Default.DateRange,
@@ -197,14 +198,16 @@ internal fun TimeOffEditorDialog(
         DatePickerDialog(
             onDismissRequest = { picker = null },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(modifier = Modifier.testTag("time-off-date-save"), onClick = {
                     dateState.selectedDateMillis?.let { millis ->
                         val selected = Instant.fromEpochMilliseconds(millis)
                             .toLocalDateTime(TimeZone.UTC).date
                         if (picker == "from") {
                             fromDate = selected.toString()
-                            if (through < selected) throughDate = selected.toString()
+                            val newSingleDay = entry == null && !throughSelected && from == through
+                            if (newSingleDay || through < selected) throughDate = selected.toString()
                         } else {
+                            throughSelected = true
                             throughDate = selected.toString()
                             if (from > selected) fromDate = selected.toString()
                         }

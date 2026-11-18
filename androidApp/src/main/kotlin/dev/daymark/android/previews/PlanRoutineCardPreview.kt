@@ -3,17 +3,16 @@ package dev.daymark.android.previews
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import dev.daymark.models.attendance.TrackerCategory
-import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.plan.WeeklySchedule
-import dev.daymark.presentation.features.plan.component.PlanRoutineActions
-import dev.daymark.presentation.features.plan.component.PlanRoutineCard
-import dev.daymark.presentation.features.plan.component.PlanRoutineUiState
+import dev.daymark.presentation.features.settings.component.PlanRoutineActions
+import dev.daymark.presentation.features.settings.component.PlanRoutineCard
+import dev.daymark.presentation.features.settings.component.PlanRoutineUiState
 import dev.daymark.settings.ThemePreference
 import dev.daymark.ui.theme.DaymarkTheme
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalTime
 
-private val sampleSchedule = WeeklySchedule(
+internal val sampleSchedule = WeeklySchedule(
     days = setOf(
         DayOfWeek.MONDAY,
         DayOfWeek.TUESDAY,
@@ -37,7 +36,6 @@ private val emptyActions = PlanRoutineActions(
     pickDayOverride = {},
     resetDayOverride = {},
     pickZone = {},
-    reviewChanges = {},
     changeSchedule = {}
 )
 
@@ -49,9 +47,7 @@ fun PlanRoutineCardPreview() {
             state = PlanRoutineUiState(
                 category = TrackerCategory.WORK,
                 schedule = sampleSchedule,
-                busy = false,
-                invalidInput = false,
-                result = null
+                busy = false
             ),
             actions = emptyActions
         )
@@ -66,26 +62,7 @@ fun PlanRoutineCardDarkPreview() {
             state = PlanRoutineUiState(
                 category = TrackerCategory.WORK,
                 schedule = sampleSchedule,
-                busy = false,
-                invalidInput = false,
-                result = null
-            ),
-            actions = emptyActions
-        )
-    }
-}
-
-@Preview
-@Composable
-fun PlanRoutineCardErrorPreview() {
-    DaymarkTheme(ThemePreference.LIGHT) {
-        PlanRoutineCard(
-            state = PlanRoutineUiState(
-                category = TrackerCategory.WORK,
-                schedule = sampleSchedule,
-                busy = false,
-                invalidInput = true,
-                result = PlanMutationResult.StalePreview
+                busy = false
             ),
             actions = emptyActions
         )

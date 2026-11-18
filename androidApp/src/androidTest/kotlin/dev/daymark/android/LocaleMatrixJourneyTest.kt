@@ -57,8 +57,12 @@ class LocaleMatrixJourneyTest {
                     runBlocking { fixture.graph.settings.update(language = language, theme = theme) }
                     compose.onNodeWithTag("nav-settings").performClick()
                     compose.onNodeWithTag("settings-name").performScrollTo().assertIsDisplayed()
+                    compose.onNodeWithTag("plan-zone").performScrollTo().assertIsDisplayed()
+                    compose.onNodeWithTag("plan-review").performScrollTo().assertIsDisplayed()
                     compose.onNodeWithTag("report-connect").performScrollTo().assertIsDisplayed()
                     compose.onNodeWithTag("delete-local-data").performScrollTo().assertIsDisplayed()
+                    compose.onNodeWithTag("nav-plan").performClick()
+                    compose.onNodeWithTag("plan-add-time-off").performScrollTo().assertIsDisplayed()
                     compose.onNodeWithTag("nav-today").performClick()
                     val status = if (corrected) {
                         if (language == LanguagePreference.AR) "حاضر" else "Present"
@@ -83,6 +87,14 @@ class LocaleMatrixJourneyTest {
                     compose.onNodeWithTag("today-check").performScrollTo().assertIsDisplayed()
                     for (tag in listOf("today-place", "today-month-counts", "today-week", "today-report-state"))
                         compose.onNodeWithTag(tag).performScrollTo().assertIsDisplayed()
+                    compose.onNodeWithTag("today-vacation-balance").performScrollTo().assertIsDisplayed()
+                    compose.onNodeWithText(if (language == LanguagePreference.AR) "المتبقي" else "Remaining")
+                        .assertIsDisplayed()
+                    if (!corrected) {
+                        val balanceScreenshot = compose.onRoot().captureToImage().asAndroidBitmap()
+                        File(context.getExternalFilesDir(null), "attendance-balance-${language.name}-${theme.name}.png")
+                            .outputStream().use { balanceScreenshot.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                    }
                     verified += "$corrected/${language.name}/${theme.name}"
                 }
             }

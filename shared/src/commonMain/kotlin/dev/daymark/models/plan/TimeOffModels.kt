@@ -10,6 +10,12 @@ import dev.daymark.plan.WeeklySchedule
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 
+data class VacationBalanceSummary(
+    val originalDays: Int,
+    val usedDays: Int,
+    val remainingDays: Int
+)
+
 data class TimeOffEntry(
     val id: String,
     val kind: TimeOffKind,
