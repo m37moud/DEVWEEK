@@ -98,12 +98,12 @@ class PlanJourneyTest {
     }
 
     @Test
-    fun add_time_off_saves_a_single_past_day_for_both_kinds() {
+    fun add_time_off_saves_a_single_pretracking_day_for_both_kinds() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val name = "past-time-off-${UUID.randomUUID()}.db"
         val fixture = AttendanceTestApp(context, name)
         fixture.now = Instant.parse("2026-10-29T12:00:00Z")
-        val pastDate = LocalDate(2026, 10, 27)
+        val pastDate = LocalDate(2026, 10, 26)
         val timeOff = fixture.graph.repository.timeOff
         var shown by mutableStateOf(true)
         try {
@@ -113,22 +113,13 @@ class PlanJourneyTest {
             compose.onNodeWithTag("nav-plan").performClick()
             waitForTag("plan-add-time-off")
 
-            compose.onNodeWithTag("plan-add-time-off").performScrollTo().performClick()
-            pickCalendarDay("time-off-from", "October 26, 2026")
-            compose.onNodeWithTag("time-off-preview").performClick()
-            waitForTag("preview-confirm")
-            compose.onNodeWithTag("preview-confirm").assertIsNotEnabled()
-            compose.onNodeWithText("This date range starts before you began tracking attendance.")
-                .assertIsDisplayed()
-            compose.onNodeWithTag("preview-cancel").performClick()
-
             for (kind in listOf(TimeOffKind.VACATION, TimeOffKind.HOLIDAY)) {
                 compose.onNodeWithTag("plan-add-time-off").performScrollTo().performClick()
                 compose.onNodeWithText(if (kind == TimeOffKind.HOLIDAY) "Holiday" else "Vacation")
                     .performClick()
-                pickCalendarDay("time-off-from", "October 27, 2026")
+                pickCalendarDay("time-off-from", "October 26, 2026")
                 if (kind == TimeOffKind.HOLIDAY) {
-                    pickCalendarDay("time-off-through", "October 27, 2026")
+                    pickCalendarDay("time-off-through", "October 26, 2026")
                 }
                 submitTimeOff()
                 compose.waitUntil(10_000) {

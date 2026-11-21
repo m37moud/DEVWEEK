@@ -25,13 +25,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.daymark.history.AttendancePeriod
 import dev.daymark.history.HistoryMetric
 import dev.daymark.history.historyMetrics
 import dev.daymark.logging.AppLogger
 import dev.daymark.models.attendance.HistoryMonth
 import dev.daymark.presentation.component.HistoryMetricsGrid
+import dev.daymark.presentation.component.attendancePeriodDates
 import dev.daymark.resources.Res
+import dev.daymark.resources.next_attendance_period
 import dev.daymark.resources.next_month
+import dev.daymark.resources.previous_attendance_period
 import dev.daymark.resources.previous_month
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.DisplayFormats
@@ -44,16 +48,15 @@ import kotlinx.datetime.plus
 
 @Composable
 internal fun HistoryMonthNavigator(
-    year: Int,
-    month: Int,
+    period: AttendancePeriod,
     history: HistoryMonth,
     language: AppLanguage,
     onSelectMonth: (Int, Int) -> Unit,
     modifier: Modifier = Modifier,
-    today: LocalDate = LocalDate(year, month, 1),
+    today: LocalDate = period.from,
     onMetric: (HistoryMetric) -> Unit = {}
 ) {
-    val metrics = historyMetrics(history.records, today)
+    val metrics = historyMetrics(history.records, today, history.earlierVacationDates)
     LaunchedEffect(metrics) {
         AppLogger.d("HistoryMonthNavigator", "History metrics: $metrics")
     }
@@ -74,23 +77,22 @@ internal fun HistoryMonthNavigator(
             ) {
                 IconButton(
                     onClick = {
-                        val date = LocalDate(year, month, 1).minus(1, DateTimeUnit.MONTH)
+                        val date = period.month.minus(1, DateTimeUnit.MONTH)
                         onSelectMonth(date.year, date.month.number)
                     }
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = str(Res.string.previous_month),
+                        contentDescription = str(if (period.from == period.month) Res.string.previous_month else Res.string.previous_attendance_period),
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
                 AnimatedContent(
-                    targetState = Pair(year, month),
+                    targetState = period.month,
+                    modifier = Modifier.weight(1f),
                     transitionSpec = {
-                        val targetDate = LocalDate(targetState.first, targetState.second, 1)
-                        val initialDate = LocalDate(initialState.first, initialState.second, 1)
-                        if (targetDate > initialDate) {
+                        if (targetState > initialState) {
                             (slideInHorizontally { width -> width } + fadeIn()).togetherWith(
                                 slideOutHorizontally { width -> -width } + fadeOut()
                             )
@@ -101,9 +103,11 @@ internal fun HistoryMonthNavigator(
                         }
                     },
                     label = "historyMonthTransition"
-                ) { (y, m) ->
+                ) { label ->
                     Text(
-                        text = DisplayFormats.monthYear(LocalDate(y, m, 1), language),
+                        text = DisplayFormats.monthYear(label, language),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -111,18 +115,24 @@ internal fun HistoryMonthNavigator(
 
                 IconButton(
                     onClick = {
-                        val date = LocalDate(year, month, 1).plus(1, DateTimeUnit.MONTH)
+                        val date = period.month.plus(1, DateTimeUnit.MONTH)
                         onSelectMonth(date.year, date.month.number)
                     }
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = str(Res.string.next_month),
+                        contentDescription = str(if (period.from == period.month) Res.string.next_month else Res.string.next_attendance_period),
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
 
+            Text(
+                attendancePeriodDates(period),
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
             HistoryMetricsGrid(metrics = metrics, onMetric = onMetric)
         }
     }

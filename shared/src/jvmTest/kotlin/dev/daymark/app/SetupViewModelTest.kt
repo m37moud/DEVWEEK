@@ -357,6 +357,14 @@ class SetupViewModelTest {
                 )
             )
             model.advance()
+            val period = model.uiState.first { it.draft.step == SetupStep.ATTENDANCE_PERIOD && !it.busy }
+            model.updateDraft(
+                period.draft.copy(
+                    attendanceClosingDay = 20,
+                    vacationYearBasis = dev.daymark.history.VacationYearBasis.ATTENDANCE_PERIOD
+                )
+            )
+            model.advance()
             model.uiState.first { it.draft.step == SetupStep.PLACE && !it.busy }
             model.advance()
             model.uiState.first { it.draft.step == SetupStep.SCHEDULE && !it.busy }

@@ -3,6 +3,7 @@ package dev.daymark.models.attendance
 import dev.daymark.attendance.outcome
 import dev.daymark.plan.TimeOffKind
 import kotlin.time.Instant
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
 data class HistoryRecord(
@@ -15,7 +16,8 @@ data class HistoryMonth(
     val records: List<HistoryRecord>,
     val present: Int,
     val late: Int,
-    val absent: Int
+    val absent: Int,
+    val earlierVacationDates: List<LocalDate> = emptyList()
 )
 
 enum class AutomaticState { UNCLAIMED, CLAIMED, FINISHED, INTERRUPTED }

@@ -10,6 +10,7 @@ import dev.daymark.data.local.dao.ProfileDao
 import dev.daymark.data.local.dao.ReportDao
 import dev.daymark.data.local.markDirty
 import dev.daymark.data.local.plan.PlanningSnapshotReader
+import dev.daymark.data.local.plan.balanceYear
 import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.models.attendance.HistoryRecord
 import dev.daymark.models.reporting.ProjectionKey
@@ -19,6 +20,7 @@ import dev.daymark.models.reporting.ReportBatch
 import dev.daymark.models.reporting.ReportBinding
 import dev.daymark.models.reporting.ReportProjection
 import dev.daymark.models.reporting.storageKey
+import dev.daymark.reporting.sameCells
 import dev.daymark.reporting.ReportIssue
 import dev.daymark.reporting.ReportStore
 import dev.daymark.reporting.RetryState
@@ -115,8 +117,9 @@ class RoomReportStore(
     }
 
     private suspend fun ensureProjections(binding: ReportBinding) {
+        ensureVacationBalancePeriod(binding.trackerId)
         val keys =
-            listOf("OVERVIEW", "TIME_OFF") + attendanceDao.days(binding.trackerId)
+            listOf("OVERVIEW", "TIME_OFF", ProjectionKey.AttendancePeriods.storageKey()) + attendanceDao.days(binding.trackerId)
                 .map { "DAY:${it.date}" }
         keys.forEach {
             if (dirtyProjectionDao.dirtyProjection(
@@ -125,6 +128,16 @@ class RoomReportStore(
                 ) == null
             ) dirtyProjectionDao.markDirty(binding.trackerId, it)
         }
+    }
+
+    private suspend fun ensureVacationBalancePeriod(trackerId: String) {
+        val state = snapshots.load(clock.now()) ?: return
+        val year = state.balanceYear(state.vacationYear)?.toString()
+        val key = "report-vacation-balance-year:$trackerId"
+        if (profileDao.setting(key)?.value == year) return
+        dirtyProjectionDao.markDirty(trackerId, "OVERVIEW")
+        if (year == null) profileDao.deleteSetting(key)
+        else profileDao.putSetting(SettingEntity(key, year))
     }
 
     private suspend fun projections(binding: ReportBinding): List<ReportProjection> {
@@ -144,15 +157,19 @@ class RoomReportStore(
                     updated
                 )
             }
-        val capacityKey = "report-time-off-capacity:${binding.trackerId}"
-        val capacity =
-            maxOf(1, state.entries.size, profileDao.setting(capacityKey)?.value?.toIntOrNull() ?: 0)
-        val timeOff = projectTimeOff(state.entries, dirty["TIME_OFF"]?.revision ?: 1, capacity)
+        val timeOff = projectTimeOff(
+            state.entries,
+            dirty["TIME_OFF"]?.revision ?: 1,
+            publishedCapacity(binding.trackerId, ProjectionKey.TimeOff)
+        )
         val actual = state.rows.keys.map { state.outcome(it).status }
         fun field(key: String, label: String, value: String) =
             Triple(key, label, JsonPrimitive(value))
 
         fun count(key: String, label: String, value: Int) = Triple(key, label, JsonPrimitive(value))
+        val vacationBalance = state.takeIf { it.active.category == "WORK" }?.balanceSummary()
+        val vacationLabel = vacationBalance?.year?.let { "Vacation balance ($it) / رصيد الإجازة ($it)" }
+            ?: "Vacation balance / رصيد الإجازة"
         val overview = projectOverview(
             listOf(
                 field("trackerId", "Tracker / المتابع", state.tracker.id),
@@ -162,15 +179,16 @@ class RoomReportStore(
                 count("present", "Present / حاضر", actual.count { it == AttendanceStatus.PRESENT }),
                 count("late", "Late / متأخر", actual.count { it == AttendanceStatus.LATE }),
                 count("absent", "Absent / غائب", actual.count { it == AttendanceStatus.ABSENT }),
-                if (state.active.category == "WORK") count(
-                    "vacationBalance",
-                    "Vacation balance / رصيد الإجازة",
-                    state.balance()
-                )
-                else field("vacationBalance", "Vacation balance / رصيد الإجازة", "")
+                if (vacationBalance != null) count("vacationBalance", vacationLabel, vacationBalance.remainingDays)
+                else field("vacationBalance", vacationLabel, "")
             ), dirty["OVERVIEW"]?.revision ?: 1
         )
-        return days + timeOff + overview
+        val periodsKey = ProjectionKey.AttendancePeriods
+        val periods = state.projectAttendancePeriods(
+            dirty[periodsKey.storageKey()]?.revision ?: 1,
+            publishedCapacity(binding.trackerId, periodsKey)
+        )
+        return days + timeOff + overview + periods
     }
 
     override suspend fun localProjections(binding: ReportBinding): List<ReportProjection> =
@@ -190,14 +208,21 @@ class RoomReportStore(
 
     private suspend fun acknowledgedRows(
         binding: ReportBinding,
-        key: ProjectionKey,
-        revision: Long
-    ): Set<String> =
-        reportDao.batches(binding.trackerId)
+        projection: ReportProjection
+    ): Set<String> {
+        val acknowledged = reportDao.batches(binding.trackerId)
             .filter { it.connectionGeneration == binding.connectionGeneration && it.status == "ACKNOWLEDGED" }
             .flatMap { json.decodeFromString<ReportBatch>(it.payloadJson).projections }
-            .filter { it.key == key && it.revision == revision }
-            .flatMap { it.ranges.flatMap(::individualRows) }.map { it.a1 }.toSet()
+            .filter { it.key == projection.key && it.revision == projection.revision }
+            .flatMap { it.ranges.flatMap(::individualRows) }
+        if (projection.key != ProjectionKey.AttendancePeriods) return acknowledged.map { it.a1 }.toSet()
+
+        // A deadline or midnight can change calculated totals while a batch is in flight.
+        val expected = projection.ranges.flatMap(::individualRows).associateBy { it.a1 }
+        return acknowledged.filter { row ->
+            expected[row.a1]?.let { sameCells(it.cells, row.cells) } == true
+        }.map { it.a1 }.toSet()
+    }
 
     override suspend fun buildBatch(binding: ReportBinding, maxRows: Int): ReportBatch? =
         transactions.withWriteTransaction {
@@ -212,7 +237,7 @@ class RoomReportStore(
             for (projection in projections(binding)) {
                 val state = dirty[projection.key.storageKey()] ?: continue
                 if (state.revision <= state.acknowledgedRevision) continue
-                val covered = acknowledgedRows(binding, projection.key, projection.revision)
+                val covered = acknowledgedRows(binding, projection)
                 val ranges = mutableListOf<RawRange>()
                 for (row in projection.ranges.flatMap(::individualRows)) {
                     if (row.a1 in covered || reportIssue(projection.key, row) != null) continue
@@ -227,24 +252,31 @@ class RoomReportStore(
                 ?.let { ReportBatch(Uuid.random().toString(), binding, it) }
         }
 
+    private fun capacityKey(trackerId: String, projection: ProjectionKey): String = when (projection) {
+        ProjectionKey.TimeOff -> "report-time-off-capacity:$trackerId"
+        else -> "report-attendance-period-capacity:$trackerId"
+    }
+
+    private suspend fun publishedCapacity(trackerId: String, projection: ProjectionKey): Int =
+        profileDao.setting(capacityKey(trackerId, projection))?.value?.toIntOrNull() ?: 0
+
+    private suspend fun reservePublishedCapacity(batch: ReportBatch, projection: ProjectionKey) {
+        val rows = batch.projections.filter { it.key == projection }.flatMap { it.ranges }
+            .maxOfOrNull { parseReportRange(it.a1).endRow - 2 } ?: return
+        val trackerId = batch.binding.trackerId
+        if (rows > publishedCapacity(trackerId, projection)) {
+            profileDao.putSetting(SettingEntity(capacityKey(trackerId, projection), rows.toString()))
+        }
+    }
+
     override suspend fun journalBeforeDispatch(batch: ReportBatch) = transactions.withWriteTransaction {
         check(current() == batch.binding) { "stale_binding" }
         check(
             reportDao.batches(batch.binding.trackerId)
                 .none { it.batchIdentity == batch.batchIdentity }) { "duplicate_batch" }
         // Reserve old table capacity before a possibly ambiguous write so later deletion clears every published row.
-        val offRows =
-            batch.projections.filter { it.key == ProjectionKey.TimeOff }.flatMap { it.ranges }
-                .maxOfOrNull { parseReportRange(it.a1).endRow - 2 }
-        if (offRows != null) {
-            val key = "report-time-off-capacity:${batch.binding.trackerId}"
-            profileDao.putSetting(
-                SettingEntity(
-                    key,
-                    maxOf(offRows, profileDao.setting(key)?.value?.toIntOrNull() ?: 0).toString()
-                )
-            )
-        }
+        reservePublishedCapacity(batch, ProjectionKey.TimeOff)
+        reservePublishedCapacity(batch, ProjectionKey.AttendancePeriods)
         reportDao.putBatch(
             ReportBatchEntity(
                 batch.batchIdentity,
@@ -291,7 +323,7 @@ class RoomReportStore(
                 projection.key.storageKey()
             )
                 ?: continue
-            val covered = acknowledgedRows(batch.binding, projection.key, projection.revision)
+            val covered = acknowledgedRows(batch.binding, projection)
             if (projection.ranges.flatMap(::individualRows).all { it.a1 in covered })
                 dirtyProjectionDao.putDirtyProjection(dirty.copy(acknowledgedRevision = projection.revision))
         }

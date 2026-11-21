@@ -212,7 +212,7 @@ class TodayViewModelTest {
         val clock = TestClock()
         val timeOff = object : TimeOffDataSource by TestRepository().timeOff {
             override fun observeVacationBalance() = summaries
-            override suspend fun setAvailableBalance(targetDays: Int, note: String?) = reply.await()
+            override suspend fun setAvailableBalance(targetDays: Int, note: String?, expectedYear: Int?) = reply.await()
         }
         val repository = testRepository(
             attendanceSource = Repository(clock),

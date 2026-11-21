@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +17,8 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Card
+import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
@@ -45,7 +48,10 @@ import dev.daymark.presentation.features.historydetail.component.HistoryDetailHe
 import dev.daymark.presentation.features.historydetail.component.HistoryDetailRow
 import dev.daymark.presentation.features.historydetail.component.HistoryRangeFilter
 import dev.daymark.resources.Res
+import dev.daymark.resources.edit_time_off
+import dev.daymark.resources.history_earlier_vacation
 import dev.daymark.resources.load_failed
+import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.str
@@ -167,7 +173,7 @@ fun HistoryDetailContent(
                     CircularProgressIndicator()
                 }
             }
-        } else if (state.records.isEmpty() && !state.storageError) {
+        } else if (state.records.isEmpty() && state.earlierVacationDates.isEmpty() && !state.storageError) {
             item {
                 HistoryEmptyState()
             }
@@ -186,6 +192,9 @@ fun HistoryDetailContent(
                     },
                     modifier = Modifier.animateItem()
                 )
+            }
+            items(state.earlierVacationDates, key = { it.toString() }) { date ->
+                EarlierVacationRow(date, appLanguage, actions.timeOff)
             }
         }
     }
@@ -211,6 +220,17 @@ fun HistoryDetailContent(
                 onEditTimeOff = actions.timeOff,
                 onDismiss = { if (!state.busy) editingDate = null }
             )
+        }
+    }
+}
+
+@Composable
+private fun EarlierVacationRow(date: LocalDate, language: AppLanguage, onEdit: (LocalDate) -> Unit) {
+    Card(Modifier.fillMaxWidth().testTag("history-earlier-vacation-$date")) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(DisplayFormats.date(date, language), style = MaterialTheme.typography.titleSmall)
+            Text(str(Res.string.history_earlier_vacation), style = MaterialTheme.typography.bodyMedium)
+            TextButton(onClick = { onEdit(date) }) { Text(str(Res.string.edit_time_off)) }
         }
     }
 }

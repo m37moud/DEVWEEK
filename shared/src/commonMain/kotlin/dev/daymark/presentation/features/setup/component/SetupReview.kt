@@ -45,6 +45,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import dev.daymark.app.HostPlatform
 import dev.daymark.app.SetupStep
+import dev.daymark.presentation.component.attendancePeriodRuleLabel
+import dev.daymark.presentation.component.vacationYearBasisLabel
+import dev.daymark.resources.attendance_period
 import dev.daymark.app.openingBalanceDays
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.setup.SetupDraft
@@ -54,7 +57,7 @@ import dev.daymark.presentation.component.localTimeLabel
 import dev.daymark.presentation.component.shortLabel
 import dev.daymark.presentation.features.setup.SetupUiState
 import dev.daymark.resources.Res
-import dev.daymark.resources.attendance_zone
+import dev.daymark.resources.attendance_zone_label
 import dev.daymark.resources.automation_help
 import dev.daymark.resources.departure_none
 import dev.daymark.resources.desktop_manual_help
@@ -86,6 +89,17 @@ internal fun SetupReview(state: SetupUiState, platform: HostPlatform, onEdit: (S
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        SetupReviewSection(
+            title = str(Res.string.attendance_period),
+            editEnabled = editEnabled,
+            onEdit = { onEdit(SetupStep.ATTENDANCE_PERIOD) }
+        ) {
+            Text(attendancePeriodRuleLabel(state.draft.attendanceClosingDay))
+            if (state.draft.category == TrackerCategory.WORK) {
+                Text(vacationYearBasisLabel(state.draft.vacationYearBasis))
+            }
+        }
+
         SetupReviewSection(
             title = str(Res.string.onboarding_profile),
             editEnabled = editEnabled,
@@ -464,8 +478,8 @@ private fun ScheduleMetadataChips(
         )
         ScheduleStatChip(
             icon = Icons.Default.LocationOn,
-            text = str(Res.string.attendance_zone,),
-            highlightedText = schedule.zoneId  // isolated(schedule.zoneId)
+            text = str(Res.string.attendance_zone_label),
+            highlightedText = isolated(schedule.zoneId)
         )
         if (openingBalance != null) {
             ScheduleStatChip(

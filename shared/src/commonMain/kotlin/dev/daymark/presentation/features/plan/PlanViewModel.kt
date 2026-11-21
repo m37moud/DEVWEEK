@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.daymark.logging.AppLogger
 import dev.daymark.models.plan.PlanMutationResult
+import dev.daymark.models.plan.PlanReviewToken
 import dev.daymark.models.plan.TimeOffCommand
 import dev.daymark.repository.Repository
 import kotlinx.coroutines.CancellationException
@@ -47,12 +48,12 @@ class PlanViewModel(
         state.update { it.copy(timeOffPreview = preview, result = null) }
     }
 
-    fun confirmTimeOff(expectedRevision: Long) = launchAction {
+    fun confirmTimeOff(review: PlanReviewToken) = launchAction {
         val command = pendingOff
         val shown = state.value.timeOffPreview
         val result =
-            if (command == null || shown == null || shown.expectedRevision != expectedRevision) PlanMutationResult.StalePreview
-            else repository.timeOff.apply(command, expectedRevision)
+            if (command == null || shown == null || shown.reviewToken != review) PlanMutationResult.StalePreview
+            else repository.timeOff.apply(command, review)
         pendingOff = null
         state.update { it.copy(result = result, timeOffPreview = null) }
     }

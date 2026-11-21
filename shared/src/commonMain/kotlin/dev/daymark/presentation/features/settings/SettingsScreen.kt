@@ -6,7 +6,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,11 +21,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,28 +38,36 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.daymark.app.HostPlatform
+import dev.daymark.history.AttendancePeriodSettings
+import dev.daymark.history.VacationYearBasis
+import dev.daymark.presentation.component.AttendancePeriodEditor
+import dev.daymark.presentation.component.AttendancePeriodEditorState
+import dev.daymark.presentation.component.PlanMutationFeedback
+import dev.daymark.presentation.features.settings.component.AttendancePeriodReviewDialog
 import dev.daymark.presentation.features.settings.component.AttendanceSettingsSection
 import dev.daymark.presentation.features.settings.component.GoogleConnectionSection
 import dev.daymark.presentation.features.settings.component.ReportActions
+import dev.daymark.presentation.features.settings.component.SettingsAnnualVacationCard
 import dev.daymark.presentation.features.settings.component.SettingsPreferencesCard
 import dev.daymark.presentation.features.settings.component.SettingsProfileCard
 import dev.daymark.presentation.features.settings.component.SettingsTrackingCard
-import dev.daymark.presentation.features.settings.component.WidgetSetupActions
 import dev.daymark.presentation.features.settings.component.SettingsWidgetsCard
+import dev.daymark.presentation.features.settings.component.WidgetSetupActions
 import dev.daymark.resources.Res
+import dev.daymark.resources.attendance_period
+import dev.daymark.resources.plan_review
 import dev.daymark.resources.local_save_failed
 import dev.daymark.resources.permission_request_failed
-import dev.daymark.resources.settings
 import dev.daymark.resources.result_notifications
-import dev.daymark.resources.result_notifications_help
 import dev.daymark.resources.result_notifications_denied
-import androidx.compose.material3.Switch
+import dev.daymark.resources.result_notifications_help
+import dev.daymark.resources.settings
 import dev.daymark.settings.LanguagePreference
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.ThemePreference
@@ -72,19 +81,23 @@ data class SettingsActions(
     val setDisplayName: (String) -> Unit,
     val setLanguage: (LanguagePreference) -> Unit,
     val setTheme: (ThemePreference) -> Unit,
+    val saveAnnualVacationPolicy: (Int, Boolean, Int) -> Unit,
     val setAutomation: (Boolean) -> Unit,
     val setRemindersEnabled: (Boolean) -> Unit,
     val requestReminders: () -> Unit,
     val setResultNotificationsEnabled: (Boolean) -> Unit,
     val openSystemSettings: () -> Unit,
-    val reports: ReportActions
+    val reports: ReportActions,
+    val previewPeriod: (AttendancePeriodSettings) -> Unit,
+    val confirmPeriodChange: () -> Unit,
+    val dismissPeriodReview: () -> Unit
 )
 
 @Composable
 fun SettingsScreen(
-    model: SettingsViewModel = koinViewModel(),
     platform: HostPlatform,
-    attendance: AttendanceSettingsViewModel = koinViewModel(),
+    model: SettingsViewModel = koinViewModel(),
+    attendance: AttendanceSettingsViewModel = koinViewModel()
 ) {
     val state by model.uiState.collectAsStateWithLifecycle()
     LifecycleStartEffect(model) {
@@ -99,11 +112,15 @@ fun SettingsScreen(
             setDisplayName = model::setDisplayName,
             setLanguage = model::setLanguage,
             setTheme = model::setTheme,
+            saveAnnualVacationPolicy = model::saveAnnualVacationPolicy,
             setAutomation = model::setAutomation,
             setRemindersEnabled = model::setRemindersEnabled,
             requestReminders = model::requestReminders,
             setResultNotificationsEnabled = model::setResultNotificationsEnabled,
             openSystemSettings = model::openSystemSettings,
+            previewPeriod = model::previewPeriod,
+            confirmPeriodChange = model::confirmPeriodChange,
+            dismissPeriodReview = model::dismissPeriodReview,
             reports = ReportActions(
                 connectReport = model::connectReport,
                 reconnectReport = model::reconnectReport,
@@ -116,7 +133,7 @@ fun SettingsScreen(
             )
         )
     }
-    SettingsContent(state, platform, actions) { AttendanceSettingsSection(attendance) }
+    SettingsContent(state = state, platform = platform, actions = actions) { AttendanceSettingsSection(attendance) }
 }
 
 @Composable
@@ -233,6 +250,14 @@ fun SettingsContent(
 
                     attendanceContent()
 
+                    AttendancePeriodSection(state, actions)
+
+                    SettingsAnnualVacationCard(
+                        state = state.annualVacation,
+                        busy = state.busy || state.deleting,
+                        onSave = actions.saveAnnualVacationPolicy
+                    )
+
                     if (state.resultNotificationsSupported) {
                         val notificationLabel = str(Res.string.result_notifications)
                         Card(modifier = Modifier.fillMaxWidth()) {
@@ -278,4 +303,39 @@ fun SettingsContent(
             }
         }
     }
+}
+
+
+@Composable
+private fun AttendancePeriodSection(state: SettingsUiState, actions: SettingsActions) {
+    val saved = state.settings.attendancePeriod
+    val enabled = !state.busy && !state.deleting
+    var closingDay by rememberSaveable(saved.closingDay) { mutableStateOf(saved.closingDay) }
+    var periodYear by rememberSaveable(saved.vacationYearBasis) {
+        mutableStateOf(saved.vacationYearBasis == VacationYearBasis.ATTENDANCE_PERIOD)
+    }
+    val draft = AttendancePeriodSettings(
+        closingDay,
+        if (periodYear) VacationYearBasis.ATTENDANCE_PERIOD else VacationYearBasis.CALENDAR
+    )
+
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(str(Res.string.attendance_period), style = MaterialTheme.typography.titleMedium)
+            AttendancePeriodEditor(
+                state = AttendancePeriodEditorState(draft, enabled, state.annualVacation.configuration != null),
+                onChange = { updated ->
+                    closingDay = updated.closingDay
+                    periodYear = updated.vacationYearBasis == VacationYearBasis.ATTENDANCE_PERIOD
+                }
+            )
+            PlanMutationFeedback(state.periodSaveResult)
+            Button(
+                onClick = { actions.previewPeriod(draft) },
+                enabled = enabled && draft != saved,
+                modifier = Modifier.testTag("attendance-period-review")
+            ) { Text(str(Res.string.plan_review)) }
+        }
+    }
+    state.periodReview?.let { AttendancePeriodReviewDialog(it, enabled, actions) }
 }

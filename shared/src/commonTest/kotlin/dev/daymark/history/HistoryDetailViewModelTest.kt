@@ -38,9 +38,13 @@ class HistoryDetailViewModelTest {
         }
         val model = HistoryDetailViewModel(
             testRepository(attendanceSource = source), HistoryMetric.LATE,
-            LocalDate(2026, 10, 1), backgroundScope
+            LocalDate(2026, 10, 1), backgroundScope,
+            periodSettings = flowOf(AttendancePeriodSettings(20))
         )
-        model.uiState.first { it.ready }
+        val period = model.uiState.first { it.ready }
+        assertEquals(LocalDate(2026, 9, 21), period.from)
+        assertEquals(LocalDate(2026, 10, 20), period.through)
+        assertEquals(period.from to period.through, requests.single())
         model.selectRange(LocalDate(2026, 10, 9), start)
         assertTrue(model.uiState.value.invalidRange)
         model.selectRange(start, LocalDate(2026, 10, 9))

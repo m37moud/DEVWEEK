@@ -60,6 +60,8 @@ import dev.daymark.widgets.WidgetSetupPort
 import dev.daymark.widgets.createWidgetSetupPort
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -225,13 +227,18 @@ internal fun viewModelModule() = module {
         )
     }
     viewModel { (metric: dev.daymark.history.HistoryMetric, initialDate: LocalDate) ->
-        dev.daymark.presentation.features.historydetail.HistoryDetailViewModel(get(), metric, initialDate)
+        val repository = get<Repository>()
+        dev.daymark.presentation.features.historydetail.HistoryDetailViewModel(
+            repository, metric, initialDate,
+            periodSettings = repository.settings.observe().map { it.attendancePeriod }.distinctUntilChanged()
+        )
     }
     viewModel { (initialDate: LocalDate) ->
         val repository = get<Repository>()
         val clock = get<Clock>()
         HistoryViewModel(
             repository, initialDate, clock = clock,
+            periodSettings = repository.settings.observe().map { it.attendancePeriod }.distinctUntilChanged(),
             today = {
                 repository.attendance.loadCurrentDay(clock.now())?.plan?.key?.date ?: initialDate
             },

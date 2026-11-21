@@ -157,7 +157,8 @@ fun TodayContent(
                             TodayMonthMetrics(
                                 metrics = summary.metrics,
                                 onHistory = onHistory,
-                                onMetric = { actions.openMetric(it, displayedDate) }
+                                onMetric = { actions.openMetric(it, summary.period?.month ?: displayedDate) },
+                                period = summary.period
                             )
                         }
 

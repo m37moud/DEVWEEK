@@ -17,7 +17,8 @@ import dev.daymark.ui.theme.DaymarkTheme
 private val sampleSummary = VacationBalanceSummary(
     originalDays = 24,
     usedDays = 9,
-    remainingDays = 15
+    remainingDays = 15,
+    year = 2027
 )
 
 private val depletedSummary = VacationBalanceSummary(

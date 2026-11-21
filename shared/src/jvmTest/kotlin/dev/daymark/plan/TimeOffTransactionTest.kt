@@ -11,7 +11,10 @@ import dev.daymark.data.local.DaymarkDatabase
 import dev.daymark.data.local.PlanVersionEntity
 import dev.daymark.data.local.attendance.RoomAttendanceRepository
 import dev.daymark.data.local.openJvmDatabase
+import dev.daymark.data.local.dashboard.TodayDashboardReader
 import dev.daymark.data.local.plan.PlanService
+import dev.daymark.data.local.plan.PlanningSnapshotReader
+import dev.daymark.data.local.reporting.RoomReportStore
 import dev.daymark.data.local.plan.TimeOffService
 import dev.daymark.data.local.plan.change
 import dev.daymark.data.local.plan.entry
@@ -21,6 +24,9 @@ import dev.daymark.fixtureFix
 import dev.daymark.fixturePlace
 import dev.daymark.fixturePlan
 import dev.daymark.fixtureSchedule
+import dev.daymark.history.AttendancePeriodSettings
+import dev.daymark.history.VacationYearBasis
+import dev.daymark.models.plan.AttendancePeriodBalanceChange
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationResult
 import dev.daymark.models.attendance.AttendanceSource
@@ -30,11 +36,15 @@ import dev.daymark.models.attendance.ClaimResult
 import dev.daymark.models.attendance.Correction
 import dev.daymark.models.attendance.DayKey
 import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.plan.AnnualVacationPolicy
 import dev.daymark.models.plan.PlanChange
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.plan.PlanRejection
 import dev.daymark.models.plan.TimeOffCommand
+import dev.daymark.models.plan.VacationBalancePeriodChange
 import dev.daymark.models.plan.VacationBalanceSummary
+import dev.daymark.models.reporting.ProjectionKey
+import dev.daymark.models.reporting.ReportBinding
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -48,6 +58,9 @@ import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.produceIn
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
@@ -65,18 +78,20 @@ class TimeOffTransactionTest {
     private fun date(value: String) = LocalDate.parse(value)
     private suspend fun withStore(
         initialNow: Instant = Instant.parse("2026-11-01T12:00:00Z"),
+        setupDate: LocalDate = fixtureDate,
         block: suspend (DaymarkDatabase, TestClock, TimeOffService) -> Unit
     ) {
         val folder = Files.createTempDirectory("daymark-time-off-")
         val db = openJvmDatabase(folder.resolve("attendance.db").toString())
         val clock = TestClock(initialNow)
         try {
-            seedDatabase(db)
+            val setupAt = Instant.parse("${setupDate}T08:00:00Z")
+            seedDatabase(db, setupAt, Instant.parse("${setupDate}T09:00:00Z"))
             val tracker = requireNotNull(db.profileDao().tracker())
             db.profileDao().putTracker(tracker.copy(openingBalance = 12))
             db.planningDao().putVersion(
                 PlanVersionEntity.fromSnapshot(
-                    tracker.id, 1, fixtureDate, at("08:00:00"),
+                    tracker.id, 1, setupDate, setupAt,
                     TrackerCategory.WORK, fixtureSchedule(days = weekdays), fixturePlace(), "Work"
                 )
             )
@@ -118,7 +133,225 @@ class TimeOffTransactionTest {
     private suspend fun save(service: TimeOffService, command: TimeOffCommand) {
         val preview = service.preview(command)
         assertNull(preview.rejection)
-        assertIs<PlanMutationResult.Applied>(service.apply(command, preview.expectedRevision))
+        assertIs<PlanMutationResult.Applied>(service.apply(command, preview.reviewToken))
+    }
+
+    @Test
+    fun vacation_on_november_19_can_be_saved_after_setup_on_november_21() = runTest {
+        withStore(Instant.parse("2026-11-21T12:00:00Z"), setupDate = date("2026-11-21")) { db, _, service ->
+            val earlier = date("2026-11-19")
+            val command = TimeOffCommand.Add(TimeOffKind.VACATION, earlier, earlier)
+            val preview = service.preview(command)
+            assertNull(preview.rejection)
+            assertEquals(-1, preview.balanceDelta)
+            assertEquals(listOf(earlier), preview.preTrackingDates)
+            assertTrue(preview.affectedDays.isEmpty())
+            assertEquals(PlanMutationResult.Applied, service.apply(command, preview.reviewToken))
+            val entry = service.observeEntries().first().single()
+            assertEquals(earlier, entry.from)
+            assertEquals(earlier, entry.through)
+            assertEquals(11, service.observeAvailableBalance().first())
+            val trackerId = requireNotNull(db.profileDao().tracker()).id
+            assertTrue(db.attendanceDao().days(trackerId).none { it.date < "2026-11-21" })
+            assertTrue(
+                db.dirtyProjectionDao().dirtyProjections(trackerId).none { it.projectionKey == "DAY:2026-11-19" })
+
+            save(service, TimeOffCommand.Remove(entry.id))
+            assertEquals(12, service.observeAvailableBalance().first())
+
+            val acrossStart = TimeOffCommand.Add(TimeOffKind.VACATION, date("2026-11-20"), date("2026-11-23"))
+            val rangeReview = service.preview(acrossStart)
+            assertEquals(listOf(date("2026-11-20")), rangeReview.preTrackingDates)
+            assertEquals(
+                listOf(date("2026-11-21"), date("2026-11-22"), date("2026-11-23")),
+                rangeReview.affectedDays.map { it.date })
+            assertEquals(-2, rangeReview.balanceDelta)
+        }
+    }
+
+    @Test
+    fun annual_renewal_allocates_cross_year_bookings_and_fences_a_stale_review() = runTest {
+        withStore { db, clock, service ->
+            assertEquals(PlanMutationResult.Applied, service.updateAnnualVacationPolicy(4, false, 2027))
+            assertEquals(AnnualVacationPolicy(2027, 4, false), service.observeAnnualVacationSettings().first()?.pending)
+            val booking = TimeOffCommand.Add(TimeOffKind.VACATION, date("2026-12-31"), date("2027-01-01"))
+            val preview = service.preview(booking)
+            assertEquals(
+                listOf(VacationBalancePeriodChange(null, -1, 11), VacationBalancePeriodChange(2027, -1, 3)),
+                preview.balancePeriods
+            )
+            assertEquals(PlanMutationResult.Applied, service.apply(booking, preview.reviewToken))
+            assertEquals(VacationBalanceSummary(12, 1, 11), service.observeVacationBalance().first())
+
+            val holiday = TimeOffCommand.Add(TimeOffKind.HOLIDAY, date("2027-01-01"), date("2027-01-01"))
+            val lateReview = service.preview(holiday)
+            clock.value = Instant.parse("2027-01-01T00:00:00Z")
+            assertEquals(PlanMutationResult.StalePreview, service.apply(holiday, lateReview.reviewToken))
+            assertEquals(VacationBalanceSummary(4, 1, 3, 2027), service.observeVacationBalance().first())
+            assertEquals(PlanMutationResult.StalePreview, service.setAvailableBalance(6, null))
+            assertEquals(PlanMutationResult.Applied, service.setAvailableBalance(6, null, 2027))
+            assertEquals(
+                2027,
+                db.planningDao().balanceAdjustments(requireNotNull(db.profileDao().tracker()).id).single().balanceYear
+            )
+            save(service, holiday)
+            assertEquals(VacationBalanceSummary(4, 0, 7, 2027), service.observeVacationBalance().first())
+
+            assertEquals(PlanMutationResult.Applied, service.updateAnnualVacationPolicy(8, false, 2028))
+            clock.value = Instant.parse("2029-01-01T00:00:00Z")
+            assertEquals(VacationBalanceSummary(8, 0, 8, 2029), service.observeVacationBalance().first())
+        }
+    }
+
+    @Test
+    fun attendance_period_renewal_reallocates_existing_bookings_and_keeps_adjustment_years() = runTest {
+        withStore { db, clock, service ->
+            assertEquals(PlanMutationResult.Applied, service.updateAnnualVacationPolicy(4, true, 2027))
+            assertEquals(PlanMutationResult.Applied, service.setAvailableBalance(10, null))
+            val december = date("2026-12-21")
+            save(service, TimeOffCommand.Add(TimeOffKind.VACATION, december, december))
+            assertEquals(VacationBalanceSummary(12, 1, 9), service.observeVacationBalance().first())
+
+            val settings = AttendancePeriodSettings(20, VacationYearBasis.ATTENDANCE_PERIOD)
+            val preview = assertNotNull(service.previewAttendancePeriod(settings))
+            assertEquals(
+                listOf(AttendancePeriodBalanceChange(null, -1, 10), AttendancePeriodBalanceChange(2027, 1, 13)),
+                preview.balances
+            )
+            val stale = service.preview(TimeOffCommand.Add(TimeOffKind.HOLIDAY, december, december))
+            assertEquals(PlanMutationResult.Applied, service.saveAttendancePeriod(preview))
+            assertEquals(
+                PlanMutationResult.StalePreview,
+                service.apply(TimeOffCommand.Add(TimeOffKind.HOLIDAY, december, december), stale.reviewToken)
+            )
+            assertEquals(december, service.observeAnnualVacationSettings().first()?.nextEffectiveDate)
+            clock.value = Instant.parse("2026-12-21T00:00:00Z")
+            assertEquals(VacationBalanceSummary(14, 1, 13, 2027), service.observeVacationBalance().first())
+            val trackerId = assertNotNull(db.profileDao().tracker()).id
+            assertNull(db.planningDao().balanceAdjustments(trackerId).single().balanceYear)
+        }
+    }
+
+    @Test
+    fun cutoff_regroups_dashboard_and_reports_and_clears_the_previous_summary_row() = runTest {
+        withStore { db, clock, service ->
+            val profile = db.profileDao()
+            val attendanceDao = db.attendanceDao()
+            val planning = db.planningDao()
+            val dirty = db.dirtyProjectionDao()
+            val transactions = RoomDatabaseTransactions(db)
+            val snapshots = PlanningSnapshotReader(profile, attendanceDao, planning)
+            val repo = RoomAttendanceRepository(profile, attendanceDao, planning, dirty, transactions, clock)
+            val target = DayKey(assertNotNull(profile.tracker()).id, date("2026-10-28"))
+            repo.correct(Correction(target, AttendanceStatus.PRESENT, LocalTime(9, 0), null))
+            val dashboard = TodayDashboardReader(profile, snapshots, transactions, clock)
+            assertEquals(0, dashboard.observe().first().metrics.attendance)
+
+            val store = RoomReportStore(profile, attendanceDao, dirty, db.reportDao(), snapshots, transactions, clock)
+            val binding = ReportBinding(target.trackerId, assertNotNull(store.beginConnection()), "test", "report", annualTabIds = emptyMap())
+            store.bind(binding)
+            val oldBatch = assertNotNull(store.buildBatch(binding, 100))
+            store.journalBeforeDispatch(oldBatch)
+            store.markDispatched(oldBatch)
+
+            val review = assertNotNull(service.previewAttendancePeriod(AttendancePeriodSettings(20)))
+            assertEquals(PlanMutationResult.Applied, service.saveAttendancePeriod(review))
+            store.acknowledge(oldBatch)
+
+            val current = dashboard.observe().first()
+            assertEquals(review.period, current.period)
+            assertEquals(1, current.metrics.attendance)
+            assertEquals(1, repo.observeMonth(2026, 11).first().present)
+            assertEquals(0, repo.observeMonth(2026, 10).first().present)
+            val periods = store.localProjections(binding).single { it.key == ProjectionKey.AttendancePeriods }
+            val rows = periods.ranges.single().cells
+            assertEquals(listOf("2026-11", "2026-10-21", "2026-11-20", "1"), rows[0].take(4).map { it.content })
+            assertTrue(rows[1].all { it.content.isEmpty() })
+            assertTrue(assertNotNull(store.buildBatch(binding, 100)).projections.any { it.key == periods.key })
+        }
+    }
+
+    @Test
+    fun attendance_period_settings_reject_a_new_annual_shortfall_atomically() = runTest {
+        withStore { db, _, service ->
+            assertEquals(PlanMutationResult.Applied, service.updateAnnualVacationPolicy(0, false, 2027))
+            val december = date("2026-12-21")
+            save(service, TimeOffCommand.Add(TimeOffKind.VACATION, december, december))
+            val review = assertNotNull(
+                service.previewAttendancePeriod(AttendancePeriodSettings(20, VacationYearBasis.ATTENDANCE_PERIOD))
+            )
+            assertEquals(PlanMutationResult.InsufficientYear(2027), review.rejection)
+            assertEquals(review.rejection, service.saveAttendancePeriod(review))
+            assertNull(db.profileDao().setting("attendance-period"))
+            assertEquals(VacationBalanceSummary(12, 1, 11), service.observeVacationBalance().first())
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun active_balance_observation_renews_without_a_database_write() = runTest {
+        withStore(Instant.parse("2026-12-31T23:59:59Z")) { _, clock, service ->
+            assertEquals(PlanMutationResult.Applied, service.updateAnnualVacationPolicy(4, false, 2027))
+            val summaries = service.observeVacationBalance().produceIn(backgroundScope)
+            try {
+                assertEquals(VacationBalanceSummary(12, 0, 12), summaries.receive())
+                runCurrent()
+                clock.value = Instant.parse("2027-01-01T00:00:00Z")
+                advanceTimeBy(1_001)
+                assertEquals(VacationBalanceSummary(4, 0, 4, 2027), summaries.receive())
+            } finally {
+                summaries.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun historical_deduction_cannot_spend_carryover_already_reserved_in_a_later_year() = runTest {
+        withStore { _, clock, service ->
+            assertEquals(PlanMutationResult.Applied, service.updateAnnualVacationPolicy(2, true, 2027))
+            val booking = TimeOffCommand.Add(TimeOffKind.VACATION, date("2028-01-03"), date("2028-01-24"))
+            save(service, booking)
+            clock.value = Instant.parse("2027-01-05T12:00:00Z")
+            val earlier = TimeOffCommand.Add(TimeOffKind.VACATION, date("2027-01-04"), date("2027-01-04"))
+            val preview = service.preview(earlier)
+            assertEquals(2028, preview.shortfallYear)
+            assertEquals(PlanMutationResult.InsufficientYear(2028), service.apply(earlier, preview.reviewToken))
+            assertEquals(PlanMutationResult.InsufficientYear(2028), service.updateAnnualVacationPolicy(2, false, 2028))
+            assertEquals(1, service.observeEntries().first().size)
+
+            clock.value = Instant.parse("2028-01-01T00:00:00Z")
+            assertEquals(VacationBalanceSummary(16, 16, 0, 2028), service.observeVacationBalance().first())
+        }
+    }
+
+    @Test
+    fun renewal_uses_attendance_zone_and_a_failed_first_policy_keeps_the_legacy_balance() = runTest {
+        withStore { db, clock, service ->
+            val tracker = requireNotNull(db.profileDao().tracker())
+            val cairo = fixtureSchedule(days = weekdays).copy(zoneId = "Africa/Cairo")
+            db.planningDao().putVersion(
+                PlanVersionEntity.fromSnapshot(
+                    tracker.id,
+                    1,
+                    fixtureDate,
+                    at("08:00:00"),
+                    TrackerCategory.WORK,
+                    cairo,
+                    fixturePlace(),
+                    "Work"
+                )
+            )
+            val booking = TimeOffCommand.Add(TimeOffKind.VACATION, date("2027-01-04"), date("2027-01-05"))
+            save(service, booking)
+            assertEquals(PlanMutationResult.InsufficientYear(2027), service.updateAnnualVacationPolicy(1, false, 2027))
+            assertNull(service.observeAnnualVacationSettings().first()?.pending)
+            assertEquals(10, service.observeAvailableBalance().first())
+            assertEquals(PlanMutationResult.Applied, service.updateAnnualVacationPolicy(5, false, 2027))
+            clock.value = Instant.parse("2026-12-31T21:59:59Z")
+            assertNull(service.observeVacationBalance().first()?.year)
+            clock.value = Instant.parse("2026-12-31T22:00:00Z")
+            assertEquals(VacationBalanceSummary(5, 2, 3, 2027), service.observeVacationBalance().first())
+        }
     }
 
     @Test
@@ -216,9 +449,6 @@ class TimeOffTransactionTest {
             val invalid =
                 TimeOffCommand.Add(TimeOffKind.VACATION, date("2026-11-04"), date("2026-11-02"))
             assertEquals(PlanRejection.INVALID_RANGE, service.preview(invalid).rejection)
-            val outside =
-                TimeOffCommand.Add(TimeOffKind.HOLIDAY, date("2026-10-26"), date("2026-10-26"))
-            assertEquals(PlanRejection.OUTSIDE_TRACKED_PERIOD, service.preview(outside).rejection)
             assertIs<PlanMutationResult.Invalid>(service.setAvailableBalance(-1, null))
             val tooMuch =
                 TimeOffCommand.Add(TimeOffKind.VACATION, date("2026-11-02"), date("2026-12-02"))
@@ -227,7 +457,7 @@ class TimeOffTransactionTest {
             assertIs<PlanMutationResult.InsufficientBalance>(
                 service.apply(
                     tooMuch,
-                    preview.expectedRevision
+                    preview.reviewToken
                 )
             )
             assertTrue(service.observeEntries().first().isEmpty())
@@ -274,7 +504,7 @@ class TimeOffTransactionTest {
             assertIs<PlanMutationResult.StalePreview>(
                 service.apply(
                     command,
-                    preview.expectedRevision
+                    preview.reviewToken
                 )
             )
             assertTrue(service.observeEntries().first().isEmpty())
@@ -290,7 +520,7 @@ class TimeOffTransactionTest {
             assertIs<PlanMutationResult.StalePreview>(
                 service.apply(
                     command,
-                    preview.expectedRevision
+                    preview.reviewToken
                 )
             )
             assertTrue(service.observeEntries().first().isEmpty())
@@ -384,7 +614,7 @@ class TimeOffTransactionTest {
             assertIs<PlanMutationResult.Applied>(
                 plans.applyChange(
                     change,
-                    preview.expectedRevision
+                    preview.reviewToken
                 )
             )
             assertEquals(11, service.observeAvailableBalance().first())
@@ -437,7 +667,7 @@ class TimeOffTransactionTest {
             assertIs<PlanMutationResult.InsufficientBalance>(
                 plans.applyChange(
                     change,
-                    preview.expectedRevision
+                    preview.reviewToken
                 )
             )
             assertEquals(1, db.planningDao().versions(fixturePlan().key.trackerId).size)
@@ -457,7 +687,7 @@ class TimeOffTransactionTest {
             assertIs<PlanMutationResult.LocalSaveFailed>(
                 service.apply(
                     command,
-                    preview.expectedRevision
+                    preview.reviewToken
                 )
             )
             assertEquals(tracker, db.profileDao().tracker())
@@ -468,7 +698,7 @@ class TimeOffTransactionTest {
             assertTrue(service.observeEntries().first().isEmpty())
             assertEquals(12, service.observeAvailableBalance().first())
             db.useWriterConnection { it.executeSQL("DROP TRIGGER abort_leave") }
-            assertIs<PlanMutationResult.Applied>(service.apply(command, preview.expectedRevision))
+            assertIs<PlanMutationResult.Applied>(service.apply(command, preview.reviewToken))
         }
     }
 
@@ -501,7 +731,7 @@ class TimeOffTransactionTest {
             assertIs<PlanMutationResult.Applied>(
                 plans.applyChange(
                     command,
-                    preview.expectedRevision
+                    preview.reviewToken
                 )
             )
             save(
@@ -563,7 +793,7 @@ class TimeOffTransactionTest {
             assertIs<PlanMutationResult.StalePreview>(
                 plans.applyChange(
                     command,
-                    preview.expectedRevision
+                    preview.reviewToken
                 )
             )
             assertEquals(1, db.planningDao().versions(fixturePlan().key.trackerId).size)
@@ -628,7 +858,7 @@ class TimeOffTransactionTest {
                 )
                 assertEquals(
                     PlanMutationResult.Applied,
-                    service.apply(command, preview.expectedRevision)
+                    service.apply(command, preview.reviewToken)
                 )
                 val entry = service.observeEntries().first().single()
                 val removal = service.preview(TimeOffCommand.Remove(entry.id)).changes.single()

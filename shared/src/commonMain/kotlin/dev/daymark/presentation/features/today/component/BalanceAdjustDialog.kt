@@ -20,23 +20,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.plan.parseWholeDays
+import dev.daymark.presentation.component.insufficientVacationYearMessage
 import dev.daymark.resources.Res
 import dev.daymark.resources.adjust_balance
+import dev.daymark.resources.adjust_balance_year
 import dev.daymark.resources.balance_help
 import dev.daymark.resources.balance_note
 import dev.daymark.resources.cancel
 import dev.daymark.resources.local_save_failed
-import dev.daymark.resources.vacation_balance_remaining
 import dev.daymark.resources.save
+import dev.daymark.resources.vacation_balance_remaining
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LocalAppLanguage
+import dev.daymark.settings.isolated
 import dev.daymark.settings.str
 
 internal data class BalanceAdjustUiState(
-    val initialBalance: Int?,
+    val initialBalance: Int,
+    val year: Int?,
     val busy: Boolean,
-    val saveFailed: Boolean
+    val saveFailure: PlanMutationResult?
 )
 
 @Composable
@@ -47,7 +52,7 @@ internal fun BalanceAdjustDialog(
 ) {
     val language = LocalAppLanguage.current
     var text by rememberSaveable {
-        mutableStateOf(DisplayFormats.number(state.initialBalance ?: 0, language))
+        mutableStateOf(DisplayFormats.number(state.initialBalance, language))
     }
     var note by rememberSaveable { mutableStateOf("") }
 
@@ -55,7 +60,9 @@ internal fun BalanceAdjustDialog(
         onDismissRequest = { if (!state.busy) onDismiss() },
         title = {
             Text(
-                text = str(Res.string.adjust_balance),
+                text = state.year?.let { year ->
+                    str(Res.string.adjust_balance_year, isolated(DisplayFormats.number(year, language)))
+                } ?: str(Res.string.adjust_balance),
                 style = MaterialTheme.typography.titleLarge
             )
         },
@@ -83,9 +90,13 @@ internal fun BalanceAdjustDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                if (state.saveFailed) {
+                state.saveFailure?.let { failure ->
                     Text(
-                        text = str(Res.string.local_save_failed),
+                        text = if (failure is PlanMutationResult.InsufficientYear) {
+                            insufficientVacationYearMessage(failure.year)
+                        } else {
+                            str(Res.string.local_save_failed)
+                        },
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium
                     )

@@ -1,6 +1,7 @@
 package dev.daymark.models.setup
 
 import dev.daymark.app.SetupStep
+import dev.daymark.history.VacationYearBasis
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.plan.WeeklySchedule
@@ -12,14 +13,18 @@ data class SetupDraft(
     val place: RegisteredPlace? = null,
     val schedule: WeeklySchedule? = null,
     val openingBalanceText: String = "",
-    val step: SetupStep = SetupStep.WELCOME
+    val step: SetupStep = SetupStep.WELCOME,
+    val attendanceClosingDay: Int? = null,
+    val vacationYearBasis: VacationYearBasis = VacationYearBasis.CALENDAR
 ) {
     override fun toString() = "SetupDraft(metadata=<redacted>)"
 }
 
 data class SetupCommand(
     val displayName: String, val category: TrackerCategory, val placeName: String,
-    val place: RegisteredPlace, val schedule: WeeklySchedule, val openingBalance: Int
+    val place: RegisteredPlace, val schedule: WeeklySchedule, val openingBalance: Int,
+    val attendanceClosingDay: Int? = null,
+    val vacationYearBasis: VacationYearBasis = VacationYearBasis.CALENDAR
 ) {
     override fun toString() = "SetupCommand(metadata=<redacted>)"
 }

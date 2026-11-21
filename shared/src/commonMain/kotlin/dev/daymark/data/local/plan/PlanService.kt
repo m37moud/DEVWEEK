@@ -8,11 +8,13 @@ import dev.daymark.data.local.PlanVersionEntity
 import dev.daymark.data.local.dao.DirtyProjectionDao
 import dev.daymark.data.local.dao.PlanningDao
 import dev.daymark.data.local.dao.ProfileDao
+import dev.daymark.data.local.markAttendanceSummariesDirty
 import dev.daymark.data.local.markDirty
 import dev.daymark.models.attendance.DayKey
 import dev.daymark.models.plan.PlanChange
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.plan.PlanRejection
+import dev.daymark.models.plan.PlanReviewToken
 import dev.daymark.models.plan.PlanState
 import dev.daymark.models.plan.TimeOffPreview
 import dev.daymark.plan.dates
@@ -65,14 +67,14 @@ class PlanService(
 
     override suspend fun applyChange(
         command: PlanChange,
-        expectedRevision: Long
+        review: PlanReviewToken
     ): PlanMutationResult =
         storageResult<PlanMutationResult>(PlanMutationResult.LocalSaveFailed) {
             transactions.withWriteTransaction {
                 attendance.reconcile(clock.now())
                 val store = snapshots.load(clock.now())
                     ?: return@withWriteTransaction PlanMutationResult.Invalid(PlanRejection.INVALID_VALUE)
-                if (expectedRevision != store.revision) return@withWriteTransaction PlanMutationResult.StalePreview
+                if (review != store.reviewToken) return@withWriteTransaction PlanMutationResult.StalePreview
                 val proposal = proposal(store, command)
                 proposal.preview.failure()?.let { return@withWriteTransaction it }
                 planningDao.putVersion(proposal.version)
@@ -83,7 +85,7 @@ class PlanService(
                     )
                 }
                 dirtyProjectionDao.markDirty(store.tracker.id, "TIME_OFF")
-                dirtyProjectionDao.markDirty(store.tracker.id, "OVERVIEW")
+                dirtyProjectionDao.markAttendanceSummariesDirty(store.tracker.id)
                 profileDao.advanceRevision(store.tracker.id)
                 PlanMutationResult.Applied
             }
@@ -111,7 +113,8 @@ class PlanService(
         val versions = store.versions + version
         val affected = (store.entries.asSequence().flatMap { dates(it.from, it.through) }
             .filter { it >= effective } +
-                dates(effective, effective.plus(6, DateTimeUnit.DAY))).distinct().sorted().toList()
+                dates(effective, effective.plus(6, DateTimeUnit.DAY)))
+            .filter { it >= store.firstDate }.distinct().sorted().toList()
         // Resolve every weekday before accepting a schedule, including its same-day grace constraint.
         val valid = try {
             affected.forEach { store.plan(it, versions) }; true
@@ -127,16 +130,21 @@ class PlanService(
                 0,
                 store.balance(),
                 PlanRejection.INVALID_VALUE,
-                effective
+                effective,
+                reviewDate = store.today
             )
         )
-        val after = store.balance(expectations = versions)
-        val delta = after - store.balance()
+        val impact = store.balanceImpact(affected, expectations = versions)
         return Proposal(
             version, TimeOffPreview(
                 store.revision, affected.map { DayKey(store.tracker.id, it) },
-                affected.map { store.outcome(it, expectations = versions) }, delta, after,
-                if (delta < 0 && after < 0) PlanRejection.INSUFFICIENT_BALANCE else null, effective
+                affected.map { store.outcome(it, expectations = versions) },
+                impact.current.delta, impact.current.remainingDays,
+                if (impact.shortfall != null) PlanRejection.INSUFFICIENT_BALANCE else null,
+                effective,
+                balancePeriods = impact.changes,
+                shortfallYear = impact.shortfall?.year,
+                reviewDate = store.today
             )
         )
     }

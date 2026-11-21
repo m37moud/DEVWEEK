@@ -2,6 +2,8 @@ package dev.daymark
 
 import dev.daymark.attendance.AttendanceRepository
 import dev.daymark.models.TodayDashboard
+import dev.daymark.models.plan.AnnualVacationSettings
+import dev.daymark.models.plan.PlanReviewToken
 import dev.daymark.models.plan.TimeOffCommand
 import dev.daymark.models.plan.TimeOffEntry
 import dev.daymark.models.plan.VacationBalanceSummary
@@ -18,14 +20,28 @@ open class TestRepository : Repository {
     override val checks: AttendanceChecks get() = error("Unexpected check access")
     override val plans: PlanDataSource get() = error("Unexpected plan access")
     override val timeOff: TimeOffDataSource = object : TimeOffDataSource {
+        override suspend fun previewAttendancePeriod(settings: dev.daymark.history.AttendancePeriodSettings) =
+            error("Unexpected attendance period preview")
+
+        override suspend fun saveAttendancePeriod(review: dev.daymark.models.plan.AttendancePeriodReview) =
+            error("Unexpected attendance period change")
+
+
+        override fun observeAnnualVacationSettings() = flowOf<AnnualVacationSettings?>(null)
+        override suspend fun updateAnnualVacationPolicy(
+            annualAllowanceDays: Int,
+            carryOverUnusedDays: Boolean,
+            expectedEffectiveYear: Int
+        ): Nothing = error("Unexpected vacation policy change")
+
         override fun observeEntries() = flowOf(emptyList<TimeOffEntry>())
         override fun observeVacationBalance() = flowOf<VacationBalanceSummary?>(null)
         override fun observeAvailableBalance() = flowOf<Int?>(null)
         override suspend fun preview(command: TimeOffCommand): Nothing = error("Unexpected time off preview")
-        override suspend fun apply(command: TimeOffCommand, expectedRevision: Long): Nothing =
+        override suspend fun apply(command: TimeOffCommand, review: PlanReviewToken): Nothing =
             error("Unexpected time off change")
 
-        override suspend fun setAvailableBalance(targetDays: Int, note: String?): Nothing =
+        override suspend fun setAvailableBalance(targetDays: Int, note: String?, expectedYear: Int?): Nothing =
             error("Unexpected balance adjustment")
     }
     override val planReader: PlanReader get() = error("Unexpected schedule access")

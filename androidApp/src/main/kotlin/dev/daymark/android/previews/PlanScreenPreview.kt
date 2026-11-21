@@ -4,9 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.attendance.TrackerCategory
-import dev.daymark.models.plan.PlanState
 import dev.daymark.models.plan.PlanChange
+import dev.daymark.models.plan.PlanState
 import dev.daymark.models.plan.TimeOffEntry
+import dev.daymark.models.plan.TimeOffPreview
+import dev.daymark.models.plan.VacationBalancePeriodChange
 import dev.daymark.plan.TimeOffKind
 import dev.daymark.plan.WeeklySchedule
 import dev.daymark.presentation.features.plan.PlanActions
@@ -39,6 +41,43 @@ private fun PlanScreenDarkPreview() {
         PlanActions({}, {}, {})
     DaymarkTheme(ThemePreference.DARK) {
         PlanContent(samplePlanState(), Clock.System, null, actions)
+    }
+}
+
+@Preview(name = "Vacation before tracking began")
+@Composable
+private fun PlanScreenBeforeTrackingPreview() {
+    val review = TimeOffPreview(
+        1, emptyList(), emptyList(), -1, 9, null,
+        preTrackingDates = listOf(LocalDate(2026, 11, 19))
+    )
+    DaymarkTheme(ThemePreference.LIGHT) {
+        PlanContent(
+            samplePlanState().copy(timeOffPreview = review),
+            Clock.System,
+            null,
+            PlanActions({}, {}, {})
+        )
+    }
+}
+
+@Preview(name = "Vacation across annual balance periods")
+@Composable
+private fun PlanScreenAnnualReviewPreview() {
+    val review = TimeOffPreview(
+        expectedRevision = 1,
+        affectedDays = emptyList(),
+        resultingOutcomes = emptyList(),
+        balanceDelta = -3,
+        availableAfter = 8,
+        rejection = null,
+        balancePeriods = listOf(
+            VacationBalancePeriodChange(null, -2, 8),
+            VacationBalancePeriodChange(2027, -1, 19)
+        )
+    )
+    DaymarkTheme(ThemePreference.LIGHT) {
+        PlanContent(samplePlanState().copy(timeOffPreview = review), Clock.System, null, PlanActions({}, {}, {}))
     }
 }
 

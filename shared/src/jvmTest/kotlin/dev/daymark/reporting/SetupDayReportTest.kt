@@ -1,6 +1,7 @@
 package dev.daymark.reporting
 
 import dev.daymark.data.local.RoomDatabaseTransactions
+import dev.daymark.data.local.AnnualVacationPolicyEntity
 
 import dev.daymark.at
 import dev.daymark.attendance.TestClock
@@ -88,6 +89,14 @@ class SetupDayReportTest {
             assertEquals(JsonPrimitive(0), overview.getValue("absent"))
             assertEquals(JsonPrimitive(10), overview.getValue("vacationBalance"))
             assertEquals(JsonPrimitive("=1+2"), overview.getValue("name"))
+            db.planningDao().putAnnualVacationPolicy(AnnualVacationPolicyEntity(tracker.id, 2027, 18, false))
+            val priorOverview = store.localProjections(binding).single { it.key == ProjectionKey.Overview }
+            clock.value = kotlin.time.Instant.parse("2027-01-01T00:00:00Z")
+            val renewedOverview = store.localProjections(binding).single { it.key == ProjectionKey.Overview }
+            val vacation = renewedOverview.ranges.single().cells.single { it[0].content == "vacationBalance" }
+            assertEquals(JsonPrimitive("Vacation balance (2027) / رصيد الإجازة (2027)"), vacation[1])
+            assertEquals(JsonPrimitive(18), vacation[2])
+            kotlin.test.assertTrue(renewedOverview.revision > priorOverview.revision)
             val version = db.planningDao().versions(tracker.id).single()
             db.planningDao().putVersion(version.copy(category = "SCHOOL"))
             val school = store.localProjections(binding)
@@ -244,7 +253,7 @@ class SetupDayReportTest {
                 val preview = plans.previewChange(change)
                 assertEquals(
                     PlanMutationResult.Applied,
-                    plans.applyChange(change, preview.expectedRevision)
+                    plans.applyChange(change, preview.reviewToken)
                 )
                 clock.value = at("10:00:01"); repo.reconcile(clock.now())
                 val store = RoomReportStore(

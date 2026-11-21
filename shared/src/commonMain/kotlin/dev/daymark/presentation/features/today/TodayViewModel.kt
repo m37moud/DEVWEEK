@@ -254,21 +254,22 @@ class TodayViewModel(
 
     fun setAvailableBalance(text: String, note: String?) {
         val targetDays = parseWholeDays(text) ?: return
-        if (state.value.vacationBalance.saving) return
+        val balance = state.value.vacationBalance
+        if (balance.saving) return
         updateVacationBalance { it.copy(saving = true, saveResult = null) }
         viewModelScope.launch {
             try {
-                saveAvailableBalance(targetDays, note)
+                saveAvailableBalance(targetDays, note, balance.summary?.year)
             } finally {
                 updateVacationBalance { it.copy(saving = false) }
             }
         }
     }
 
-    private suspend fun saveAvailableBalance(targetDays: Int, note: String?) {
+    private suspend fun saveAvailableBalance(targetDays: Int, note: String?, expectedYear: Int?) {
         AppLogger.d(TAG, "Balance save started")
         val mutation = try {
-            repository.timeOff.setAvailableBalance(targetDays, note)
+            repository.timeOff.setAvailableBalance(targetDays, note, expectedYear)
         } catch (failure: CancellationException) {
             throw failure
         } catch (failure: Exception) {

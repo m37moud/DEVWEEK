@@ -5,6 +5,7 @@ import dev.daymark.data.local.dao.AttendanceDao
 import dev.daymark.data.local.dao.PlanningDao
 import dev.daymark.data.local.dao.ProfileDao
 import dev.daymark.data.local.plan.PlanningSnapshotReader
+import dev.daymark.data.local.plan.earlierVacationDates
 import dev.daymark.data.local.plan.historyRecords
 import dev.daymark.data.local.plan.nextHistoryBoundary
 import dev.daymark.history.HistoryRange
@@ -53,7 +54,14 @@ internal class HistoryRangeReader(
                 PlanningSnapshotReader(profileDao, attendanceDao, planningDao).load(now)
             } ?: break
             val records = snapshot.historyRecords(from, through)
-            emit(HistoryRange(records, snapshot.firstDate, snapshot.today))
+            emit(
+                HistoryRange(
+                    records,
+                    snapshot.firstDate,
+                    snapshot.today,
+                    snapshot.earlierVacationDates(from, through)
+                )
+            )
             val next = snapshot.nextHistoryBoundary(records)
             delay((next - clock.now()).coerceAtLeast(1.milliseconds))
         }

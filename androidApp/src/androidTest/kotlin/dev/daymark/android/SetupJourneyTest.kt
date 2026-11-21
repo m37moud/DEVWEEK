@@ -225,6 +225,7 @@ class SetupJourneyTest {
 
     private fun enterPlace() {
         enterProfile()
+        nextTo("attendance-period-calendar")
         nextTo("setup-place-name")
         compose.onNodeWithTag("setup-place-name").performScrollTo()
             .performTextReplacement("Test place")
@@ -259,6 +260,7 @@ class SetupJourneyTest {
             "Arabic field label must align to the right",
             label.center.x > field.center.x
         )
+        nextTo("attendance-period-calendar")
         nextTo("setup-place-name")
         compose.onNodeWithTag("setup-place-name").performScrollTo().performTextReplacement("المكتب")
         compose.onNodeWithTag("setup-register-place").performScrollTo().performClick()
@@ -284,6 +286,10 @@ class SetupJourneyTest {
             compose.onAllNodesWithTag("setup-place-name").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("setup-place-name").assertTextContains("المكتب")
+        compose.onNodeWithTag("setup-back").performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("attendance-period-calendar").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("setup-back").performClick()
         compose.waitUntil(10_000) {
             compose.onAllNodesWithTag("setup-name").fetchSemanticsNodes().isNotEmpty()
@@ -431,11 +437,11 @@ class SetupJourneyTest {
     @Test
     fun review_edit_actions_have_localized_accessible_names() {
         reviewSetup()
-        for (section in listOf("Your profile", "Your place", "Your weekly schedule")) {
+        for (section in listOf("Attendance period", "Your profile", "Your place", "Your weekly schedule")) {
             compose.onNodeWithContentDescription("Edit $section").assertHasClickAction()
         }
         seedLanguage(LanguagePreference.AR)
-        for (section in listOf("ملفك الشخصي", "مكانك", "جدولك الأسبوعي")) {
+        for (section in listOf("فترة حساب الحضور", "ملفك الشخصي", "مكانك", "جدولك الأسبوعي")) {
             compose.onNodeWithContentDescription("تعديل $section").assertHasClickAction()
         }
         compose.mainClock.autoAdvance = false
@@ -502,7 +508,7 @@ class SetupJourneyTest {
         draftWriteGate = pendingWrite
         try {
             compose.onNodeWithTag("setup-back").performClick()
-            for (section in listOf("Your profile", "Your place", "Your weekly schedule")) {
+            for (section in listOf("Attendance period", "Your profile", "Your place", "Your weekly schedule")) {
                 compose.onNodeWithContentDescription("Edit $section").assertIsNotEnabled()
             }
         } finally {
@@ -622,9 +628,17 @@ class SetupJourneyTest {
         compose.onNodeWithTag("settings-language-ar").assertIsSelected()
         compose.onNodeWithTag("settings-theme-dark").performScrollTo().assertIsSelected()
         nextTo("setup-name")
+        compose.onNodeWithTag("setup-name").performScrollTo().performTextReplacement("Local test")
+        nextTo("attendance-period-calendar")
+        compose.onNodeWithTag("attendance-period-custom").performScrollTo().performClick()
+        compose.onNodeWithTag("attendance-period-vacation-year").performScrollTo().performClick().assertIsOn()
+        nextTo("setup-place-name")
         runBlocking {
             Assert.assertEquals(LanguagePreference.AR, graph!!.settings.observe().first().language)
             Assert.assertEquals(ThemePreference.DARK, graph!!.settings.observe().first().theme)
+            val draft = graph!!.setup.observeDraft().first() as SetupDraftLoad.Loaded
+            Assert.assertEquals(20, draft.draft.attendanceClosingDay)
+            Assert.assertEquals(dev.daymark.history.VacationYearBasis.ATTENDANCE_PERIOD, draft.draft.vacationYearBasis)
             Assert.assertNull(db.profileDao().tracker())
         }
     }

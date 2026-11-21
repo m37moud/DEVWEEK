@@ -40,7 +40,7 @@ final class SetupJourneyTests: XCTestCase {
     private func openProfile() {
         app.launch()
         XCTAssertTrue(node("setup-next").waitForExistence(timeout: 20))
-        for _ in 0..<4 {
+        for _ in 0..<6 {
             if !node("setup-back").exists { break }
             node("setup-back").tap()
             XCTAssertTrue(node("setup-next").waitForExistence(timeout: 10))
@@ -66,6 +66,8 @@ final class SetupJourneyTests: XCTestCase {
         XCTAssertFalse(node("theme-dark").exists)
         replaceText(scrollTo("setup-name"), with: "أحمد / Ahmed")
         node("setup-next").tap()
+        XCTAssertTrue(node("attendance-period-calendar").waitForExistence(timeout: 10))
+        node("setup-next").tap()
         XCTAssertTrue(node("setup-place-name").waitForExistence(timeout: 10))
         replaceText(scrollTo("setup-place-name"), with: "المكتب")
         XCTAssertTrue(node("setup-draft-saved").waitForExistence(timeout: 10))
@@ -76,6 +78,8 @@ final class SetupJourneyTests: XCTestCase {
         XCTAssertFalse(node("setup-place-ready").exists)
         XCTAssertFalse(node("today-root").exists)
         node("setup-back").tap()
+        XCTAssertTrue(node("attendance-period-calendar").waitForExistence(timeout: 10))
+        node("setup-back").tap()
         XCTAssertTrue(node("setup-name").waitForExistence(timeout: 10))
         XCTAssertEqual(node("setup-name").value as? String, "أحمد / Ahmed")
     }
@@ -83,6 +87,8 @@ final class SetupJourneyTests: XCTestCase {
     func testExplicitThemeAndLanguageCanReturnToSystemInSettings() throws {
         openProfile()
         replaceText(scrollTo("setup-name"), with: "Local test")
+        node("setup-next").tap()
+        XCTAssertTrue(node("attendance-period-calendar").waitForExistence(timeout: 10))
         node("setup-next").tap()
         XCTAssertTrue(node("setup-place-name").waitForExistence(timeout: 10))
         replaceText(scrollTo("setup-place-name"), with: "Test place")
@@ -132,6 +138,24 @@ final class SetupJourneyTests: XCTestCase {
                     "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
                 ]
                 openProfile()
+                replaceText(scrollTo("setup-name"), with: "Local test")
+                node("setup-next").tap()
+                XCTAssertTrue(node("attendance-period-calendar").waitForExistence(timeout: 10))
+                XCTAssertTrue(node("attendance-period-calendar").isSelected)
+                scrollTo("attendance-period-custom").tap()
+                XCTAssertTrue(scrollTo("attendance-period-start").isHittable)
+                XCTAssertTrue(scrollTo("attendance-period-end").isHittable)
+                let calendar = node("attendance-period-calendar")
+                for _ in 0..<12 {
+                    if calendar.isHittable { break }
+                    app.swipeDown()
+                }
+                calendar.tap()
+                XCTAssertTrue(calendar.isSelected)
+                node("setup-back").tap()
+                XCTAssertTrue(node("setup-name").waitForExistence(timeout: 10))
+                node("setup-back").tap()
+                XCTAssertTrue(node("settings-language-system").waitForExistence(timeout: 10))
                 node("setup-back").tap()
                 let heading = scrollTo("setup-heading")
                 XCTAssertEqual(heading.label, language == "en" ? "Welcome to Daymark" : "مرحبًا بك في دايمارك")

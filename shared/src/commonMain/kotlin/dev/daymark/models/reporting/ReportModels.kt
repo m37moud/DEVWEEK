@@ -32,12 +32,16 @@ sealed interface ProjectionKey {
 
     @Serializable
     data object Overview : ProjectionKey
+
+    @Serializable
+    data object AttendancePeriods : ProjectionKey
 }
 
 internal fun ProjectionKey.storageKey(): String = when (this) {
     is ProjectionKey.Day -> "DAY:$date"
     ProjectionKey.TimeOff -> "TIME_OFF"
     ProjectionKey.Overview -> "OVERVIEW"
+    ProjectionKey.AttendancePeriods -> "ATTENDANCE_PERIODS"
 }
 
 @Serializable

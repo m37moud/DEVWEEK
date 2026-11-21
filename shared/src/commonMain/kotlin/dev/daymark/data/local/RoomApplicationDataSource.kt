@@ -14,6 +14,7 @@ import dev.daymark.repository.SettingsDataSource
 import dev.daymark.settings.AppLanguage
 import kotlin.time.Clock
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -41,6 +42,7 @@ class RoomApplicationDataSource(
     }
 
     override suspend fun historyDate() = plans.context()?.let {
-        clock.now().toLocalDateTime(TimeZone.of(it.zoneId)).date
+        val today = clock.now().toLocalDateTime(TimeZone.of(it.zoneId)).date
+        settings.observe().first().attendancePeriod.periodFor(today).month
     }
 }

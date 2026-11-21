@@ -6,16 +6,18 @@ import dev.daymark.data.local.BalanceAdjustmentEntity
 import dev.daymark.data.local.PlanVersionEntity
 import dev.daymark.data.local.TimeOffEntity
 import dev.daymark.data.local.TrackerEntity
+import dev.daymark.history.AttendancePeriodSettings
 import dev.daymark.models.attendance.DayKey
 import dev.daymark.models.attendance.DayPlan
 import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.plan.AnnualVacationPolicy
 import dev.daymark.models.plan.PlanChange
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.plan.PlanRejection
+import dev.daymark.models.plan.PlanReviewToken
 import dev.daymark.models.plan.TimeOffEntry
 import dev.daymark.models.plan.TimeOffPreview
 import dev.daymark.plan.TimeOffKind
-import dev.daymark.plan.vacationBalanceSummary
 import dev.daymark.plan.resolveDay
 import dev.daymark.plan.timeOffOn
 import kotlin.time.Instant
@@ -70,17 +72,22 @@ internal data class PlanningStore(
     val rows: Map<LocalDate, AttendanceEntity>,
     val entries: List<TimeOffEntry>,
     val adjustments: List<BalanceAdjustmentEntity>,
-    val now: Instant
+    val now: Instant,
+    val policies: List<AnnualVacationPolicy>,
+    val periodSettings: AttendancePeriodSettings = AttendancePeriodSettings()
 ) {
     val active = versions.filter { Instant.parse(it.effectiveAt) <= now }
         .maxWithOrNull(compareBy<PlanVersionEntity> { Instant.parse(it.effectiveAt) }.thenBy { it.version })
         ?: versions.first()
     val today = now.toLocalDateTime(TimeZone.of(active.schedule().zoneId)).date
+    val vacationYear = periodSettings.vacationYear(today)
     val firstDate = LocalDate.parse(versions.first().effectiveDate)
 
     // Tracker identity prevents a preview from an erased profile matching a newly created profile at revision zero.
     val revision = Uuid.parse(tracker.id)
         .toLongs { high, low -> ((high xor low) ushr 2) + tracker.changeRevision }
+
+    val reviewToken = PlanReviewToken(revision, today)
 
     fun plan(date: LocalDate, expectations: List<PlanVersionEntity> = versions): DayPlan =
         rows[date]?.plan() ?: requireNotNull(projectedPlan(expectations, DayKey(tracker.id, date)))
@@ -93,9 +100,7 @@ internal data class PlanningStore(
     fun balanceSummary(
         off: List<TimeOffEntry> = entries,
         expectations: List<PlanVersionEntity> = versions
-    ) = vacationBalanceSummary(tracker.openingBalance, adjustments.map { it.delta }, off) {
-        plan(it, expectations)
-    }
+    ) = balances(off, expectations).getValue(balanceYear(vacationYear))
 
     fun outcome(
         date: LocalDate,
@@ -111,7 +116,9 @@ internal fun invalidPreview(reason: PlanRejection) =
 
 internal fun TimeOffPreview.failure(): PlanMutationResult? = when (rejection) {
     null -> null
-    PlanRejection.INSUFFICIENT_BALANCE -> PlanMutationResult.InsufficientBalance
+    PlanRejection.INSUFFICIENT_BALANCE -> shortfallYear?.let({ PlanMutationResult.InsufficientYear(it) })
+        ?: PlanMutationResult.InsufficientBalance
+
     PlanRejection.LOCAL_SAVE_FAILED -> PlanMutationResult.LocalSaveFailed
     else -> PlanMutationResult.Invalid(rejection)
 }

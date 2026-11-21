@@ -133,7 +133,8 @@ class SyncCoordinatorTest {
             report.copy(
                 tabIds = report.tabIds + mapOf(
                     "Overview" to 1,
-                    "Time off" to 2
+                    "Time off" to 2,
+                    "Attendance periods" to 3
                 ) + years.associate { "Attendance $it" to (it + 10) })
 
         override suspend fun read(

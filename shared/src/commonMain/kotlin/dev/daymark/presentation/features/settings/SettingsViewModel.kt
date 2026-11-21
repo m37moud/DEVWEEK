@@ -2,9 +2,11 @@ package dev.daymark.presentation.features.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.daymark.history.AttendancePeriodSettings
 import dev.daymark.location.LocationPermissionPort
 import dev.daymark.logging.AppLogger
 import dev.daymark.models.DeletionResult
+import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.reporting.ConnectionResult
 import dev.daymark.reminders.ReminderPort
 import dev.daymark.repository.Repository
@@ -22,6 +24,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -41,6 +45,7 @@ class SettingsViewModel(
     val uiState = state.asStateFlow()
 
     init {
+        observeAnnualVacationSettings()
         viewModelScope.launch {
             combine(
                 repository.reporting.health,
@@ -68,6 +73,32 @@ class SettingsViewModel(
                 state.update { it.copy(ready = true, storageError = true) }
             }.collect()
         }
+    }
+
+    private fun observeAnnualVacationSettings() {
+        viewModelScope.launch {
+            flow { emitAll(repository.timeOff.observeAnnualVacationSettings()) }
+                .catch { failure ->
+                    if (failure is CancellationException) throw failure
+                    AppLogger.e(
+                        "SettingsViewModel",
+                        "Annual vacation policy observation failed",
+                        failure
+                    )
+                    updateAnnualVacationState { it.copy(loadFailed = true) }
+                }.collect { annualVacation ->
+                    updateAnnualVacationState {
+                        if (annualVacation == null) AnnualVacationSettingsUiState()
+                        else it.copy(configuration = annualVacation)
+                    }
+                }
+        }
+    }
+
+    private fun updateAnnualVacationState(
+        change: (AnnualVacationSettingsUiState) -> AnnualVacationSettingsUiState
+    ) {
+        state.update { it.copy(annualVacation = change(it.annualVacation)) }
     }
 
     private var widgetQueryGeneration = 0
@@ -121,6 +152,62 @@ class SettingsViewModel(
         save { repository.settings.update(language = language) }
 
     fun setTheme(theme: ThemePreference) = save { repository.settings.update(theme = theme) }
+
+    fun previewPeriod(settings: AttendancePeriodSettings) {
+        if (state.value.deleting) return
+        save {
+            AppLogger.d("SettingsViewModel", "Reviewing attendance period change")
+            val review = repository.timeOff.previewAttendancePeriod(settings)
+            state.update {
+                it.copy(
+                    periodReview = review,
+                    periodSaveResult = if (review == null) PlanMutationResult.LocalSaveFailed else null
+                )
+            }
+        }
+    }
+
+    fun dismissPeriodReview() {
+        if (!state.value.busy) state.update { it.copy(periodReview = null) }
+    }
+
+    fun confirmPeriodChange() {
+        val review = state.value.periodReview ?: return
+        if (state.value.deleting || review.rejection != null) return
+        save {
+            val mutation = repository.timeOff.saveAttendancePeriod(review)
+            state.update { it.copy(periodReview = null, periodSaveResult = mutation) }
+            AppLogger.i(
+                "SettingsViewModel",
+                if (mutation == PlanMutationResult.Applied) "Attendance period saved locally"
+                else "Attendance period change rejected"
+            )
+        }
+    }
+
+    fun saveAnnualVacationPolicy(
+        annualAllowanceDays: Int,
+        carryOverUnusedDays: Boolean,
+        expectedEffectiveYear: Int
+    ) {
+        if (state.value.deleting) return
+        save {
+            updateAnnualVacationState { it.copy(saveResult = null) }
+            AppLogger.d("SettingsViewModel", "Saving annual vacation policy")
+            val mutation = repository.timeOff.updateAnnualVacationPolicy(
+                annualAllowanceDays,
+                carryOverUnusedDays,
+                expectedEffectiveYear
+            )
+            updateAnnualVacationState { it.copy(saveResult = mutation) }
+            AppLogger.i(
+                "SettingsViewModel",
+                if (mutation == PlanMutationResult.Applied) "Annual vacation policy saved"
+                else "Annual vacation policy rejected"
+            )
+        }
+    }
+
     fun setDisplayName(name: String) {
         if (name.isBlank() || dev.daymark.reporting.exceedsReportTextLimit(name)) {
             state.update { it.copy(invalidName = true) }; return

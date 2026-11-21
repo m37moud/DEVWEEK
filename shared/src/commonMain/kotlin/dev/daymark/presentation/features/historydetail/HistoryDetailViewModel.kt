@@ -2,6 +2,7 @@ package dev.daymark.presentation.features.historydetail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.daymark.history.AttendancePeriodSettings
 import dev.daymark.history.HistoryMetric
 import dev.daymark.logging.AppLogger
 import dev.daymark.models.attendance.AttendanceStatus
@@ -12,6 +13,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
@@ -19,30 +21,32 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.plus
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class HistoryDetailViewModel(
     private val repository: Repository,
     metric: HistoryMetric,
     initialMonth: LocalDate,
-    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    periodSettings: Flow<AttendancePeriodSettings> = flowOf(AttendancePeriodSettings())
 ) : ViewModel(scope) {
-    private val first = LocalDate(initialMonth.year, initialMonth.month, 1)
-    private val last = first.plus(1, DateTimeUnit.MONTH).plus(-1, DateTimeUnit.DAY)
-    private val selected = MutableStateFlow(first to last)
+    private val initialPeriod = AttendancePeriodSettings().period(initialMonth)
+    private val selected = MutableStateFlow<Pair<LocalDate, LocalDate>?>(null)
     private val active = MutableStateFlow(true)
-    private val state = MutableStateFlow(HistoryDetailUiState(metric, first, last))
+    private val state = MutableStateFlow(HistoryDetailUiState(metric, initialPeriod.from, initialPeriod.through))
     val uiState = state.asStateFlow()
 
     init {
         viewModelScope.launch {
-            combine(selected, active) { dates, enabled -> dates to enabled }
+            combine(selected, active, periodSettings) { dates, enabled, settings ->
+                val range = dates ?: settings.period(initialMonth).let { it.from to it.through }
+                range to enabled
+            }
                 .flatMapLatest { (dates, enabled) ->
                     if (!enabled) emptyFlow() else repository.attendance.observeRange(
                         dates.first,
@@ -51,8 +55,7 @@ class HistoryDetailViewModel(
                         .onEach { range ->
                             state.update {
                                 it.copy(
-                                    from = if (range.firstDate != null && range.firstDate <= dates.second)
-                                        maxOf(dates.first, range.firstDate) else dates.first,
+                                    from = dates.first,
                                     through = dates.second,
                                     range = range,
                                     ready = true,
@@ -80,7 +83,9 @@ class HistoryDetailViewModel(
     }
 
     fun selectRange(from: LocalDate, through: LocalDate) {
-        val invalid = from > through || state.value.range.firstDate?.let { from < it } == true
+        val current = state.value
+        val startsTooEarly = current.range.firstDate?.let { from < it } == true
+        val invalid = from > through || (current.metric != HistoryMetric.LEAVE_REST && startsTooEarly)
         state.update { it.copy(invalidRange = invalid) }
         if (invalid) return
         if (selected.value == from to through) return
@@ -90,7 +95,7 @@ class HistoryDetailViewModel(
                 from = from,
                 through = through,
                 ready = false,
-                range = it.range.copy(records = emptyList())
+                range = it.range.copy(records = emptyList(), earlierVacationDates = emptyList())
             )
         }
         selected.value = from to through

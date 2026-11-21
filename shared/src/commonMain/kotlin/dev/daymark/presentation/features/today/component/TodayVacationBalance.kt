@@ -56,6 +56,7 @@ import dev.daymark.resources.vacation_balance_load_failed
 import dev.daymark.resources.vacation_balance_original
 import dev.daymark.resources.vacation_balance_remaining
 import dev.daymark.resources.vacation_balance_used
+import dev.daymark.resources.vacation_balance_year
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.isolated
@@ -66,8 +67,10 @@ fun TodayVacationBalance(
     state: TodayVacationBalanceUiState,
     onSave: (String, String?) -> Unit
 ) {
-    var adjusting by rememberSaveable { mutableStateOf(false) }
-    var submittedAtRevision by rememberSaveable { mutableStateOf<Long?>(null) }
+    val summary = state.summary
+    val year = summary?.year
+    var adjusting by rememberSaveable(year) { mutableStateOf(false) }
+    var submittedAtRevision by rememberSaveable(year) { mutableStateOf<Long?>(null) }
     LaunchedEffect(state.saveRevision) {
         val submitted = submittedAtRevision
         if (submitted != null && state.saveRevision > submitted) {
@@ -76,7 +79,6 @@ fun TodayVacationBalance(
         }
     }
 
-    val summary = state.summary
     if (state.loadFailed) {
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -116,9 +118,11 @@ fun TodayVacationBalance(
         BalanceAdjustDialog(
             state = BalanceAdjustUiState(
                 initialBalance = summary.remainingDays,
+                year = summary.year,
                 busy = state.saving,
-                saveFailed = submittedAtRevision != null && !state.saving &&
-                        state.saveResult != null && state.saveResult != PlanMutationResult.Applied
+                saveFailure = state.saveResult?.takeIf { mutation ->
+                    submittedAtRevision != null && !state.saving && mutation != PlanMutationResult.Applied
+                }
             ),
             onSave = { text, note ->
                 submittedAtRevision = state.saveRevision
@@ -195,7 +199,12 @@ fun TodayVacationBalanceCard(
                     }
                 }
                 Text(
-                    text = str(Res.string.vacation_balance),
+                    text = summary.year?.let { year ->
+                        str(
+                            Res.string.vacation_balance_year,
+                            isolated(DisplayFormats.number(year, LocalAppLanguage.current))
+                        )
+                    } ?: str(Res.string.vacation_balance),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )

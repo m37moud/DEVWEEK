@@ -88,7 +88,7 @@ class RoomPlanReaderTest {
                 assertIs<PlanMutationResult.Applied>(
                     plans.applyChange(
                         change,
-                        preview.expectedRevision
+                        preview.reviewToken
                     )
                 )
                 reader.context()

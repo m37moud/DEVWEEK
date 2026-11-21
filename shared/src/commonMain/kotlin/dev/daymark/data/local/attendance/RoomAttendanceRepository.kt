@@ -3,6 +3,8 @@
 package dev.daymark.data.local.attendance
 
 import dev.daymark.attendance.AttendanceRepository
+import dev.daymark.data.local.settings.ATTENDANCE_PERIOD_KEY
+import dev.daymark.data.local.settings.attendancePeriodSettings
 import dev.daymark.attendance.outcome
 import dev.daymark.data.local.AttendanceEntity
 import dev.daymark.data.local.DatabaseTransactions
@@ -14,6 +16,7 @@ import dev.daymark.data.local.dao.AttendanceDao
 import dev.daymark.data.local.dao.DirtyProjectionDao
 import dev.daymark.data.local.dao.PlanningDao
 import dev.daymark.data.local.dao.ProfileDao
+import dev.daymark.data.local.markAttendanceSummariesDirty
 import dev.daymark.data.local.markDirty
 import dev.daymark.data.local.plan.projectedPlan
 import dev.daymark.models.attendance.AttendanceSource
@@ -48,7 +51,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.number
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 
@@ -91,7 +93,7 @@ class RoomAttendanceRepository(
         ).observe(from, through)
 
     override fun observeMonth(year: Int, month: Int): Flow<HistoryMonth> {
-        LocalDate(year, month, 1)
+        val label = LocalDate(year, month, 1)
         return profileDao.observeTracker().flatMapLatest { tracker ->
             if (tracker == null) flowOf(HistoryMonth(emptyList(), 0, 0, 0))
             else attendanceDao.observeDays(tracker.id).flatMapLatest {
@@ -100,9 +102,10 @@ class RoomAttendanceRepository(
                         val now = clock.now()
                         val history = transactions.withReadTransaction {
                             val entries = planningDao.timeOff(tracker.id)
+                            val period = attendancePeriodSettings(profileDao.setting(ATTENDANCE_PERIOD_KEY)?.value)
+                                .period(label)
                             val records = attendanceDao.days(tracker.id).filter {
-                                val date =
-                                    LocalDate.parse(it.date); date.year == year && date.month.number == month
+                                LocalDate.parse(it.date) in period.from..period.through
                             }.map { row ->
                                 val day = stored(row, entries)
                                 HistoryRecord(day.plan, day.evidence, day.outcome(now))
@@ -157,7 +160,7 @@ class RoomAttendanceRepository(
         if (profileDao.setting(clockKey)?.value != clockValue) {
             profileDao.putSetting(SettingEntity(clockKey, clockValue))
             profileDao.advanceRevision(context.tracker.id)
-            dirtyProjectionDao.markDirty(context.tracker.id, "OVERVIEW")
+            dirtyProjectionDao.markAttendanceSummariesDirty(context.tracker.id)
         }
         val inserted = mutableSetOf<String>()
         while (date <= today) {
@@ -400,7 +403,7 @@ class RoomAttendanceRepository(
         attendanceDao.putDay(saved)
         profileDao.advanceRevision(saved.trackerId)
         dirtyProjectionDao.markDirty(saved.trackerId, "DAY:${saved.date}")
-        dirtyProjectionDao.markDirty(saved.trackerId, "OVERVIEW")
+        dirtyProjectionDao.markAttendanceSummariesDirty(saved.trackerId)
         return saved
     }
 

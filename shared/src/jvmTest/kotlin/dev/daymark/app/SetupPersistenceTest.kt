@@ -12,6 +12,8 @@ import dev.daymark.data.local.settings.SettingsRepository
 import dev.daymark.data.local.setup.SetupService
 import dev.daymark.fixturePlace
 import dev.daymark.fixtureSchedule
+import dev.daymark.history.AttendancePeriodSettings
+import dev.daymark.history.VacationYearBasis
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.setup.SetupCommand
 import dev.daymark.models.setup.SetupDraft
@@ -84,6 +86,8 @@ class SetupPersistenceTest {
             val legacy = assertIs<SetupDraftLoad.Loaded>(service.observeDraft().first()).draft
             assertEquals(SetupStep.PROFILE, legacy.step)
             assertEquals("Saved", legacy.displayName)
+            assertNull(legacy.attendanceClosingDay)
+            assertEquals(VacationYearBasis.CALENDAR, legacy.vacationYearBasis)
             assertEquals("١٢", legacy.openingBalanceText)
             db.profileDao().putSetting(
                 SettingEntity(
@@ -140,7 +144,9 @@ class SetupPersistenceTest {
             fixturePlace(),
             fixtureSchedule(),
             "١٢",
-            SetupStep.REVIEW
+            SetupStep.REVIEW,
+            attendanceClosingDay = 20,
+            vacationYearBasis = VacationYearBasis.ATTENDANCE_PERIOD
         )
         try {
             SetupService(
@@ -175,12 +181,22 @@ class SetupPersistenceTest {
                         "Place",
                         fixturePlace(),
                         fixtureSchedule(),
-                        12
+                        12,
+                        attendanceClosingDay = draft.attendanceClosingDay,
+                        vacationYearBasis = draft.vacationYearBasis
                     )
                 )
             )
             service.saveDraft(draft, service.startDraftSession())
             assertIs<SetupDraftLoad.Absent>(service.observeDraft().first())
+            db.close()
+            db = openJvmDatabase(path)
+            assertEquals(
+                AttendancePeriodSettings(20, VacationYearBasis.ATTENDANCE_PERIOD),
+                dev.daymark.data.local.settings.SettingsRepository(
+                    db.profileDao(), db.dirtyProjectionDao(), RoomDatabaseTransactions(db)
+                ).observe().first().attendancePeriod
+            )
         } finally {
             db.close()
             folder.toFile().deleteRecursively()
@@ -295,6 +311,31 @@ class SetupPersistenceTest {
     }
 
     @Test
+    fun school_setup_keeps_the_cutoff_and_uses_a_calendar_vacation_year() = runTest {
+        val folder = Files.createTempDirectory("daymark-school-period-")
+        val db = openJvmDatabase(folder.resolve("app.db").toString())
+        try {
+            val transactions = RoomDatabaseTransactions(db)
+            val settings = dev.daymark.data.local.settings.SettingsRepository(
+                db.profileDao(), db.dirtyProjectionDao(), transactions
+            )
+            val service = SetupService(
+                db.profileDao(), db.planningDao(), db.dirtyProjectionDao(),
+                transactions, TestClock(at("08:00:00")), settings
+            )
+            val command = SetupCommand(
+                "Person", TrackerCategory.SCHOOL, "Place", fixturePlace(), fixtureSchedule(), 0,
+                attendanceClosingDay = 20, vacationYearBasis = VacationYearBasis.ATTENDANCE_PERIOD
+            )
+            assertIs<SetupResult.Completed>(service.complete(command))
+            assertEquals(AttendancePeriodSettings(20), settings.observe().first().attendancePeriod)
+        } finally {
+            db.close()
+            folder.toFile().deleteRecursively()
+        }
+    }
+
+    @Test
     fun invalid_setup_does_not_create_partial_state_and_google_is_not_required() = runTest {
         val folder = Files.createTempDirectory("daymark-invalid-setup-")
         val db = openJvmDatabase(folder.resolve("app.db").toString())
@@ -319,6 +360,7 @@ class SetupPersistenceTest {
             )
             assertIs<SetupResult.Invalid>(service.complete(command.copy(displayName = "  ")))
             assertIs<SetupResult.Invalid>(service.complete(command.copy(openingBalance = -1)))
+            assertIs<SetupResult.Invalid>(service.complete(command.copy(attendanceClosingDay = 32)))
             assertIs<SetupResult.Invalid>(
                 service.complete(
                     command.copy(

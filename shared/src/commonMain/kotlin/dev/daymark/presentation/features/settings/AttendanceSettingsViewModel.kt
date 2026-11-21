@@ -10,6 +10,7 @@ import dev.daymark.location.PlaceAddressRequest
 import dev.daymark.logging.AppLogger
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.plan.PlanChange
+import dev.daymark.models.plan.PlanReviewToken
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.presentation.component.placeAddressStates
 import dev.daymark.presentation.component.registrationIssue
@@ -95,12 +96,12 @@ class AttendanceSettingsViewModel(
         state.update { it.copy(preview = preview, result = null) }
     }
 
-    fun confirm(expectedRevision: Long) = launchAction {
+    fun confirm(review: PlanReviewToken) = launchAction {
         val command = pendingPlan
         val shown = state.value.preview
         val result =
-            if (command == null || shown == null || shown.expectedRevision != expectedRevision) PlanMutationResult.StalePreview
-            else repository.plans.applyChange(command, expectedRevision)
+            if (command == null || shown == null || shown.reviewToken != review) PlanMutationResult.StalePreview
+            else repository.plans.applyChange(command, review)
         pendingPlan = null
         state.update { it.copy(result = result, preview = null) }
         if (result == PlanMutationResult.Applied) {

@@ -1,6 +1,9 @@
 package dev.daymark.data.local.plan
 
 import dev.daymark.models.attendance.HistoryRecord
+import dev.daymark.plan.TimeOffKind
+import dev.daymark.plan.dates
+import dev.daymark.plan.timeOffOn
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Instant
 import kotlinx.coroutines.currentCoroutineContext
@@ -31,6 +34,18 @@ internal suspend fun PlanningStore.historyRecords(
         date = date.plus(1, DateTimeUnit.DAY)
     }
     return records
+}
+
+internal fun PlanningStore.earlierVacationDates(from: LocalDate, through: LocalDate): List<LocalDate> {
+    if (from >= firstDate) return emptyList()
+    val end = minOf(through, today, firstDate.plus(-1, DateTimeUnit.DAY))
+    return entries.asSequence()
+        .filter { it.kind == TimeOffKind.VACATION && it.through >= from && it.from <= end }
+        .flatMap { dates(maxOf(from, it.from), minOf(end, it.through)) }
+        .distinct()
+        .filter { timeOffOn(entries, it) == TimeOffKind.VACATION }
+        .sorted()
+        .toList()
 }
 
 internal fun PlanningStore.nextHistoryBoundary(records: List<HistoryRecord>): Instant {

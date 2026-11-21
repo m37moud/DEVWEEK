@@ -4,8 +4,10 @@ import dev.daymark.data.local.DatabaseTransactions
 import dev.daymark.data.local.dao.ProfileDao
 import dev.daymark.data.local.plan.PlanningSnapshotReader
 import dev.daymark.data.local.plan.PlanningStore
+import dev.daymark.data.local.plan.earlierVacationDates
 import dev.daymark.data.local.plan.historyRecords
 import dev.daymark.data.local.plan.nextHistoryBoundary
+import dev.daymark.history.AttendancePeriod
 import dev.daymark.history.historyMetrics
 import dev.daymark.logging.AppLogger
 import dev.daymark.models.attendance.HistoryRecord
@@ -46,10 +48,9 @@ class TodayDashboardReader(
                     emit(TodayDashboard(ready = true))
                     break
                 }
-                val from = LocalDate(state.today.year, state.today.month, 1)
-                val through = from.plus(1, DateTimeUnit.MONTH).plus(-1, DateTimeUnit.DAY)
-                val records = state.historyRecords(from, through)
-                emit(dashboard(state, records))
+                val period = state.periodSettings.periodFor(state.today)
+                val records = state.historyRecords(period.from, period.through)
+                emit(dashboard(state, period, records, state.earlierVacationDates(period.from, period.through)))
                 delay((state.nextHistoryBoundary(records) - clock.now()).coerceAtLeast(1.milliseconds))
                 AppLogger.d("TodayDashboardReader", "Calendar boundary reached")
             }
@@ -60,15 +61,21 @@ class TodayDashboardReader(
         emit(TodayDashboard(ready = true, failed = true))
     }
 
-    private fun dashboard(state: PlanningStore, records: List<HistoryRecord>): TodayDashboard {
+    private fun dashboard(
+        state: PlanningStore,
+        period: AttendancePeriod,
+        records: List<HistoryRecord>,
+        earlierVacationDates: List<LocalDate>
+    ): TodayDashboard {
         val plan = state.plan(state.today)
         val place =
             state.versions.firstOrNull { it.version == plan.scheduleVersion }?.placeName.orEmpty()
         return TodayDashboard(
             ready = true,
             date = state.today,
+            period = period,
             placeName = place,
-            metrics = historyMetrics(records, state.today),
+            metrics = historyMetrics(records, state.today, earlierVacationDates),
             week = week(state),
             nextAttendance = nextAttendance(state)
         )

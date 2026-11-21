@@ -48,6 +48,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.daymark.history.AttendancePeriod
+import dev.daymark.history.AttendancePeriodSettings
 import dev.daymark.models.attendance.AttendanceEvidence
 import dev.daymark.models.attendance.AttendanceSource
 import dev.daymark.models.attendance.AttendanceStatus
@@ -79,8 +81,7 @@ import kotlin.time.Instant
 
 @Composable
 internal fun HistoryCalendarCard(
-    year: Int,
-    month: Int,
+    period: AttendancePeriod,
     records: List<HistoryRecord>,
     today: LocalDate,
     selected: LocalDate?,
@@ -130,11 +131,9 @@ internal fun HistoryCalendarCard(
 
             // Directional animated calendar grid
             AnimatedContent(
-                targetState = Pair(year, month),
+                targetState = period,
                 transitionSpec = {
-                    val targetDate = LocalDate(targetState.first, targetState.second, 1)
-                    val initialDate = LocalDate(initialState.first, initialState.second, 1)
-                    if (targetDate > initialDate) {
+                    if (targetState.month > initialState.month) {
                         (slideInHorizontally { width -> width } + fadeIn()).togetherWith(
                             slideOutHorizontally { width -> -width } + fadeOut()
                         )
@@ -145,8 +144,8 @@ internal fun HistoryCalendarCard(
                     }
                 },
                 label = "calendarMonthTransition"
-            ) { (gridYear, gridMonth) ->
-                val weeks = remember(gridYear, gridMonth) { calendarWeeks(gridYear, gridMonth) }
+            ) { displayedPeriod ->
+                val weeks = remember(displayedPeriod) { calendarWeeks(displayedPeriod.from, displayedPeriod.through) }
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -426,8 +425,7 @@ private fun HistoryCalendarCardPreview() {
 
     DaymarkTheme(ThemePreference.LIGHT) {
         HistoryCalendarCard(
-            year = 2026,
-            month = 11,
+            period = AttendancePeriodSettings(20).period(LocalDate(2026, 11, 1)),
             records = sampleRecords,
             today = sampleDate,
             selected = sampleDate,
@@ -442,8 +440,7 @@ private fun HistoryCalendarCardDarkPreview() {
     val sampleDate = LocalDate(2026, 11, 7)
     DaymarkTheme(ThemePreference.DARK) {
         HistoryCalendarCard(
-            year = 2026,
-            month = 11,
+            period = AttendancePeriodSettings(20).period(LocalDate(2026, 11, 1)),
             records = emptyList(),
             today = sampleDate,
             selected = null,

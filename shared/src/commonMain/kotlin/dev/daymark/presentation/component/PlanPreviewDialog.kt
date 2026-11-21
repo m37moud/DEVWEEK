@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.plan.PlanRejection
+import dev.daymark.models.plan.PlanReviewToken
 import dev.daymark.models.plan.TimeOffPreview
 import dev.daymark.presentation.component.label
 import dev.daymark.resources.Res
@@ -33,9 +34,13 @@ import dev.daymark.resources.preview_before
 import dev.daymark.resources.preview_evidence
 import dev.daymark.resources.preview_no_dates
 import dev.daymark.resources.preview_title
+import dev.daymark.resources.time_off_before_tracking
 import dev.daymark.resources.save
+import dev.daymark.resources.vacation_balance_before_renewal
+import dev.daymark.resources.vacation_balance_year
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LocalAppLanguage
+import dev.daymark.settings.isolated
 import dev.daymark.settings.str
 
 @Composable
@@ -43,7 +48,7 @@ internal fun PlanPreviewDialog(
     preview: TimeOffPreview,
     category: TrackerCategory?,
     busy: Boolean,
-    onConfirm: (Long) -> Unit,
+    onConfirm: (PlanReviewToken) -> Unit,
     onDismiss: () -> Unit
 ) {
     val language = LocalAppLanguage.current
@@ -82,32 +87,20 @@ internal fun PlanPreviewDialog(
                     }
                 }
 
-                val balanceKnown = preview.rejection == null ||
-                        preview.rejection == PlanRejection.INSUFFICIENT_BALANCE
-                if (balanceKnown && (category == TrackerCategory.WORK || preview.balanceDelta != 0 ||
-                            preview.changes.any { it.category == TrackerCategory.WORK })
-                ) {
+                if (preview.balancePeriods.isNotEmpty()) {
+                    items(preview.balancePeriods) { period ->
+                        val title = period.year?.let { year ->
+                            str(Res.string.vacation_balance_year, isolated(DisplayFormats.number(year, language)))
+                        } ?: str(Res.string.vacation_balance_before_renewal)
+                        BalancePreview(period.delta, period.remainingDays, title)
+                    }
+                } else if (showsLegacyBalance(preview, category)) {
                     item {
-                        Surface(
-                            shape = MaterialTheme.shapes.small,
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = str(
-                                    Res.string.preview_balance,
-                                    DisplayFormats.number(preview.balanceDelta, language),
-                                    DisplayFormats.number(preview.availableAfter, language)
-                                ),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(12.dp)
-                            )
-                        }
+                        BalancePreview(preview.balanceDelta, preview.availableAfter)
                     }
                 }
 
-                if (preview.rejection != null) {
+                preview.rejection?.let { rejection ->
                     item {
                         Surface(
                             shape = MaterialTheme.shapes.small,
@@ -115,12 +108,22 @@ internal fun PlanPreviewDialog(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = str(preview.rejection.message()),
+                                text = preview.shortfallYear?.let { insufficientVacationYearMessage(it) }
+                                    ?: str(rejection.message()),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                                 modifier = Modifier.padding(12.dp)
                             )
                         }
+                    }
+                }
+
+                if (preview.preTrackingDates.isNotEmpty()) {
+                    item {
+                        Text(str(Res.string.time_off_before_tracking), style = MaterialTheme.typography.bodyMedium)
+                    }
+                    items(preview.preTrackingDates) { date ->
+                        Text(DisplayFormats.date(date, language), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
 
@@ -188,7 +191,7 @@ internal fun PlanPreviewDialog(
                     }
                 }
 
-                if (preview.affectedDays.isEmpty() && preview.rejection == null) {
+                if (preview.affectedDays.isEmpty() && preview.preTrackingDates.isEmpty() && preview.rejection == null) {
                     item {
                         Text(
                             text = str(Res.string.preview_no_dates),
@@ -204,7 +207,7 @@ internal fun PlanPreviewDialog(
             Button(
                 enabled = !busy && preview.rejection == null,
                 modifier = Modifier.testTag("preview-confirm"),
-                onClick = { onConfirm(preview.expectedRevision) }
+                onClick = { onConfirm(preview.reviewToken) }
             ) {
                 Text(str(Res.string.save))
             }
@@ -219,4 +222,33 @@ internal fun PlanPreviewDialog(
             }
         }
     )
+}
+
+private fun showsLegacyBalance(preview: TimeOffPreview, category: TrackerCategory?): Boolean {
+    val balanceKnown = preview.rejection == null || preview.rejection == PlanRejection.INSUFFICIENT_BALANCE
+    return balanceKnown && (category == TrackerCategory.WORK || preview.balanceDelta != 0 ||
+            preview.changes.any { it.category == TrackerCategory.WORK })
+}
+
+@Composable
+private fun BalancePreview(delta: Int, remainingDays: Int, title: String? = null) {
+    val language = LocalAppLanguage.current
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            title?.let { Text(it, style = MaterialTheme.typography.titleSmall) }
+            Text(
+                text = str(
+                    Res.string.preview_balance,
+                    DisplayFormats.number(delta, language),
+                    DisplayFormats.number(remainingDays, language)
+                ),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
 }

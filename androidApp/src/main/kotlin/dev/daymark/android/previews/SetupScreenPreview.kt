@@ -19,6 +19,7 @@ import dev.daymark.presentation.features.setup.SetupIssue
 import dev.daymark.presentation.features.setup.SetupStepContent
 import dev.daymark.presentation.features.setup.SetupUiState
 import dev.daymark.presentation.features.setup.component.SetupActions
+import dev.daymark.history.VacationYearBasis
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.LanguagePreference
 import dev.daymark.settings.LocalAppLanguage
@@ -87,6 +88,21 @@ private fun SetupScreenNarrowLargeTextPreview() {
             ) {}
         }
     }
+}
+
+@Preview(name = "Attendance period")
+@Preview(name = "Attendance period large text", widthDp = 320, fontScale = 2f)
+@Composable
+private fun SetupAttendancePeriodPreview() {
+    SetupActionsPreview(
+        ThemePreference.LIGHT,
+        AppLanguage.EN,
+        SetupDraft(
+            step = SetupStep.ATTENDANCE_PERIOD,
+            attendanceClosingDay = 20,
+            vacationYearBasis = VacationYearBasis.ATTENDANCE_PERIOD
+        )
+    )
 }
 
 @Preview(name = "Preferences light")
@@ -160,7 +176,7 @@ private val reviewPreviewDraft = SetupDraft(
         arrival = LocalTime(9, 0),
         overrides = mapOf(DayOfWeek.FRIDAY to LocalTime(8, 30)),
         graceMinutes = 5,
-        zoneId = "UTC",
+        zoneId = "Africa/Cairo",
         departure = LocalTime(17, 0),
         departureOverrides = mapOf(DayOfWeek.THURSDAY to LocalTime(16, 0))
     ),

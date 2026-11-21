@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
@@ -18,11 +19,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.plan.PlanChange
-import dev.daymark.models.plan.PlanState
 import dev.daymark.models.plan.PlanMutationResult
+import dev.daymark.models.plan.PlanRejection
+import dev.daymark.models.plan.PlanState
 import dev.daymark.models.plan.TimeOffCommand
 import dev.daymark.models.plan.TimeOffPreview
-import dev.daymark.models.plan.PlanRejection
+import dev.daymark.models.plan.VacationBalancePeriodChange
 import dev.daymark.models.plan.VacationBalanceSummary
 import dev.daymark.plan.TimeOffKind
 import dev.daymark.plan.WeeklySchedule
@@ -38,6 +40,7 @@ import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.ThemePreference
 import dev.daymark.settings.WithPlatformLocale
 import dev.daymark.settings.applyAppLocale
+import dev.daymark.settings.isolated
 import dev.daymark.ui.theme.DaymarkTheme
 import java.util.Locale
 import kotlin.time.Clock
@@ -204,15 +207,52 @@ class PlanEditingTest {
     }
 
     @Test
-    fun preTrackingPreviewExplainsTheDateCutoff() {
+    fun crossYearReviewShowsEachBalanceAndNamesTheShortYear() {
+        val review = TimeOffPreview(
+            1, emptyList(), emptyList(), -3, 9, PlanRejection.INSUFFICIENT_BALANCE,
+            balancePeriods = listOf(
+                VacationBalancePeriodChange(2027, -1, 9),
+                VacationBalancePeriodChange(2028, -2, -1)
+            ),
+            shortfallYear = 2028
+        )
+        showPlan(sampleState().copy(timeOffPreview = review))
+        compose.onNodeWithText("Vacation balance · ${isolated("2027")}").assertIsDisplayed()
+        compose.onNodeWithText("Vacation balance · ${isolated("2028")}").assertIsDisplayed()
+        compose.onNodeWithText("Balance change · -1 days. Available after · 9 days.").assertIsDisplayed()
+        compose.onNodeWithText("Balance change · -2 days. Available after · -1 days.").assertIsDisplayed()
+        compose.onNodeWithText("There are not enough vacation days in ${isolated("2028")} for this change.")
+            .assertIsDisplayed()
+        compose.onNodeWithTag("preview-confirm").assertIsNotEnabled()
+    }
+
+    @Test
+    fun balanceEditorClosesWhenTheYearChanges() {
+        var state by mutableStateOf(
+            TodayVacationBalanceUiState(summary = VacationBalanceSummary(10, 0, 10, year = 2027))
+        )
+        showBalance({ state }) { _, _ -> error("Unexpected balance save") }
+        compose.onNodeWithText("Vacation balance · ${isolated("2027")}").assertIsDisplayed()
+        compose.onNodeWithText("Adjust available balance").performClick()
+        compose.onNodeWithText("Adjust available balance · ${isolated("2027")}").assertIsDisplayed()
+        compose.runOnIdle {
+            state = state.copy(summary = VacationBalanceSummary(10, 0, 10, year = 2028))
+        }
+        compose.onNodeWithText("Vacation balance · ${isolated("2028")}").assertIsDisplayed()
+        compose.onNodeWithText("Adjustment note (optional)").assertDoesNotExist()
+    }
+
+    @Test
+    fun preTrackingPreviewExplainsTheImpact() {
         showPlan(
             sampleState().copy(
                 timeOffPreview = TimeOffPreview(
-                    1, emptyList(), emptyList(), 0, 10, PlanRejection.OUTSIDE_TRACKED_PERIOD
+                    1, emptyList(), emptyList(), -1, 9, null,
+                    preTrackingDates = listOf(LocalDate(2026, 11, 19))
                 )
             )
         )
-        compose.onNodeWithText("This date range starts before you began tracking attendance.")
+        compose.onNodeWithText("Dates before tracking began only affect time off and the Work vacation balance.")
             .assertIsDisplayed()
     }
 

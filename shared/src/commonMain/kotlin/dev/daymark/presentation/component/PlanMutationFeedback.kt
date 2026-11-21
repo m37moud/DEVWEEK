@@ -14,30 +14,37 @@ import androidx.compose.ui.unit.dp
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.plan.PlanRejection
 import dev.daymark.resources.Res
-import dev.daymark.resources.plan_storage_failed
 import dev.daymark.resources.plan_insufficient
+import dev.daymark.resources.plan_insufficient_year
 import dev.daymark.resources.plan_invalid
 import dev.daymark.resources.plan_saved
 import dev.daymark.resources.plan_stale
-import dev.daymark.resources.time_off_before_tracking
+import dev.daymark.resources.plan_storage_failed
+import dev.daymark.settings.DisplayFormats
+import dev.daymark.settings.LocalAppLanguage
+import dev.daymark.settings.isolated
 import dev.daymark.settings.str
 
 internal fun PlanRejection.message() = when (this) {
-    PlanRejection.OUTSIDE_TRACKED_PERIOD -> Res.string.time_off_before_tracking
     PlanRejection.INSUFFICIENT_BALANCE -> Res.string.plan_insufficient
     PlanRejection.LOCAL_SAVE_FAILED -> Res.string.plan_storage_failed
     PlanRejection.INVALID_RANGE, PlanRejection.INVALID_VALUE -> Res.string.plan_invalid
 }
 
 @Composable
+internal fun insufficientVacationYearMessage(year: Int): String =
+    str(Res.string.plan_insufficient_year, isolated(DisplayFormats.number(year, LocalAppLanguage.current)))
+
+@Composable
 internal fun PlanMutationFeedback(mutation: PlanMutationResult?) {
     val message = when (mutation) {
         null -> return
-        PlanMutationResult.Applied -> Res.string.plan_saved
-        PlanMutationResult.StalePreview -> Res.string.plan_stale
-        PlanMutationResult.InsufficientBalance -> Res.string.plan_insufficient
-        PlanMutationResult.LocalSaveFailed -> Res.string.plan_storage_failed
-        is PlanMutationResult.Invalid -> mutation.reason.message()
+        PlanMutationResult.Applied -> str(Res.string.plan_saved)
+        PlanMutationResult.StalePreview -> str(Res.string.plan_stale)
+        PlanMutationResult.InsufficientBalance -> str(Res.string.plan_insufficient)
+        is PlanMutationResult.InsufficientYear -> insufficientVacationYearMessage(mutation.year)
+        PlanMutationResult.LocalSaveFailed -> str(Res.string.plan_storage_failed)
+        is PlanMutationResult.Invalid -> str(mutation.reason.message())
     }
     val saved = mutation == PlanMutationResult.Applied
     val colors = MaterialTheme.colorScheme
@@ -47,6 +54,6 @@ internal fun PlanMutationFeedback(mutation: PlanMutationResult?) {
         color = if (saved) colors.primaryContainer else colors.errorContainer,
         contentColor = if (saved) colors.onPrimaryContainer else colors.onErrorContainer
     ) {
-        Text(str(message), modifier = Modifier.padding(12.dp))
+        Text(message, modifier = Modifier.padding(12.dp))
     }
 }

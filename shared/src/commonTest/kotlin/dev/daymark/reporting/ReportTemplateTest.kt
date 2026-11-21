@@ -87,6 +87,31 @@ class ReportTemplateTest {
     }
 
     @Test
+    fun attendance_periods_tab_is_added_to_an_existing_report_with_stable_ownership() = runTest {
+        val existing = """{"sheets":[{"properties":{"sheetId":4,"title":"Overview","gridProperties":{"rowCount":100,"columnCount":3}},"developerMetadata":[{"metadataKey":"daymarkOwner","metadataValue":"tracker|Overview|1"}]}]}"""
+        HttpClient(MockEngine { request ->
+            if (request.method == HttpMethod.Get) {
+                respond(existing, headers = headersOf(HttpHeaders.ContentType, "application/json"))
+            } else {
+                val replies = Json.parseToJsonElement(request.body.toByteArray().decodeToString())
+                    .jsonObject.getValue("requests").jsonArray
+                val added = replies.mapNotNull { it.jsonObject["addSheet"]?.jsonObject }
+                    .map { it.getValue("properties").jsonObject.getValue("title").jsonPrimitive.content }
+                assertEquals(setOf("Attendance periods", "Time off"), added.toSet())
+                assertTrue(replies.toString().contains("tracker|Attendance periods|1"))
+                respond("{}", headers = headersOf(HttpHeaders.ContentType, "application/json"))
+            }
+        }).use { client ->
+            val upgraded = GoogleReportTransport(client).prepareTemplate(
+                RemoteReport("r", mapOf("Overview" to 4), 1, requiredRows = mapOf("Attendance periods" to 4), repairHeaders = true),
+                "tracker", "UTC", emptySet(), "token"
+            )
+            assertEquals(4, upgraded.tabIds["Overview"])
+            assertTrue("Attendance periods" in upgraded.tabIds)
+        }
+    }
+
+    @Test
     fun stable_id_reads_match_filters_instead_of_response_order() = runTest {
         HttpClient(MockEngine { request ->
             assertTrue(request.url.encodedPath.endsWith("values:batchGetByDataFilter"))

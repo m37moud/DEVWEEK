@@ -88,8 +88,10 @@ class SyncCoordinator(
                 access
             )
             val refreshed = binding.copy(
-                annualTabIds = prepared.tabIds.filterKeys { it.startsWith("Attendance ") }
-                    .mapKeys { it.key.removePrefix("Attendance ").toInt() },
+                annualTabIds = prepared.tabIds.mapNotNull { (title, id) ->
+                    title.takeIf { it.startsWith("Attendance ") }?.removePrefix("Attendance ")
+                        ?.toIntOrNull()?.let { it to id }
+                }.toMap(),
                 managedTabIds = prepared.tabIds
             )
             if (!store.updateBinding(refreshed)) return@withLock SyncPassResult.StaleBinding

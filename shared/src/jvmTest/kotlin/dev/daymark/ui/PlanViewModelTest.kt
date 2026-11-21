@@ -139,7 +139,7 @@ class PlanViewModelTest {
             )
             val preview = model.uiState.first { !it.busy && it.preview != null }.preview!!
             assertEquals(LocalDate(2026, 10, 28), preview.effectiveFrom)
-            model.confirm(preview.expectedRevision)
+            model.confirm(preview.reviewToken)
             model.uiState.first { !it.busy && it.result == PlanMutationResult.Applied }
             assertEquals(at("09:00:00"), repo.loadCurrentDay(clock.now())!!.plan.arrival)
             val reader =
@@ -160,7 +160,7 @@ class PlanViewModelTest {
             val stale = model.uiState.first { !it.busy && it.preview != null }.preview!!
             off.setAvailableBalance(11, null)
             val before = db.profileDao().tracker()!!.changeRevision
-            model.confirm(stale.expectedRevision)
+            model.confirm(stale.reviewToken)
             model.uiState.first { !it.busy && it.result == PlanMutationResult.StalePreview }
             assertEquals(before, db.profileDao().tracker()!!.changeRevision)
             model.edit { it.copy(schedule = it.schedule.copy(days = emptySet())) }
@@ -241,7 +241,7 @@ class PlanViewModelTest {
             )
             val added = model.uiState.first { it.timeOffPreview != null }.timeOffPreview!!
             assertEquals(-2, added.balanceDelta); assertEquals(8, added.availableAfter)
-            model.confirmTimeOff(added.expectedRevision)
+            model.confirmTimeOff(added.reviewToken)
             val entry = model.uiState.first { !it.busy && it.entries.isNotEmpty() }.entries.single()
             model.previewTimeOff(
                 TimeOffCommand.Replace(
@@ -255,13 +255,13 @@ class PlanViewModelTest {
                 model.uiState.first { !it.busy && it.timeOffPreview != null }.timeOffPreview!!
             assertEquals(1, replaced.balanceDelta)
             assertEquals(AttendanceStatus.ABSENT, replaced.resultingOutcomes.first().status)
-            model.confirmTimeOff(replaced.expectedRevision)
+            model.confirmTimeOff(replaced.reviewToken)
             model.uiState.first { !it.busy && it.result == PlanMutationResult.Applied }
             model.previewTimeOff(TimeOffCommand.Remove(entry.id))
             val removed =
                 model.uiState.first { !it.busy && it.timeOffPreview != null }.timeOffPreview!!
             assertEquals(1, removed.balanceDelta); assertEquals(10, removed.availableAfter)
-            model.confirmTimeOff(removed.expectedRevision)
+            model.confirmTimeOff(removed.reviewToken)
             model.uiState.first { !it.busy && it.entries.isEmpty() }
             assertEquals(
                 10,

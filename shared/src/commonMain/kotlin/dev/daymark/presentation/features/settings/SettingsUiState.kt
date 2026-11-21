@@ -1,6 +1,9 @@
 package dev.daymark.presentation.features.settings
 
 import dev.daymark.location.LocationCapabilities
+import dev.daymark.models.plan.AnnualVacationSettings
+import dev.daymark.models.plan.AttendancePeriodReview
+import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.reporting.ReportHealth
 import dev.daymark.models.settings.AppSettings
 
@@ -25,5 +28,14 @@ data class SettingsUiState(
     val reportActionFailed: Boolean = false,
     val deleting: Boolean = false,
     val deletionFailed: Boolean = false,
-    val storageError: Boolean = false
+    val storageError: Boolean = false,
+    val annualVacation: AnnualVacationSettingsUiState = AnnualVacationSettingsUiState(),
+    val periodReview: AttendancePeriodReview? = null,
+    val periodSaveResult: PlanMutationResult? = null
+)
+
+data class AnnualVacationSettingsUiState(
+    val configuration: AnnualVacationSettings? = null,
+    val loadFailed: Boolean = false,
+    val saveResult: PlanMutationResult? = null
 )

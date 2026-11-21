@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.daymark.models.plan.PlanChange
+import dev.daymark.models.plan.PlanReviewToken
 import dev.daymark.presentation.component.ArrivalTimeDialog
 import dev.daymark.presentation.component.PlanMutationFeedback
 import dev.daymark.presentation.component.PlanPreviewDialog
@@ -35,7 +36,7 @@ import kotlinx.datetime.DayOfWeek
 data class AttendanceSettingsActions(
     val edit: ((PlanChange) -> PlanChange) -> Unit,
     val preview: (PlanChange) -> Unit,
-    val confirm: (Long) -> Unit,
+    val confirm: (PlanReviewToken) -> Unit,
     val cancelPreview: () -> Unit,
     val registerCurrentPlace: () -> Unit,
     val openLocationSettings: () -> Unit

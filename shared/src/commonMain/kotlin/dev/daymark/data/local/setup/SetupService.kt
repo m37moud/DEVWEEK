@@ -14,7 +14,11 @@ import dev.daymark.data.local.dao.ProfileDao
 import dev.daymark.data.local.decodeSchedule
 import dev.daymark.data.local.encodeSchedule
 import dev.daymark.data.local.markDirty
+import dev.daymark.data.local.settings.ATTENDANCE_PERIOD_KEY
 import dev.daymark.data.local.settings.SettingsRepository
+import dev.daymark.data.local.settings.storedValue
+import dev.daymark.history.AttendancePeriodSettings
+import dev.daymark.history.VacationYearBasis
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.setup.SetupCommand
@@ -94,6 +98,8 @@ class SetupService(
 
     override suspend fun complete(command: SetupCommand): SetupResult {
         if (command.displayName.isBlank() || dev.daymark.reporting.exceedsReportTextLimit(command.displayName) || command.placeName.isBlank() || command.openingBalance < 0) return SetupResult.Invalid
+        val closingDay = command.attendanceClosingDay
+        if (closingDay != null && closingDay !in 1..31) return SetupResult.Invalid
         val now = clock.now()
         val id = Uuid.random().toString()
         val first = command.schedule.firstSetupArrival(now, command.category, command.place)
@@ -119,6 +125,7 @@ class SetupService(
                     )
                 )
                 settings.update(displayName = command.displayName)
+                saveAttendancePeriod(command)
                 profileDao.deleteSetting("setup-draft")
                 profileDao.deleteSetting("setup-session")
                 dirtyProjectionDao.markDirty(id, "OVERVIEW")
@@ -135,6 +142,14 @@ class SetupService(
             SetupResult.LocalSaveFailed
         }
     }
+
+    private suspend fun saveAttendancePeriod(command: SetupCommand) {
+        val basis = if (command.category == TrackerCategory.WORK) command.vacationYearBasis
+        else VacationYearBasis.CALENDAR
+        val period = AttendancePeriodSettings(command.attendanceClosingDay, basis)
+        if (period == AttendancePeriodSettings()) profileDao.deleteSetting(ATTENDANCE_PERIOD_KEY)
+        else profileDao.putSetting(SettingEntity(ATTENDANCE_PERIOD_KEY, period.storedValue()))
+    }
 }
 
 private fun readDraft(text: String): SetupDraftLoad = try {
@@ -149,6 +164,8 @@ private fun readDraft(text: String): SetupDraftLoad = try {
 
 private fun encodeDraft(draft: SetupDraft): String = buildJsonObject {
     put("step", draft.step.name)
+    draft.attendanceClosingDay?.let { put("attendanceClosingDay", it) }
+    put("vacationYearBasis", draft.vacationYearBasis.name)
     put("displayName", draft.displayName); put(
     "placeName",
     draft.placeName
@@ -183,6 +200,12 @@ private fun decodeDraft(text: String): SetupDraft {
         json["schedule"]?.jsonPrimitive?.content?.let(::decodeSchedule),
         json["openingBalanceText"]?.jsonPrimitive?.content ?: "0",
         SetupStep.entries.firstOrNull { it.name == json["step"]?.jsonPrimitive?.content }
-            ?: SetupStep.PROFILE
+            ?: SetupStep.PROFILE,
+        attendanceClosingDay = json["attendanceClosingDay"]?.jsonPrimitive?.int?.also {
+            require(it in 1..31)
+        },
+        vacationYearBasis = VacationYearBasis.entries.firstOrNull {
+            it.name == json["vacationYearBasis"]?.jsonPrimitive?.content
+        } ?: VacationYearBasis.CALENDAR
     )
 }

@@ -23,5 +23,7 @@ data class HistoryDetailUiState(
         get() = range.records.filter {
             metric.includes(it) && it.plan.key.date <= range.today
         }.sortedByDescending { it.plan.key.date }
-    val metrics get() = historyMetrics(range.records, range.today)
+    val earlierVacationDates
+        get() = if (metric == HistoryMetric.LEAVE_REST) range.earlierVacationDates.asReversed() else emptyList()
+    val metrics get() = historyMetrics(range.records, range.today, range.earlierVacationDates)
 }

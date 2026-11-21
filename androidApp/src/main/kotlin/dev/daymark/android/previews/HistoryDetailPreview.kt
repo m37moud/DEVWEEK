@@ -17,16 +17,39 @@ import kotlinx.datetime.LocalDate
 import kotlin.time.Instant
 
 
+@Preview(name = "Leave before tracking")
+@Composable
+private fun HistoryEarlierVacationPreview() {
+    val from = LocalDate(2026, 11, 1)
+    DaymarkTheme(ThemePreference.LIGHT) {
+        HistoryDetailContent(
+            state = HistoryDetailUiState(
+                metric = HistoryMetric.LEAVE_REST,
+                from = from,
+                through = LocalDate(2026, 11, 30),
+                range = HistoryRange(
+                    records = emptyList(),
+                    firstDate = LocalDate(2026, 11, 21),
+                    today = LocalDate(2026, 11, 21),
+                    earlierVacationDates = listOf(LocalDate(2026, 11, 19))
+                ),
+                ready = true
+            ),
+            actions = HistoryDetailActions({}, { _, _ -> }, {}, {}, {})
+        )
+    }
+}
+
 @Preview
 @Composable
 private fun HistoryHolidayDetailPreview() {
-    val from = LocalDate(year = 2026, month = 11, day = 1)
+    val from = LocalDate(2026, 10, 21)
     DaymarkTheme(ThemePreference.LIGHT) {
         HistoryDetailContent(
             state = HistoryDetailUiState(
                 metric = HistoryMetric.HOLIDAY,
                 from = from,
-                through = LocalDate(2026, 11, 30),
+                through = LocalDate(2026, 11, 20),
                 range = HistoryRange(
                     records = listOf(
                         previewLateRecord().copy(

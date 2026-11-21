@@ -11,12 +11,14 @@ import dev.daymark.data.local.plan.TimeOffService
 import dev.daymark.data.seedDatabase
 import dev.daymark.data.testCommit
 import dev.daymark.fixtureDate
+import dev.daymark.history.HistoryMetric
 import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.plan.TimeOffCommand
 import dev.daymark.plan.TimeOffKind
 import dev.daymark.presentation.component.calendarWeeks
 import dev.daymark.presentation.features.history.HistoryViewModel
+import dev.daymark.presentation.features.historydetail.HistoryDetailUiState
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -28,6 +30,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.plus
+import kotlinx.datetime.minus
 import kotlinx.datetime.toLocalDateTime
 
 class TodayDashboardTest {
@@ -99,9 +102,26 @@ class TodayDashboardTest {
                 val command = TimeOffCommand.Add(TimeOffKind.HOLIDAY, fixtureDate, fixtureDate)
                 assertEquals(
                     PlanMutationResult.Applied,
-                    service.apply(command, service.preview(command).expectedRevision)
+                    service.apply(command, service.preview(command).reviewToken)
                 )
+                val earlier = fixtureDate.minus(1, DateTimeUnit.DAY)
+                val covered = earlier.minus(1, DateTimeUnit.DAY)
+                val earlierCommands = listOf(
+                    TimeOffCommand.Add(TimeOffKind.VACATION, covered, earlier),
+                    TimeOffCommand.Add(TimeOffKind.VACATION, earlier, earlier),
+                    TimeOffCommand.Add(TimeOffKind.HOLIDAY, covered, covered)
+                )
+                for (leave in earlierCommands) {
+                    assertEquals(PlanMutationResult.Applied, service.apply(leave, service.preview(leave).reviewToken))
+                }
                 val off = reader.observe().first { it.ready }
+                assertEquals(1, off.metrics.leaveRest)
+                val range = repo.observeRange(covered, fixtureDate).first()
+                val detail = HistoryDetailUiState(HistoryMetric.LEAVE_REST, covered, fixtureDate, range)
+                assertEquals(listOf(earlier), detail.earlierVacationDates)
+                assertEquals(off.metrics.leaveRest, detail.metrics.leaveRest)
+                assertEquals(fixtureDate, range.firstDate)
+                assertTrue(range.records.none { it.plan.key.date < fixtureDate })
                 assertEquals(0, off.metrics.attendance)
                 assertEquals(fixtureDate.plus(1, DateTimeUnit.DAY), off.nextAttendance?.key?.date)
                 assertEquals(

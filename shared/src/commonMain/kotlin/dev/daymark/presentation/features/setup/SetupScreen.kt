@@ -39,6 +39,10 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 import dev.daymark.app.HostPlatform
 import dev.daymark.app.SetupStep
 import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.history.AttendancePeriodSettings
+import dev.daymark.presentation.component.AttendancePeriodEditor
+import dev.daymark.presentation.component.AttendancePeriodEditorState
+import dev.daymark.resources.attendance_period_vacation_work_only
 import dev.daymark.presentation.features.settings.component.SettingsPreferencesCard
 import dev.daymark.presentation.features.setup.component.OnboardingProgress
 import dev.daymark.presentation.features.setup.component.OnboardingStep
@@ -52,6 +56,7 @@ import dev.daymark.presentation.features.setup.component.SetupSchedule
 import dev.daymark.presentation.features.setup.component.SetupStepActions
 import dev.daymark.presentation.features.setup.component.SetupWelcome
 import dev.daymark.resources.Res
+import dev.daymark.resources.attendance_period
 import dev.daymark.resources.onboarding_place
 import dev.daymark.resources.onboarding_preferences
 import dev.daymark.resources.onboarding_profile
@@ -224,6 +229,7 @@ fun SetupStepContent(
 ) {
     when (step) {
         SetupStep.WELCOME -> SetupWelcome()
+
         SetupStep.PREFERENCE -> SettingsPreferencesCard(
             languagePreference = state.preferences.language,
             themePreference = state.preferences.theme,
@@ -233,6 +239,25 @@ fun SetupStepContent(
         )
 
         SetupStep.PROFILE -> SetupProfile(state = state, onDraftChange = actions.updateDraft)
+        SetupStep.ATTENDANCE_PERIOD -> {
+            AttendancePeriodEditor(
+                state = AttendancePeriodEditorState(
+                    rule = AttendancePeriodSettings(state.draft.attendanceClosingDay, state.draft.vacationYearBasis),
+                    enabled = !state.interactionBusy,
+                    showVacationYear = true
+                ),
+                onChange = { rule ->
+                    actions.updateDraft(
+                        state.draft.copy(
+                            attendanceClosingDay = rule.closingDay,
+                            vacationYearBasis = rule.vacationYearBasis
+                        )
+                    )
+                }
+            )
+            Text(str(Res.string.attendance_period_vacation_work_only), style = MaterialTheme.typography.bodySmall)
+        }
+
         SetupStep.PLACE -> SetupPlace(state = state, actions = actions)
         SetupStep.SCHEDULE -> {
             state.draft.schedule?.let { schedule ->
@@ -255,6 +280,7 @@ internal fun SetupStep.title() = when (this) {
     SetupStep.WELCOME -> Res.string.onboarding_welcome
     SetupStep.PREFERENCE -> Res.string.onboarding_preferences
     SetupStep.PROFILE -> Res.string.onboarding_profile
+    SetupStep.ATTENDANCE_PERIOD -> Res.string.attendance_period
     SetupStep.PLACE -> Res.string.onboarding_place
     SetupStep.SCHEDULE -> Res.string.schedule
     SetupStep.REVIEW -> Res.string.onboarding_review

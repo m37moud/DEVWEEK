@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.daymark.models.plan.TimeOffCommand
+import dev.daymark.models.plan.PlanReviewToken
 import dev.daymark.plan.TimeOffKind
 import dev.daymark.presentation.component.PlanMutationFeedback
 import dev.daymark.presentation.component.PlanPreviewDialog
@@ -41,7 +42,7 @@ import kotlin.time.Clock
 
 data class PlanActions(
     val previewTimeOff: (TimeOffCommand) -> Unit,
-    val confirmTimeOff: (Long) -> Unit,
+    val confirmTimeOff: (PlanReviewToken) -> Unit,
     val cancelPreview: () -> Unit
 )
 

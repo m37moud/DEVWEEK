@@ -2,6 +2,7 @@ package dev.daymark.android.previews
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
+import dev.daymark.history.AttendancePeriodSettings
 import dev.daymark.history.HistoryMetrics
 import dev.daymark.models.TodayDashboard
 import dev.daymark.models.WeekDaySummary
@@ -58,6 +59,7 @@ private fun TodayScreenPreview() {
     val dashboard = TodayDashboard(
         ready = true,
         date = sampleDate,
+        period = AttendancePeriodSettings(20).periodFor(sampleDate),
         placeName = "Harbor Office",
         metrics = HistoryMetrics(
             attendance = 16,
@@ -80,7 +82,9 @@ private fun TodayScreenPreview() {
                 ready = true,
                 active = true,
                 activeCategory = TrackerCategory.WORK,
-                vacationBalance = TodayVacationBalanceUiState(summary = VacationBalanceSummary(20, 7, 13)),
+                vacationBalance = TodayVacationBalanceUiState(
+                    summary = VacationBalanceSummary(20, 7, 13, year = 2027)
+                ),
                 date = sampleDate,
                 plan = plan,
                 canCheck = true,
@@ -122,7 +126,9 @@ private fun TodayScreenCorrectedDarkPreview() {
                 ready = true,
                 active = true,
                 activeCategory = TrackerCategory.WORK,
-                vacationBalance = TodayVacationBalanceUiState(summary = VacationBalanceSummary(20, 7, 13)),
+                vacationBalance = TodayVacationBalanceUiState(
+                    summary = VacationBalanceSummary(20, 7, 13, year = 2027)
+                ),
                 date = sampleDate,
                 plan = plan,
                 canCheck = false,

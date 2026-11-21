@@ -2,6 +2,8 @@ package dev.daymark.presentation.features.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.daymark.history.AttendancePeriod
+import dev.daymark.history.AttendancePeriodSettings
 import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.models.attendance.Correction
 import dev.daymark.repository.Repository
@@ -14,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
@@ -22,12 +25,11 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.plus
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.number
 
@@ -38,7 +40,8 @@ class HistoryViewModel(
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
     private val today: suspend () -> LocalDate = { initialDate },
     private val clock: Clock? = null,
-    private val refreshBoundary: suspend () -> Instant? = { null }
+    private val refreshBoundary: suspend () -> Instant? = { null },
+    periodSettings: Flow<AttendancePeriodSettings> = flowOf(AttendancePeriodSettings())
 ) : ViewModel(scope) {
     private val active = MutableStateFlow(true)
     private val refresh = MutableStateFlow(0)
@@ -51,13 +54,17 @@ class HistoryViewModel(
             combine(
                 selected,
                 active,
-                refresh
-            ) { month, enabled, _ -> month to enabled }.flatMapLatest { (monthKey, enabled) ->
-                val (year, month) = monthKey
+                refresh,
+                periodSettings
+            ) { month, enabled, _, settings ->
+                settings.period(LocalDate(month.first, month.second, 1)) to enabled
+            }.flatMapLatest { (period, enabled) ->
+                val year = period.month.year
+                val month = period.month.month.number
                 if (!enabled) return@flatMapLatest emptyFlow()
                 val currentClock = clock
                 val histories =
-                    if (currentClock == null) calendarMonth(year, month) else channelFlow {
+                    if (currentClock == null) observePeriod(period) else channelFlow {
                         repository.attendance.reconcile(currentClock.now())
                         refreshBoundary()?.let { boundary ->
                             launch {
@@ -65,15 +72,16 @@ class HistoryViewModel(
                                 refresh.update { it + 1 }
                             }
                         }
-                        calendarMonth(year, month).collect { send(it) }
+                        observePeriod(period).collect { send(it) }
                     }
                 histories.onEach { history ->
-                    val currentDate = today(); state.update {
-                    it.copy(
-                        year = year, month = month,
-                        history = history, ready = true, storageError = false, today = currentDate
-                    )
-                }
+                    val currentDate = today()
+                    state.update {
+                        it.copy(
+                            year = year, month = month, period = period,
+                            history = history, ready = true, storageError = false, today = currentDate
+                        )
+                    }
                 }
                     .catch { error ->
                         if (error is CancellationException) throw error
@@ -83,20 +91,18 @@ class HistoryViewModel(
         }
     }
 
-    private fun calendarMonth(year: Int, month: Int) = LocalDate(year, month, 1).let { from ->
-        repository.attendance.observeRange(
-            from,
-            from.plus(1, DateTimeUnit.MONTH).plus(-1, DateTimeUnit.DAY)
-        )
+    private fun observePeriod(period: AttendancePeriod) =
+        repository.attendance.observeRange(period.from, period.through)
             .map { range ->
                 val elapsed = range.records.filter { it.plan.key.date <= range.today }
                 dev.daymark.models.attendance.HistoryMonth(
                     range.records,
                     elapsed.count { it.outcome.status == AttendanceStatus.PRESENT },
                     elapsed.count { it.outcome.status == AttendanceStatus.LATE },
-                    elapsed.count { it.outcome.status == AttendanceStatus.ABSENT })
+                    elapsed.count { it.outcome.status == AttendanceStatus.ABSENT },
+                    range.earlierVacationDates
+                )
             }
-    }
 
     fun setActive(value: Boolean) {
         active.value = value
@@ -107,7 +113,7 @@ class HistoryViewModel(
         if (selected.value == year to month) return
         state.update {
             it.copy(
-                year = year, month = month, ready = false, savedKey = null,
+                ready = false, savedKey = null,
                 history = dev.daymark.models.attendance.HistoryMonth(emptyList(), 0, 0, 0)
             )
         }

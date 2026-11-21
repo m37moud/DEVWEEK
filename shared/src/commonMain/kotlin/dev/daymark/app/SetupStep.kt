@@ -8,13 +8,13 @@ import dev.daymark.plan.WeeklySchedule
 import dev.daymark.plan.parseWholeDays
 import dev.daymark.plan.resolveDay
 import dev.daymark.reporting.exceedsReportTextLimit
-import kotlin.time.Instant
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Instant
 
-enum class SetupStep { WELCOME, PREFERENCE, PROFILE, PLACE, SCHEDULE, REVIEW }
+enum class SetupStep { WELCOME, PREFERENCE, PROFILE, ATTENDANCE_PERIOD, PLACE, SCHEDULE, REVIEW }
 
 sealed interface SetupDraftLoad {
     data object Absent : SetupDraftLoad

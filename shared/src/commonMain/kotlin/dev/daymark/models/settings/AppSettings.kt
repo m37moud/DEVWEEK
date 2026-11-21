@@ -1,5 +1,6 @@
 package dev.daymark.models.settings
 
+import dev.daymark.history.AttendancePeriodSettings
 import dev.daymark.settings.LanguagePreference
 import dev.daymark.settings.ThemePreference
 
@@ -8,7 +9,8 @@ data class AppSettings(
     val language: LanguagePreference = LanguagePreference.SYSTEM,
     val theme: ThemePreference = ThemePreference.SYSTEM,
     val remindersEnabled: Boolean = false,
-    val resultNotificationsEnabled: Boolean = false
+    val resultNotificationsEnabled: Boolean = false,
+    val attendancePeriod: AttendancePeriodSettings = AttendancePeriodSettings()
 ) {
     override fun toString() =
         "AppSettings(displayName=<redacted>, language=$language, theme=$theme)"

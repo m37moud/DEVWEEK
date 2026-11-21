@@ -2,6 +2,8 @@ package dev.daymark.presentation.features.history
 
 import dev.daymark.models.attendance.DayKey
 import dev.daymark.models.attendance.HistoryMonth
+import dev.daymark.history.AttendancePeriod
+import dev.daymark.history.AttendancePeriodSettings
 import kotlinx.datetime.LocalDate
 
 data class HistoryUiState(
@@ -12,6 +14,7 @@ data class HistoryUiState(
     val busy: Boolean = false,
     val savedKey: DayKey? = null,
     val today: LocalDate = LocalDate(year, month, 1),
+    val period: AttendancePeriod = AttendancePeriodSettings().period(LocalDate(year, month, 1)),
     val invalidCorrection: Boolean = false,
     val noteTooLong: Boolean = false,
     val storageError: Boolean = false,

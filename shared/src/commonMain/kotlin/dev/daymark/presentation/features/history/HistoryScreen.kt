@@ -56,7 +56,7 @@ import dev.daymark.ui.theme.DaymarkTheme
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 
-private data class HistoryActions(
+data class HistoryActions(
     val selectMonth: (Int, Int) -> Unit,
     val saveCorrection: (Correction) -> Unit,
     val openMetric: (HistoryMetric) -> Unit = {}
@@ -81,7 +81,7 @@ fun HistoryScreen(
 }
 
 @Composable
-private fun HistoryContent(
+fun HistoryContent(
     state: HistoryUiState,
     onBack: () -> Unit,
     onEditTimeOff: (LocalDate) -> Unit,
@@ -97,9 +97,9 @@ private fun HistoryContent(
         }
     }
 
-    var selectedDate by rememberSaveable(state.year, state.month) { mutableStateOf<String?>(null) }
+    var selectedDate by rememberSaveable(state.period.from.toString(), state.period.through.toString()) { mutableStateOf<String?>(null) }
     val selected = selectedDate?.let(LocalDate::parse)
-    val shown = remember(state) {
+    val shown = remember(state, selected) {
         state.history.records.filter {
             (selected == null || it.plan.key.date == selected) && it.plan.key.date <= state.today
         }.sortedByDescending { it.plan.key.date }
@@ -119,8 +119,7 @@ private fun HistoryContent(
 
         item(contentType = "HistoryMonthNavigator") {
             HistoryMonthNavigator(
-                year = state.year,
-                month = state.month,
+                period = state.period,
                 history = state.history,
                 language = language,
                 onSelectMonth = actions.selectMonth,
@@ -131,8 +130,7 @@ private fun HistoryContent(
 
         item(contentType = "HistoryCalendarCard") {
             HistoryCalendarCard(
-                year = state.year,
-                month = state.month,
+                period = state.period,
                 records = state.history.records,
                 today = state.today,
                 selected = selected,

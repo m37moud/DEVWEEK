@@ -24,16 +24,20 @@ internal fun timeOffOn(entries: List<TimeOffEntry>, date: LocalDate): TimeOffKin
 fun eligibleVacationDates(
     entries: List<TimeOffEntry>,
     planForDate: (LocalDate) -> DayPlan
+): Set<LocalDate> = deductibleVacationDates(entries) { date ->
+    val plan = planForDate(date)
+    plan.category == TrackerCategory.WORK && plan.isScheduled
+}
+
+internal fun deductibleVacationDates(
+    entries: List<TimeOffEntry>,
+    isChargeable: (LocalDate) -> Boolean
 ): Set<LocalDate> =
     entries.asSequence().filter { it.kind == TimeOffKind.VACATION }
         .flatMap { dates(it.from, it.through) }
-        .distinct().filter { date ->
-            val plan = planForDate(date)
-            plan.category == TrackerCategory.WORK && plan.isScheduled && timeOffOn(
-                entries,
-                date
-            ) != TimeOffKind.HOLIDAY
-        }.toSet()
+        .distinct()
+        .filter { date -> isChargeable(date) && timeOffOn(entries, date) != TimeOffKind.HOLIDAY }
+        .toSet()
 
 fun availableVacationDays(
     opening: Int,
@@ -49,12 +53,22 @@ internal fun vacationBalanceSummary(
     adjustments: List<Int>,
     entries: List<TimeOffEntry>,
     planForDate: (LocalDate) -> DayPlan
+): VacationBalanceSummary = vacationBalanceSummary(
+    opening,
+    adjustments.sumOf { it.toLong() },
+    eligibleVacationDates(entries, planForDate).size
+)
+
+internal fun vacationBalanceSummary(
+    opening: Int,
+    adjustments: Long,
+    usedDays: Int,
+    year: Int? = null
 ): VacationBalanceSummary {
     require(opening >= 0)
-    val usedDays = eligibleVacationDates(entries, planForDate).size
-    val remainingDays = opening.toLong() + adjustments.sumOf { it.toLong() } - usedDays
+    val remainingDays = opening.toLong() + adjustments - usedDays
     require(remainingDays in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong())
-    return VacationBalanceSummary(opening, usedDays, remainingDays.toInt())
+    return VacationBalanceSummary(opening, usedDays, remainingDays.toInt(), year)
 }
 
 fun parseWholeDays(text: String): Int? {

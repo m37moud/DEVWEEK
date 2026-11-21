@@ -29,7 +29,8 @@ enum class HistoryMetric {
 data class HistoryRange(
     val records: List<HistoryRecord>,
     val firstDate: LocalDate?,
-    val today: LocalDate
+    val today: LocalDate,
+    val earlierVacationDates: List<LocalDate> = emptyList()
 )
 
 data class HistoryMetrics(
@@ -46,13 +47,17 @@ fun HistoryRecord.lateDuration(): Duration =
         ?.let { (it - plan.arrival).coerceAtLeast(Duration.ZERO) } ?: Duration.ZERO
     else Duration.ZERO
 
-fun historyMetrics(records: List<HistoryRecord>, today: LocalDate): HistoryMetrics {
+fun historyMetrics(
+    records: List<HistoryRecord>,
+    today: LocalDate,
+    earlierVacationDates: List<LocalDate> = emptyList()
+): HistoryMetrics {
     val elapsed = records.filter { it.plan.key.date <= today }
     return HistoryMetrics(
         attendance = elapsed.count(HistoryMetric.ATTENDANCE::includes),
         late = elapsed.count(HistoryMetric.LATE::includes),
         absent = elapsed.count(HistoryMetric.ABSENT::includes),
-        leaveRest = elapsed.count(HistoryMetric.LEAVE_REST::includes),
+        leaveRest = elapsed.count(HistoryMetric.LEAVE_REST::includes) + earlierVacationDates.size,
         holidays = elapsed.count(HistoryMetric.HOLIDAY::includes),
         lateDuration = elapsed.fold(Duration.ZERO) { total, record -> total + record.lateDuration() }
     )

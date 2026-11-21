@@ -32,9 +32,14 @@ class SettingsRepository(
     override fun observe(): Flow<AppSettings> =
         combine(
             profileDao.observeSetting("ui-settings"),
-            profileDao.observeTracker()
-        ) { row, tracker ->
-            decode(row?.value).let { it.copy(displayName = tracker?.displayName ?: it.displayName) }
+            profileDao.observeTracker(),
+            profileDao.observeSetting(ATTENDANCE_PERIOD_KEY)
+        ) { row, tracker, period ->
+            val settings = decode(row?.value)
+            settings.copy(
+                displayName = tracker?.displayName ?: settings.displayName,
+                attendancePeriod = attendancePeriodSettings(period?.value)
+            )
         }.distinctUntilChanged().catch { failure ->
             if (failure is SQLiteException) throw SettingsStorageException(failure)
             throw failure
@@ -124,7 +129,8 @@ class SettingsRepository(
     internal suspend fun snapshot(): AppSettings =
         decode(profileDao.setting("ui-settings")?.value).let {
             it.copy(
-                displayName = profileDao.tracker()?.displayName ?: it.displayName
+                displayName = profileDao.tracker()?.displayName ?: it.displayName,
+                attendancePeriod = attendancePeriodSettings(profileDao.setting(ATTENDANCE_PERIOD_KEY)?.value)
             )
         }
 

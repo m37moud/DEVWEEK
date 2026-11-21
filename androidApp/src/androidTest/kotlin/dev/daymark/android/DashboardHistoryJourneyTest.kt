@@ -24,6 +24,53 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class DashboardHistoryJourneyTest {
     @get:Rule val compose=createComposeRule()
+    @Test
+    fun leave_metric_opens_saved_vacation_before_tracking() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val name = "earlier-leave-${UUID.randomUUID()}.db"
+        val fixture = AttendanceTestApp(context, name)
+        val earlier = LocalDate(2026, 10, 26)
+        var shown by mutableStateOf(true)
+        try {
+            runBlocking {
+                fixture.graph.settings.update(language = LanguagePreference.EN)
+                val timeOff = fixture.graph.repository.timeOff
+                val command = TimeOffCommand.Add(TimeOffKind.VACATION, earlier, earlier)
+                Assert.assertEquals(
+                    PlanMutationResult.Applied,
+                    timeOff.apply(command, timeOff.preview(command).reviewToken)
+                )
+            }
+            compose.setContent { if (shown) App(fixture.graph) }
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("metric-LEAVE_REST").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("metric-LEAVE_REST").performScrollTo()
+                .assertTextContains("1", substring = true).performClick()
+            val row = hasTestTag("history-earlier-vacation-$earlier")
+            compose.waitUntil(10_000) {
+                try {
+                    compose.onNodeWithTag("history-detail-root").performScrollToNode(row)
+                    true
+                } catch (_: AssertionError) {
+                    false
+                }
+            }
+            compose.onNodeWithText("Leave before tracking began").assertIsDisplayed()
+            compose.onNodeWithText("Edit time off in Plan").performClick()
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("time-off-remove").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("time-off-remove").assertIsDisplayed()
+        } finally {
+            compose.runOnIdle { shown = false }
+            compose.waitForIdle()
+            fixture.graph.reporting.close()
+            fixture.db.close()
+            context.deleteDatabase(name)
+        }
+    }
+
     @Test fun future_time_off_keeps_its_status_and_glyph_in_the_week_strip() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val name = "future-week-${UUID.randomUUID()}.db"
@@ -34,20 +81,26 @@ class DashboardHistoryJourneyTest {
                 fixture.graph.settings.update(language = LanguagePreference.EN)
                 val repository = fixture.graph.repository
                 val current = repository.plans.observePlan().first()!!.current
-                val change = current.copy(schedule = current.schedule.copy(
-                    days = current.schedule.days - DayOfWeek.SATURDAY
-                ))
-                Assert.assertEquals(PlanMutationResult.Applied, repository.plans.applyChange(
-                    change, repository.plans.previewChange(change).expectedRevision
-                ))
+                val change = current.copy(
+                    schedule = current.schedule.copy(
+                        days = current.schedule.days - DayOfWeek.SATURDAY
+                    )
+                )
+                Assert.assertEquals(
+                    PlanMutationResult.Applied, repository.plans.applyChange(
+                        change, repository.plans.previewChange(change).reviewToken
+                    )
+                )
                 for ((kind, date) in listOf(
                     TimeOffKind.HOLIDAY to LocalDate(2026, 10, 28),
                     TimeOffKind.VACATION to LocalDate(2026, 10, 29)
                 )) {
                     val command = TimeOffCommand.Add(kind, date, date)
-                    Assert.assertEquals(PlanMutationResult.Applied, repository.timeOff.apply(
-                        command, repository.timeOff.preview(command).expectedRevision
-                    ))
+                    Assert.assertEquals(
+                        PlanMutationResult.Applied, repository.timeOff.apply(
+                            command, repository.timeOff.preview(command).reviewToken
+                        )
+                    )
                 }
             }
             compose.setContent { if (shown) App(fixture.graph) }

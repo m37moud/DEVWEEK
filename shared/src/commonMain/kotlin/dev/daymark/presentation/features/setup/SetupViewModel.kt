@@ -279,7 +279,7 @@ class SetupViewModel(
 
     fun edit(step: SetupStep) {
         if (!canEdit() || state.value.draft.step != SetupStep.REVIEW) return
-        if (step !in listOf(SetupStep.PROFILE, SetupStep.PLACE, SetupStep.SCHEDULE)) return
+        if (step !in listOf(SetupStep.ATTENDANCE_PERIOD, SetupStep.PROFILE, SetupStep.PLACE, SetupStep.SCHEDULE)) return
         state.update { it.copy(reviewEditing = true) }
         navigate(step)
     }
@@ -440,7 +440,9 @@ class SetupViewModel(
         placeName = placeName,
         place = requireNotNull(place),
         schedule = requireNotNull(schedule),
-        openingBalance = requireNotNull(openingBalanceDays())
+        openingBalance = requireNotNull(openingBalanceDays()),
+        attendanceClosingDay = attendanceClosingDay,
+        vacationYearBasis = vacationYearBasis
     )
 
     private suspend fun completeSetup(command: SetupCommand) {

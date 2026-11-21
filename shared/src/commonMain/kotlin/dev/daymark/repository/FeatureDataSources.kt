@@ -2,14 +2,18 @@ package dev.daymark.repository
 
 import dev.daymark.app.*
 import dev.daymark.app.SetupDraftLoad
+import dev.daymark.history.AttendancePeriodSettings
 import dev.daymark.models.BootstrapSnapshot
 import dev.daymark.models.ConfigurationHealth
 import dev.daymark.models.DeletionResult
 import dev.daymark.models.TodayDashboard
 import dev.daymark.models.TrackerSummary
 import dev.daymark.models.attendance.CheckOutcome
+import dev.daymark.models.plan.AnnualVacationSettings
+import dev.daymark.models.plan.AttendancePeriodReview
 import dev.daymark.models.plan.PlanChange
 import dev.daymark.models.plan.PlanMutationResult
+import dev.daymark.models.plan.PlanReviewToken
 import dev.daymark.models.plan.PlanState
 import dev.daymark.models.plan.TimeOffCommand
 import dev.daymark.models.plan.TimeOffEntry
@@ -38,16 +42,27 @@ interface AttendanceChecks {
 interface PlanDataSource {
     fun observePlan(): Flow<PlanState?>
     suspend fun previewChange(command: PlanChange): TimeOffPreview
-    suspend fun applyChange(command: PlanChange, expectedRevision: Long): PlanMutationResult
+    suspend fun applyChange(command: PlanChange, review: PlanReviewToken): PlanMutationResult
 }
 
 interface TimeOffDataSource {
+    suspend fun previewAttendancePeriod(settings: AttendancePeriodSettings): AttendancePeriodReview?
+    suspend fun saveAttendancePeriod(review: AttendancePeriodReview): PlanMutationResult
+
+
     fun observeEntries(): Flow<List<TimeOffEntry>>
+    fun observeAnnualVacationSettings(): Flow<AnnualVacationSettings?>
+    suspend fun updateAnnualVacationPolicy(
+        annualAllowanceDays: Int,
+        carryOverUnusedDays: Boolean,
+        expectedEffectiveYear: Int
+    ): PlanMutationResult
+
     fun observeVacationBalance(): Flow<VacationBalanceSummary?>
     fun observeAvailableBalance(): Flow<Int?>
     suspend fun preview(command: TimeOffCommand): TimeOffPreview
-    suspend fun apply(command: TimeOffCommand, expectedRevision: Long): PlanMutationResult
-    suspend fun setAvailableBalance(targetDays: Int, note: String?): PlanMutationResult
+    suspend fun apply(command: TimeOffCommand, review: PlanReviewToken): PlanMutationResult
+    suspend fun setAvailableBalance(targetDays: Int, note: String?, expectedYear: Int? = null): PlanMutationResult
 }
 
 /** Draft storage failed before the requested operation could complete. */

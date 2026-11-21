@@ -1,8 +1,11 @@
 package dev.daymark.data.remote.data_source.data.ktor
 
+import dev.daymark.data.local.reporting.ATTENDANCE_PERIODS_TAB
 import dev.daymark.data.local.reporting.overviewHumanColumns
 import dev.daymark.data.local.reporting.overviewMachineColumns
 import dev.daymark.data.local.reporting.parseReportRange
+import dev.daymark.data.local.reporting.periodHumanColumns
+import dev.daymark.data.local.reporting.periodMachineColumns
 import dev.daymark.data.local.reporting.reportHumanColumns
 import dev.daymark.data.local.reporting.reportMachineColumns
 import dev.daymark.data.local.reporting.timeOffHumanColumns
@@ -54,6 +57,7 @@ internal fun gridFilter(report: RemoteReport, a1: String): JsonObject {
 private fun headers(title: String): Pair<List<String>, List<String>> = when (title) {
     "Overview" -> overviewMachineColumns to overviewHumanColumns
     "Time off" -> timeOffMachineColumns to timeOffHumanColumns
+    ATTENDANCE_PERIODS_TAB -> periodMachineColumns to periodHumanColumns
     else -> reportMachineColumns to reportHumanColumns
 }
 
@@ -98,7 +102,8 @@ internal suspend fun GoogleReportTransport.prepareOwnedTemplate(
     val titles = (setOf(
         "Overview",
         "Time off"
-    ) + years.map { "Attendance $it" } + report.tabIds.keys).sorted()
+    ) + years.map { "Attendance $it" } + report.tabIds.keys +
+        report.requiredRows.keys.filter { it == ATTENDANCE_PERIODS_TAB }).sorted()
     val ids = mutableMapOf<String, Int>()
     val fresh = mutableSetOf<String>()
     val requests = mutableListOf<JsonObject>()
@@ -129,7 +134,7 @@ internal suspend fun GoogleReportTransport.prepareOwnedTemplate(
                         put(
                             "rowCount",
                             maxOf(
-                                if (title.startsWith("Attendance ")) 368 else 100,
+                                if (title.startsWith("Attendance ") && title != ATTENDANCE_PERIODS_TAB) 368 else 100,
                                 report.requiredRows[title] ?: 0
                             )
                         )
@@ -184,7 +189,7 @@ internal suspend fun GoogleReportTransport.prepareOwnedTemplate(
                 "schema_conflict"
             )
             val required = maxOf(
-                if (title.startsWith("Attendance ")) 368 else 3,
+                if (title.startsWith("Attendance ") && title != ATTENDANCE_PERIODS_TAB) 368 else 3,
                 report.requiredRows[title] ?: 0
             )
             if (required > sheet.rows) requests += buildJsonObject {

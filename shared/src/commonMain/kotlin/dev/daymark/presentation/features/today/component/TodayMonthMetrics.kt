@@ -12,12 +12,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import dev.daymark.history.AttendancePeriod
 import dev.daymark.history.HistoryMetric
 import dev.daymark.history.HistoryMetrics
 import dev.daymark.presentation.component.HistoryMetricsGrid
+import dev.daymark.presentation.component.attendancePeriodDates
 import dev.daymark.resources.Res
 import dev.daymark.resources.history
 import dev.daymark.resources.month_so_far
+import dev.daymark.settings.DisplayFormats
+import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.str
 
 @Composable
@@ -25,7 +29,8 @@ internal fun TodayMonthMetrics(
     metrics: HistoryMetrics,
     onHistory: () -> Unit,
     onMetric: (HistoryMetric) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    period: AttendancePeriod? = null
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -37,7 +42,9 @@ internal fun TodayMonthMetrics(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = str(Res.string.month_so_far),
+                text = period?.let { DisplayFormats.monthYear(it.month, LocalAppLanguage.current) }
+                    ?: str(Res.string.month_so_far),
+                modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -47,6 +54,9 @@ internal fun TodayMonthMetrics(
                     style = MaterialTheme.typography.labelMedium
                 )
             }
+        }
+        if (period != null) {
+            Text(attendancePeriodDates(period), style = MaterialTheme.typography.bodySmall)
         }
         HistoryMetricsGrid(metrics, onMetric, Modifier.testTag("today-month-counts"))
     }
