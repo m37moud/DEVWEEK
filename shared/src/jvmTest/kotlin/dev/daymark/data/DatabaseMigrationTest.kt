@@ -1,8 +1,9 @@
 package dev.daymark.data
 
+import androidx.room3.useReaderConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
-import dev.daymark.data.local.DaymarkDatabase
+import dev.daymark.data.local.AnnualVacationPolicyEntity
 import dev.daymark.data.local.openJvmDatabase
 import dev.daymark.fixturePlan
 import java.nio.file.Files
@@ -17,6 +18,9 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 class DatabaseMigrationTest {
+    @Test
+    fun schema_four_upgrades_without_losing_tracker_or_adjustment_history() = verifyMigration(4)
+
     @Test
     fun schema_three_upgrades_without_losing_tracker_or_adjustment_history() = verifyMigration(3)
 
@@ -70,7 +74,21 @@ class DatabaseMigrationTest {
                 val adjustment = db.planningDao().balanceAdjustments(tracker.id).single()
                 assertEquals(-2, adjustment.delta)
                 assertNull(adjustment.note)
+                assertNull(adjustment.balanceYear)
+                assertEquals(emptyList(), db.planningDao().annualVacationPolicies(tracker.id))
                 assertNull(db.placeAddressDao().placeAddress(30.0, 31.0, "en"))
+                val migratedVersion = db.useReaderConnection { connection ->
+                    connection.usePrepared("PRAGMA user_version") { statement ->
+                        check(statement.step())
+                        statement.getInt(0)
+                    }
+                }
+                assertEquals(5, migratedVersion)
+                val policy = AnnualVacationPolicyEntity(tracker.id, 2027, 14, false)
+                val updatedPolicy = policy.copy(annualAllowanceDays = 16, carryOverUnusedDays = true)
+                db.planningDao().putAnnualVacationPolicy(policy)
+                db.planningDao().putAnnualVacationPolicy(updatedPolicy)
+                assertEquals(listOf(updatedPolicy), db.planningDao().annualVacationPolicies(tracker.id))
             } finally {
                 db.close()
             }

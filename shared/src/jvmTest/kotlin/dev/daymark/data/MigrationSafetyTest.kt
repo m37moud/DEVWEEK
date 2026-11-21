@@ -97,6 +97,8 @@ class MigrationSafetyTest {
                 BundledSQLiteDriver().open(path).use { connection ->
                     connection.execSQL("ALTER TABLE trackers DROP COLUMN changeRevision")
                     connection.execSQL("ALTER TABLE balance_adjustments DROP COLUMN note")
+                    connection.execSQL("ALTER TABLE balance_adjustments DROP COLUMN balanceYear")
+                    connection.execSQL("DROP TABLE annual_vacation_policies")
                     connection.execSQL("DROP TABLE place_addresses")
                     connection.execSQL("ALTER TABLE attendance DROP COLUMN departure")
                     connection.execSQL("UPDATE room_master_table SET identity_hash='${old.getValue("identityHash").jsonPrimitive.content}' WHERE id=42")
@@ -119,7 +121,7 @@ class MigrationSafetyTest {
                     db.planningDao().balanceAdjustments(tracker).single().delta
                 )
                 db.close()
-                BundledSQLiteDriver().open(path).use { it.execSQL("PRAGMA user_version=5") }
+                BundledSQLiteDriver().open(path).use { it.execSQL("PRAGMA user_version=6") }
                 val attempted = openJvmDatabase(path)
                 try {
                     assertFailsWith<Exception> { attempted.profileDao().tracker() }
@@ -127,7 +129,7 @@ class MigrationSafetyTest {
                     attempted.close()
                 }
                 // Restore only the synthetic version marker after the refusal; the current schema/data were never changed.
-                BundledSQLiteDriver().open(path).use { it.execSQL("PRAGMA user_version=4") }
+                BundledSQLiteDriver().open(path).use { it.execSQL("PRAGMA user_version=5") }
                 db = openJvmDatabase(path)
                 assertEquals(records, db.attendanceDao().days(tracker)); assertEquals(
                     leave,

@@ -5,6 +5,7 @@ import dev.daymark.data.local.RoomDatabaseTransactions
 import androidx.room3.executeSQL
 import androidx.room3.useWriterConnection
 import dev.daymark.attendance.TestClock
+import dev.daymark.data.local.AnnualVacationPolicyEntity
 import dev.daymark.data.local.application.DataLifecycleService
 import dev.daymark.data.local.attendance.RoomAttendanceRepository
 import dev.daymark.data.local.openJvmDatabase
@@ -49,6 +50,9 @@ class DataLifecycleTest {
                     "r",
                     annualTabIds = emptyMap()
                 )
+                db.planningDao().putAnnualVacationPolicy(
+                    AnnualVacationPolicyEntity(binding.trackerId, 2027, 14, false)
+                )
                 store.bind(binding)
                 val events = mutableListOf<String>()
                 val service = DataLifecycleService(
@@ -69,6 +73,7 @@ class DataLifecycleTest {
                 assertEquals(setOf("stopped", "forgot", "widget"), events.toSet())
                 assertNull(db.profileDao().tracker())
                 assertTrue(db.dirtyProjectionDao().dirtyProjections(binding.trackerId).isEmpty())
+                assertTrue(db.planningDao().annualVacationPolicies(binding.trackerId).isEmpty())
                 store.bind(binding)
                 assertNull(store.activeBinding())
             } finally {

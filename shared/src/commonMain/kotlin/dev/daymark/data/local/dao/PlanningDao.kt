@@ -4,6 +4,7 @@ import androidx.room3.Dao
 import androidx.room3.Insert
 import androidx.room3.Query
 import androidx.room3.Upsert
+import dev.daymark.data.local.AnnualVacationPolicyEntity
 import dev.daymark.data.local.BalanceAdjustmentEntity
 import dev.daymark.data.local.PlanVersionEntity
 import dev.daymark.data.local.TimeOffEntity
@@ -34,4 +35,10 @@ interface PlanningDao {
 
     @Insert
     suspend fun insertBalanceAdjustment(adjustment: BalanceAdjustmentEntity)
+
+    @Query("SELECT * FROM annual_vacation_policies WHERE trackerId = :trackerId ORDER BY effectiveYear")
+    suspend fun annualVacationPolicies(trackerId: String): List<AnnualVacationPolicyEntity>
+
+    @Upsert
+    suspend fun putAnnualVacationPolicy(policy: AnnualVacationPolicyEntity)
 }

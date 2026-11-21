@@ -21,8 +21,9 @@ import kotlinx.coroutines.IO
 
 @Database(
     entities = [SettingEntity::class, TrackerEntity::class, PlanVersionEntity::class, AttendanceEntity::class,
-        TimeOffEntity::class, BalanceAdjustmentEntity::class, ReportBindingEntity::class, DirtyProjectionEntity::class, ReportBatchEntity::class, PlaceAddressEntity::class],
-    version = 4, exportSchema = true
+        TimeOffEntity::class, BalanceAdjustmentEntity::class, ReportBindingEntity::class, DirtyProjectionEntity::class,
+        ReportBatchEntity::class, PlaceAddressEntity::class, AnnualVacationPolicyEntity::class],
+    version = 5, exportSchema = true
 )
 @ConstructedBy(DaymarkDatabaseConstructor::class)
 abstract class DaymarkDatabase : RoomDatabase() {
@@ -53,6 +54,21 @@ internal fun configureDatabase(builder: RoomDatabase.Builder<DaymarkDatabase>): 
         }, object : Migration(3, 4) {
             override suspend fun migrate(connection: SQLiteConnection) {
                 connection.execSQL("ALTER TABLE attendance ADD COLUMN departure TEXT")
+            }
+        }, object : Migration(4, 5) {
+            override suspend fun migrate(connection: SQLiteConnection) {
+                connection.execSQL("ALTER TABLE balance_adjustments ADD COLUMN balanceYear INTEGER")
+                connection.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS annual_vacation_policies (
+                        trackerId TEXT NOT NULL,
+                        effectiveYear INTEGER NOT NULL,
+                        annualAllowanceDays INTEGER NOT NULL,
+                        carryOverUnusedDays INTEGER NOT NULL,
+                        PRIMARY KEY (trackerId, effectiveYear)
+                    )
+                    """.trimIndent()
+                )
             }
         })
         .setDriver(BundledSQLiteDriver()).setQueryCoroutineContext(Dispatchers.IO)

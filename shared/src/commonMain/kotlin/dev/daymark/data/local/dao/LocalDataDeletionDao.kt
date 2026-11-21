@@ -17,6 +17,9 @@ interface LocalDataDeletionDao {
     @Query("DELETE FROM balance_adjustments")
     suspend fun deleteBalanceRows()
 
+    @Query("DELETE FROM annual_vacation_policies")
+    suspend fun deleteAnnualVacationPolicies()
+
     @Query("DELETE FROM report_batches")
     suspend fun deleteReportBatches()
 

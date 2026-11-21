@@ -99,10 +99,19 @@ data class TimeOffEntity(
 @Entity(tableName = "balance_adjustments")
 data class BalanceAdjustmentEntity(
     @PrimaryKey val id: String, val trackerId: String, val delta: Int, val createdAt: String,
-    val note: String? = null
+    val note: String? = null,
+    val balanceYear: Int? = null
 ) {
     override fun toString() = "BalanceAdjustmentEntity(id=$id, delta=$delta, note=<redacted>)"
 }
+
+@Entity(tableName = "annual_vacation_policies", primaryKeys = ["trackerId", "effectiveYear"])
+data class AnnualVacationPolicyEntity(
+    val trackerId: String,
+    val effectiveYear: Int,
+    val annualAllowanceDays: Int,
+    val carryOverUnusedDays: Boolean
+)
 
 internal fun encodeSchedule(schedule: WeeklySchedule): String = buildJsonObject {
     put("days", JsonArray(schedule.days.sortedBy { it.ordinal }.map { JsonPrimitive(it.name) }))
