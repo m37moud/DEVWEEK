@@ -6,9 +6,7 @@ import dev.daymark.data.local.application.DataLifecycleService
 import dev.daymark.data.local.reporting.ReportingRuntime
 import dev.daymark.data.local.settings.SettingsRepository
 import dev.daymark.data.local.setup.SetupService
-import dev.daymark.di.ktor.attendanceModule
-import dev.daymark.di.ktor.lifecycleModule
-import dev.daymark.di.ktor.viewModelModule
+import dev.daymark.di.ktor.appModules
 import dev.daymark.location.LocationPermissionPort
 import dev.daymark.logging.AppLogger
 import dev.daymark.plan.PlanReader
@@ -25,12 +23,7 @@ class AppGraph(
     stopExternalWork: suspend () -> Unit = {}
 ) {
     val container = koinApplication {
-        modules(
-            attendanceModule(),
-            lifecycleModule(refreshSchedule, stopExternalWork),
-            viewModelModule(),
-            platformModule
-        )
+        modules(appModules(refreshSchedule, stopExternalWork) + platformModule)
     }
     val koin get() = container.koin
     val repository: Repository by koin.inject()

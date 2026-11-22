@@ -34,10 +34,8 @@ class ArchitectureBoundaryTest {
                         expected.filter { it != name }.none(source::contains),
                         "A DAO must not aggregate other DAOs in $path"
                     )
-                } else if (path.fileName.toString() !in setOf(
-                        "DaymarkDatabase.kt",
-                        "AppModules.kt"
-                    )
+                } else if (path.fileName.toString() != "DaymarkDatabase.kt" &&
+                    path != sources.resolve("di/ktor/DatabaseModule.kt")
                 ) {
                     assertTrue(
                         !source.contains("@Dao"),

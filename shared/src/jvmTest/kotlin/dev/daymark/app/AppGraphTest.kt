@@ -16,13 +16,16 @@ import dev.daymark.data.local.dao.AttendanceDao
 import dev.daymark.data.local.DatabaseTransactions
 import dev.daymark.data.local.SettingEntity
 import dev.daymark.data.local.openJvmDatabase
+import dev.daymark.history.HistoryMetric
 import dev.daymark.location.LocationCapabilities
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationPermissionPort
 import dev.daymark.location.LocationResult
 import dev.daymark.presentation.features.app.AppViewModel
 import dev.daymark.presentation.features.history.HistoryViewModel
+import dev.daymark.presentation.features.historydetail.HistoryDetailViewModel
 import dev.daymark.presentation.features.plan.PlanViewModel
+import dev.daymark.presentation.features.settings.AttendanceSettingsViewModel
 import dev.daymark.presentation.features.settings.SettingsViewModel
 import dev.daymark.presentation.features.setup.SetupViewModel
 import dev.daymark.presentation.features.today.TodayViewModel
@@ -135,6 +138,7 @@ class AppGraphTest {
                 AppViewModel::class,
                 SetupViewModel::class,
                 PlanViewModel::class,
+                AttendanceSettingsViewModel::class,
                 SettingsViewModel::class
             )) {
                 models.put(modelClass.simpleName!!, graph.koin.get(modelClass))
@@ -146,6 +150,15 @@ class AppGraphTest {
             models.put("history", history)
             assertEquals(month.year, history.uiState.value.year)
             assertEquals(11, history.uiState.value.month)
+
+            val historyDetail = graph.koin.get<HistoryDetailViewModel> {
+                parametersOf(HistoryMetric.LATE, month)
+            }
+            models.put("history-detail", historyDetail)
+            val detailState = historyDetail.uiState.value
+            assertEquals(HistoryMetric.LATE, detailState.metric)
+            assertEquals(month, detailState.from)
+            assertEquals(LocalDate(2026, 11, 30), detailState.through)
         } finally {
             models.clear()
             graph.close()

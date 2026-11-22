@@ -1,87 +1,51 @@
 package dev.daymark.di.ktor
 
 import dev.daymark.app.hostPlatform
-import dev.daymark.notifications.AttendanceResultPort
-import dev.daymark.notifications.AttendanceResultNotifier
-import dev.daymark.notifications.UnsupportedAttendanceResultPort
 import dev.daymark.attendance.AttendanceRepository
 import dev.daymark.attendance.AttendanceService
 import dev.daymark.attendance.outcome
-import dev.daymark.auth.GoogleAccess
-import dev.daymark.data.local.DatabaseTransactions
-import dev.daymark.data.local.DaymarkDatabase
 import dev.daymark.data.local.RoomApplicationDataSource
-import dev.daymark.data.local.RoomDatabaseTransactions
 import dev.daymark.data.local.address.RoomPlaceAddressDataSource
-import dev.daymark.data.local.application.ConfigurationCoordinator
-import dev.daymark.data.local.application.DataLifecycleService
 import dev.daymark.data.local.attendance.RoomAttendanceRepository
-import dev.daymark.data.local.dao.AttendanceDao
-import dev.daymark.data.local.dao.DirtyProjectionDao
-import dev.daymark.data.local.dao.LocalDataDeletionDao
-import dev.daymark.data.local.dao.PlaceAddressDao
-import dev.daymark.data.local.dao.PlanningDao
-import dev.daymark.data.local.dao.ProfileDao
-import dev.daymark.data.local.dao.ReportDao
 import dev.daymark.data.local.dashboard.TodayDashboardReader
 import dev.daymark.data.local.plan.PlanService
 import dev.daymark.data.local.plan.PlanningSnapshotReader
 import dev.daymark.data.local.plan.RoomPlanReader
 import dev.daymark.data.local.plan.TimeOffService
-import dev.daymark.data.local.reporting.ReportingRuntime
-import dev.daymark.data.local.reporting.RoomReportStore
 import dev.daymark.data.local.settings.SettingsRepository
 import dev.daymark.data.local.setup.SetupService
-import dev.daymark.data.remote.data_source.data.ktor.GoogleReportTransport
-import dev.daymark.data.remote.data_source.domain.ReportConnectionTransport
-import dev.daymark.data.remote.data_source.domain.ReportTransport
+import dev.daymark.notifications.AttendanceResultNotifier
+import dev.daymark.notifications.AttendanceResultPort
+import dev.daymark.notifications.UnsupportedAttendanceResultPort
 import dev.daymark.plan.PlanReader
-import dev.daymark.presentation.features.app.AppViewModel
-import dev.daymark.presentation.features.history.HistoryViewModel
-import dev.daymark.presentation.features.plan.PlanViewModel
-import dev.daymark.presentation.features.settings.AttendanceSettingsViewModel
-import dev.daymark.presentation.features.settings.SettingsViewModel
-import dev.daymark.presentation.features.setup.SetupViewModel
-import dev.daymark.presentation.features.today.TodayViewModel
 import dev.daymark.repository.AppRepository
 import dev.daymark.repository.ApplicationDataSource
 import dev.daymark.repository.AttendanceChecks
 import dev.daymark.repository.DashboardDataSource
-import dev.daymark.repository.DataLifecycleDataSource
 import dev.daymark.repository.PlaceAddressDataSource
 import dev.daymark.repository.PlanDataSource
-import dev.daymark.repository.ReportingDataSource
 import dev.daymark.repository.Repository
 import dev.daymark.repository.SettingsDataSource
 import dev.daymark.repository.SetupDataSource
 import dev.daymark.repository.TimeOffDataSource
 import dev.daymark.widgets.WidgetPublisher
-import dev.daymark.widgets.WidgetSetupPort
-import dev.daymark.widgets.createWidgetSetupPort
-import io.ktor.client.HttpClient
-import io.ktor.client.plugins.HttpTimeout
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
-import kotlin.time.Clock
-import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atStartOfDayIn
-import kotlinx.datetime.plus
-import org.koin.core.module.dsl.viewModel
+import org.koin.core.module.Module
 import org.koin.dsl.module
-import org.koin.dsl.onClose
+import kotlin.time.Clock
 
-internal fun attendanceModule() = module {
-    single<ProfileDao> { get<DaymarkDatabase>().profileDao() }
-    single<AttendanceDao> { get<DaymarkDatabase>().attendanceDao() }
-    single<PlanningDao> { get<DaymarkDatabase>().planningDao() }
-    single<DirtyProjectionDao> { get<DaymarkDatabase>().dirtyProjectionDao() }
-    single<ReportDao> { get<DaymarkDatabase>().reportDao() }
-    single<PlaceAddressDao> { get<DaymarkDatabase>().placeAddressDao() }
-    single<LocalDataDeletionDao> { get<DaymarkDatabase>().localDataDeletionDao() }
+internal fun appModules(
+    refreshSchedule: suspend () -> Boolean,
+    stopExternalWork: suspend () -> Unit
+): List<Module> = listOf(
+    databaseModule(),
+    sharedServicesModule(),
+    reportingModule(),
+    lifecycleModule(refreshSchedule, stopExternalWork),
+    viewModelModule()
+)
+
+private fun sharedServicesModule() = module {
     single { PlanningSnapshotReader(get(), get(), get()) }
-    single<DatabaseTransactions> { RoomDatabaseTransactions(get()) }
     single<PlaceAddressDataSource> { RoomPlaceAddressDataSource(get(), get(), get(), get()) }
     single<AttendanceChecks> { get<AttendanceService>() }
     single<PlanDataSource> { get<PlanService>() }
@@ -89,8 +53,6 @@ internal fun attendanceModule() = module {
     single<SetupDataSource> { get<SetupService>() }
     single<SettingsDataSource> { get<SettingsRepository>() }
     single<DashboardDataSource> { get<TodayDashboardReader>() }
-    single<ReportingDataSource> { get<ReportingRuntime>() }
-    single<DataLifecycleDataSource> { get<DataLifecycleService>() }
     single<ApplicationDataSource> {
         RoomApplicationDataSource(
             get(),
@@ -104,18 +66,18 @@ internal fun attendanceModule() = module {
     }
     single<Repository> {
         AppRepository(
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get()
+            attendance = get(),
+            checks = get(),
+            plans = get(),
+            timeOff = get(),
+            planReader = get(),
+            setup = get(),
+            settings = get(),
+            dashboard = get(),
+            reporting = get(),
+            application = get(),
+            dataLifecycle = get(),
+            placeAddresses = get()
         )
     }
 
@@ -151,102 +113,6 @@ internal fun attendanceModule() = module {
     single<PlanReader> { RoomPlanReader(get(), get(), get()) }
     single { SettingsRepository(get(), get(), get()) }
     single { SetupService(get(), get(), get(), get(), get(), get()) }
-    single { GoogleAccess(get()) }
     single { WidgetPublisher(get(), get(), get(), get(), get(), get(), settings = get()) }
     single { TodayDashboardReader(get(), get(), get(), get()) }
-    single { RoomReportStore(get(), get(), get(), get(), get(), get(), get()) }
-    single {
-        HttpClient {
-            install(HttpTimeout) {
-                requestTimeoutMillis = 30_000
-                connectTimeoutMillis = 15_000
-                socketTimeoutMillis = 30_000
-            }
-        }
-    }
-    single { GoogleReportTransport(get()) }
-    single<ReportConnectionTransport> { get<GoogleReportTransport>() }
-    single<ReportTransport> { get<GoogleReportTransport>() }
-    single {
-        ReportingRuntime(
-            get(), get(), get(), get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            httpClient = get(),
-            store = get(),
-            reportTransport = get()
-        )
-    } onClose { it?.close() }
-}
-
-internal fun lifecycleModule(
-    refreshSchedule: suspend () -> Boolean,
-    stopExternalWork: suspend () -> Unit
-) = module {
-    single {
-        ConfigurationCoordinator(
-            get(), get(), get(), onScheduleRefresh = refreshSchedule,
-            onWidgetRefresh = { get<WidgetPublisher>().refresh(); true }, reader = get()
-        )
-    }
-    single {
-        DataLifecycleService(
-            get(), get(),
-            get(),
-            get<ReportingRuntime>().store,
-            stopExternal = {
-                get<ReportingRuntime>().lifecycle.stop()
-                get<ProfileDao>().tracker()
-                    ?.let { get<ConfigurationCoordinator>().cancelTracker(it.id) }
-                get<AttendanceResultNotifier>().setEnabled(false)
-                stopExternalWork()
-            },
-            forgetCredentials = get<GoogleAccess>()::forget,
-            clearWidget = { get<WidgetPublisher>().clear(); true },
-            settings = get()
-        )
-    }
-}
-
-internal fun viewModelModule() = module {
-    viewModel { AppViewModel(get()) }
-    viewModel { SetupViewModel(get(), get(), get(), get()) }
-    viewModel { TodayViewModel(get(), get(), get(), initiallyActive = false) }
-    viewModel { PlanViewModel(get(), get()) }
-    viewModel { AttendanceSettingsViewModel(get(), get(), get(), get()) }
-    factory<WidgetSetupPort> { createWidgetSetupPort() }
-    viewModel {
-        SettingsViewModel(
-            get(),
-            get(),
-            get(),
-            widgetSetup = get(),
-            resultNotifications = get()
-        )
-    }
-    viewModel { (metric: dev.daymark.history.HistoryMetric, initialDate: LocalDate) ->
-        val repository = get<Repository>()
-        dev.daymark.presentation.features.historydetail.HistoryDetailViewModel(
-            repository, metric, initialDate,
-            periodSettings = repository.settings.observe().map { it.attendancePeriod }.distinctUntilChanged()
-        )
-    }
-    viewModel { (initialDate: LocalDate) ->
-        val repository = get<Repository>()
-        val clock = get<Clock>()
-        HistoryViewModel(
-            repository, initialDate, clock = clock,
-            periodSettings = repository.settings.observe().map { it.attendancePeriod }.distinctUntilChanged(),
-            today = {
-                repository.attendance.loadCurrentDay(clock.now())?.plan?.key?.date ?: initialDate
-            },
-            refreshBoundary = {
-                repository.attendance.loadCurrentDay(clock.now())?.plan?.let { day ->
-                    day.key.date.plus(1, DateTimeUnit.DAY).atStartOfDayIn(TimeZone.of(day.zoneId))
-                }
-            }
-        )
-    }
 }
