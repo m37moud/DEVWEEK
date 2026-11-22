@@ -78,6 +78,8 @@ Preserve Today/History/Plan navigation and the approved soft white/forest light 
 
 Use four-space Kotlin indentation, `PascalCase` classes/composables, `camelCase` functions/properties, `UPPER_SNAKE_CASE` constants, and `snake_case` resources. Manage dependency versions through `gradle/libs.versions.toml`. Follow the plan's typed result/error contracts over conflicting generic skill examples.
 
+Use named arguments in new or changed Kotlin function and constructor calls wherever Kotlin supports them. Keep trailing lambdas in trailing-lambda syntax.
+
 Reformat changed code with Android Studio/IntelliJ formatting before presenting or committing it. Limit formatting to task-owned files or changed ranges, preserve behavior, and avoid unrelated formatting churn. No ktlint/Detekt setup currently exists; do not introduce a formatter dependency solely for routine formatting. Preserve bundled media filenames and locale resource directories unless the task explicitly requires changing them.
 
 ## Build and Verification
