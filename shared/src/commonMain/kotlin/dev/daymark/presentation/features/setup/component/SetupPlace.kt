@@ -98,7 +98,7 @@ internal fun SetupPlace(state: SetupUiState, actions: SetupActions) {
                 )
                 Text(
                     text = str(Res.string.location_rationale),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
