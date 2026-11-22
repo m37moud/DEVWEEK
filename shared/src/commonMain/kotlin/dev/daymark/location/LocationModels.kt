@@ -12,8 +12,7 @@ sealed interface LocationResult {
         val receivedAt: Instant,
         val ageAtReceipt: Duration?,
     ) : LocationResult {
-//        override fun toString(): String =
-//            "LocationResult.Fix(coordinates=redacted, accuracy=$horizontalAccuracyMetres, age=$ageAtReceipt)"
+        override fun toString(): String = "LocationResult.Fix(coordinates=<redacted>)"
     }
 
     data class Failure(val reason: LocationFailure) : LocationResult
