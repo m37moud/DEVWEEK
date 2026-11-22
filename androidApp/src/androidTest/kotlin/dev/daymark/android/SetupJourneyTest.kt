@@ -650,8 +650,10 @@ class SetupJourneyTest {
         reviewSetup()
         startTrackingAndOpenSettings()
         compose.waitUntil(10_000) {
-            compose.onAllNodesWithTag("settings-language-ar").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithTag("settings-preferences-edit").fetchSemanticsNodes().isNotEmpty()
         }
+        compose.onNodeWithTag("settings-language-ar").assertDoesNotExist()
+        compose.onNodeWithTag("settings-preferences-edit").performScrollTo().performClick()
         compose.onNodeWithTag("settings-language-ar").performScrollTo().performClick()
         compose.waitUntil(10_000) {
             compose.onAllNodes(hasTestTag("settings-language-ar") and isSelected())
@@ -662,11 +664,17 @@ class SetupJourneyTest {
             compose.onAllNodes(hasTestTag("settings-theme-dark") and isSelected())
                 .fetchSemanticsNodes().isNotEmpty()
         }
+        compose.onNodeWithTag("settings-preferences-edit").performScrollTo().performClick()
+        compose.onNodeWithTag("settings-theme-dark").assertDoesNotExist()
         reopenDatabase()
         compose.waitUntil(10_000) {
             compose.onAllNodesWithTag("today-root").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("nav-settings").performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("settings-preferences-edit").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("settings-preferences-edit").performScrollTo().performClick()
         compose.onNodeWithTag("settings-language-ar").performScrollTo().assertIsSelected()
         compose.onNodeWithTag("settings-theme-dark").performScrollTo().assertIsSelected()
         runBlocking {

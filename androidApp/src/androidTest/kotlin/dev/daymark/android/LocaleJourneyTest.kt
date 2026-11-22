@@ -39,6 +39,10 @@ class LocaleJourneyTest {
                 compose.onAllNodesWithTag("nav-settings").fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("nav-settings").performClick()
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("settings-preferences-edit").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("settings-preferences-edit").performScrollTo().performClick()
             compose.onNodeWithTag("settings-language-ar").performScrollTo().performClick()
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithText("الإعدادات").fetchSemanticsNodes().isNotEmpty()

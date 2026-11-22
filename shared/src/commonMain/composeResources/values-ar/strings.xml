@@ -349,4 +349,12 @@
     <string name="vacation_year_same_date">وفق هذه التواريخ، تبدأ السنتان في %1$s. تبدأ سنة فترات الحضور في أول يوم من فترة يناير.</string>
     <string name="vacation_year_calendar_date">تبدأ السنة الميلادية في %1$s.</string>
     <string name="vacation_year_period_date">تبدأ سنة فترات الحضور في %1$s.</string>
+    <string name="settings_done">تم</string>
+    <string name="settings_on">مفعّل</string>
+    <string name="settings_off">متوقف</string>
+    <string name="settings_routine_and_place">الجدول والمكان</string>
+    <string name="settings_tracking">التتبع</string>
+    <string name="settings_annual_vacation_unset">لم يُحدّد رصيد سنوي</string>
+    <string name="settings_summary_value">%1$s · %2$s</string>
+    <string name="settings_reminders_on">التذكيرات مفعّلة</string>
 </resources>

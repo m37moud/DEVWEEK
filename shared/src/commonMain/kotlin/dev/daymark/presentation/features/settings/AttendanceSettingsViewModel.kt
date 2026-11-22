@@ -103,14 +103,34 @@ class AttendanceSettingsViewModel(
             if (command == null || shown == null || shown.reviewToken != review) PlanMutationResult.StalePreview
             else repository.plans.applyChange(command, review)
         pendingPlan = null
-        state.update { it.copy(result = result, preview = null) }
         if (result == PlanMutationResult.Applied) {
             val saved = repository.plans.observePlan().first()
             state.update {
                 it.copy(
                     plan = saved,
-                    draft = saved?.let { p -> p.pending ?: p.current })
+                    draft = saved?.let { plan -> plan.pending ?: plan.current },
+                    result = result,
+                    preview = null
+                )
             }
+        } else {
+            state.update { it.copy(result = result, preview = null) }
+        }
+    }
+
+    fun resetDraft() {
+        if (state.value.busy) return
+        pendingPlan = null
+        state.update {
+            val saved = it.plan?.let { plan -> plan.pending ?: plan.current }
+            it.copy(
+                draft = saved,
+                preview = null,
+                invalidInput = false,
+                result = null,
+                locationIssue = null,
+                storageError = false
+            )
         }
     }
 

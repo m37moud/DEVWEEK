@@ -344,4 +344,12 @@
     <string name="vacation_year_same_date">Both years start on %1$s with these dates. The attendance period year starts on the first day of the January period.</string>
     <string name="vacation_year_calendar_date">Calendar year starts on %1$s.</string>
     <string name="vacation_year_period_date">Attendance period year starts on %1$s.</string>
+    <string name="settings_done">Done</string>
+    <string name="settings_on">On</string>
+    <string name="settings_off">Off</string>
+    <string name="settings_routine_and_place">Routine and place</string>
+    <string name="settings_tracking">Tracking</string>
+    <string name="settings_annual_vacation_unset">No annual allowance configured</string>
+    <string name="settings_summary_value">%1$s · %2$s</string>
+    <string name="settings_reminders_on">Reminders are on</string>
 </resources>

@@ -22,10 +22,13 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.daymark.app.App
+import dev.daymark.history.AttendancePeriodSettings
+import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LanguagePreference
@@ -62,6 +65,9 @@ class AttendancePeriodJourneyTest {
 
             waitFor("nav-settings")
             compose.onNodeWithTag("nav-settings").performClick()
+            waitFor("settings-attendance-period-edit")
+            compose.onNodeWithTag("attendance-period-review").assertDoesNotExist()
+            compose.onNodeWithTag("settings-attendance-period-edit").performScrollTo().performClick()
             waitFor("attendance-period-review")
             val year = compose.onNodeWithTag("attendance-period-vacation-year")
             year.performScrollTo().assertIsOff()
@@ -79,11 +85,34 @@ class AttendancePeriodJourneyTest {
             waitFor("attendance-period-save")
             val label = DisplayFormats.monthYear(LocalDate(2026, 11, 1), AppLanguage.AR)
             compose.onNodeWithText(label).assertIsDisplayed()
+            runBlocking {
+                val timeOff = fixture.graph.repository.timeOff
+                val competingReview = requireNotNull(timeOff.previewAttendancePeriod(AttendancePeriodSettings(19)))
+                assertEquals(PlanMutationResult.Applied, timeOff.saveAttendancePeriod(competingReview))
+            }
+            compose.onNodeWithTag("attendance-period-save").performClick()
+            compose.onNodeWithText("تغيّرت سجلاتك.", substring = true).performScrollTo().assertIsDisplayed()
+            assertBoundary("end", 20)
+            compose.onNodeWithTag("attendance-period-review").performScrollTo().performClick()
+            waitFor("attendance-period-save")
             compose.onNodeWithTag("attendance-period-save").performClick()
 
             compose.waitUntil(10_000) {
                 runBlocking { fixture.db.profileDao().setting("attendance-period")?.value == "20:CALENDAR" }
             }
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("attendance-period-review").fetchSemanticsNodes().isEmpty()
+            }
+            compose.onNodeWithText("تنتهي في اليوم", substring = true).performScrollTo()
+                .assertIsDisplayed().assertTextContains("٢٠", substring = true)
+            compose.onNodeWithTag("settings-annual-vacation-edit").performScrollTo().performClick()
+            compose.onNodeWithTag("settings-annual-vacation-allowance").performScrollTo().performTextReplacement("٢٢")
+            compose.onNodeWithTag("settings-annual-vacation-save").performScrollTo().performClick()
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("settings-annual-vacation-save").fetchSemanticsNodes().isEmpty()
+            }
+            compose.onNodeWithText("تم حفظ إعدادات الإجازات السنوية", substring = true)
+                .performScrollTo().assertIsDisplayed()
             compose.onNodeWithTag("nav-history").performClick()
             waitFor("history-root")
             for (tag in listOf("calendar-date-2026-10-21", "calendar-date-2026-11-20")) {

@@ -80,61 +80,66 @@ fun PlanRoutineCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            PlanRoutineHeader()
+        PlanRoutineContent(state, actions, Modifier.padding(18.dp))
+    }
+}
 
-            PlanRoutineCategorySelector(
-                category = state.category,
-                busy = state.busy,
-                onCategoryChange = actions.changeCategory
-            )
+@Composable
+internal fun PlanRoutineContent(
+    state: PlanRoutineUiState,
+    actions: PlanRoutineActions,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        PlanRoutineHeader()
 
-            PlanRoutineDaysSelector(
-                days = state.schedule.days,
-                busy = state.busy,
-                onDayToggle = actions.toggleDay
-            )
+        PlanRoutineCategorySelector(
+            category = state.category,
+            busy = state.busy,
+            onCategoryChange = actions.changeCategory
+        )
 
-            PlanRoutineArrivalButton(
-                arrival = state.schedule.arrival,
-                busy = state.busy,
-                onPickArrival = actions.pickArrival
-            )
+        PlanRoutineDaysSelector(
+            days = state.schedule.days,
+            busy = state.busy,
+            onDayToggle = actions.toggleDay
+        )
 
-            PlanRoutineGraceSlider(
-                graceMinutes = state.schedule.graceMinutes,
-                busy = state.busy,
-                onGraceChange = actions.changeGrace
-            )
+        PlanRoutineArrivalButton(
+            arrival = state.schedule.arrival,
+            busy = state.busy,
+            onPickArrival = actions.pickArrival
+        )
 
-            WeekdayOverrides(
-                schedule = state.schedule,
-                busy = state.busy,
-                onPickDayOverride = actions.pickDayOverride,
-                onResetOverride = actions.resetDayOverride
-            )
-            // Divider & Visual Legend Strip
-            HorizontalDivider(
-                modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-            )
+        PlanRoutineGraceSlider(
+            graceMinutes = state.schedule.graceMinutes,
+            busy = state.busy,
+            onGraceChange = actions.changeGrace
+        )
 
-            DepartureCutoffEditor(
-                schedule = state.schedule,
-                busy = state.busy,
-                onChange = actions.changeSchedule
-            )
+        WeekdayOverrides(
+            schedule = state.schedule,
+            busy = state.busy,
+            onPickDayOverride = actions.pickDayOverride,
+            onResetOverride = actions.resetDayOverride
+        )
+        // Divider & Visual Legend Strip
+        HorizontalDivider(
+            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+        )
 
-            PlanRoutineZoneButton(
-                zoneId = state.schedule.zoneId,
-                busy = state.busy,
-                onPickZone = actions.pickZone
-            )
+        DepartureCutoffEditor(
+            schedule = state.schedule,
+            busy = state.busy,
+            onChange = actions.changeSchedule
+        )
 
-        }
+        PlanRoutineZoneButton(
+            zoneId = state.schedule.zoneId,
+            busy = state.busy,
+            onPickZone = actions.pickZone
+        )
     }
 }
 

@@ -1,20 +1,18 @@
 package dev.daymark.presentation.features.settings.component
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,6 +26,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import dev.daymark.models.plan.AnnualVacationPolicy
+import dev.daymark.models.plan.AnnualVacationSettings
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.plan.parseWholeDays
 import dev.daymark.presentation.component.PlanMutationFeedback
@@ -40,8 +40,13 @@ import dev.daymark.resources.annual_vacation_invalid
 import dev.daymark.resources.annual_vacation_scheduled
 import dev.daymark.resources.annual_vacation_settings
 import dev.daymark.resources.annual_vacation_stale
+import dev.daymark.resources.cancel
 import dev.daymark.resources.load_failed
 import dev.daymark.resources.save
+import dev.daymark.resources.settings_annual_vacation_unset
+import dev.daymark.resources.settings_off
+import dev.daymark.resources.settings_on
+import dev.daymark.resources.settings_summary_value
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.isolated
@@ -54,17 +59,68 @@ internal fun SettingsAnnualVacationCard(
     onSave: (Int, Boolean, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var editing by rememberSaveable { mutableStateOf(false) }
     if (state.loadFailed) {
         AnnualVacationError(str(Res.string.load_failed))
         return
     }
     val settings = state.configuration ?: return
+    SettingsEditorCard(
+        SettingsEditorHeader(
+            Res.string.annual_vacation_settings,
+            "settings-annual-vacation-edit",
+            Res.string.cancel,
+            editing,
+            !busy
+        ),
+        onToggle = { editing = !editing },
+        modifier = modifier.testTag("settings-annual-vacation")
+    ) {
+        if (editing) AnnualVacationEditor(state, busy, onSave) { editing = false }
+        else AnnualVacationSummary(settings)
+    }
+}
+
+@Composable
+private fun AnnualVacationSummary(settings: AnnualVacationSettings) {
+    val language = LocalAppLanguage.current
+    val pending = settings.pending
+    val active = settings.active
+    if (active == null && pending == null) SettingsSummaryText(str(Res.string.settings_annual_vacation_unset))
+    active?.let { AnnualVacationPolicySummary(it) }
+    if (pending != null) {
+        SettingsSummaryText(
+            str(
+                Res.string.annual_vacation_scheduled,
+                isolated(DisplayFormats.date(settings.nextEffectiveDate, language))
+            )
+        )
+        AnnualVacationPolicySummary(pending)
+    }
+}
+
+@Composable
+private fun AnnualVacationPolicySummary(policy: AnnualVacationPolicy) {
+    val allowance = isolated(DisplayFormats.number(policy.annualAllowanceDays, LocalAppLanguage.current))
+    SettingsSummaryText(str(Res.string.settings_summary_value, str(Res.string.annual_vacation_allowance), allowance))
+    val carryOver = str(if (policy.carryOverUnusedDays) Res.string.settings_on else Res.string.settings_off)
+    SettingsSummaryText(str(Res.string.settings_summary_value, str(Res.string.annual_vacation_carryover), carryOver))
+}
+
+@Composable
+private fun AnnualVacationEditor(
+    state: AnnualVacationSettingsUiState,
+    busy: Boolean,
+    onSave: (Int, Boolean, Int) -> Unit,
+    onSaved: () -> Unit
+) {
+    val settings = requireNotNull(state.configuration)
     val language = LocalAppLanguage.current
     val savedPolicy = settings.pending ?: settings.active
     val year = settings.nextEffectiveYear
-    var allowanceInput by rememberSaveable(year, savedPolicy) { mutableStateOf<String?>(null) }
-    var carryoverInput by rememberSaveable(year, savedPolicy) { mutableStateOf<Boolean?>(null) }
-    var showSaveFeedback by rememberSaveable { mutableStateOf(false) }
+    var allowanceInput by rememberSaveable { mutableStateOf<String?>(null) }
+    var carryoverInput by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var submittedYear by rememberSaveable { mutableStateOf<Int?>(null) }
     val allowanceText = allowanceInput ?: savedPolicy?.let {
         DisplayFormats.number(it.annualAllowanceDays, language)
     }.orEmpty()
@@ -72,50 +128,56 @@ internal fun SettingsAnnualVacationCard(
     val carryOver = carryoverInput ?: savedPolicy?.carryOverUnusedDays ?: false
     val changed = allowanceDays != savedPolicy?.annualAllowanceDays ||
             carryOver != (savedPolicy?.carryOverUnusedDays ?: false)
-    val startsOn = isolated(DisplayFormats.date(settings.nextEffectiveDate, language))
-
-    Card(modifier.fillMaxWidth().testTag("settings-annual-vacation")) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(
-                str(Res.string.annual_vacation_settings),
-                style = MaterialTheme.typography.titleMedium
-            )
-            AnnualAllowanceField(
-                allowanceText,
-                enabled = !busy,
-                invalid = allowanceText.isNotBlank() && allowanceDays == null
-            ) {
-                allowanceInput = it
-                showSaveFeedback = false
-            }
-            CarryOverSwitch(carryOver, enabled = !busy) {
-                carryoverInput = it
-                showSaveFeedback = false
-            }
-            Text(
-                str(
-                    if (settings.pending?.effectiveYear == year && !changed) Res.string.annual_vacation_scheduled
-                    else Res.string.annual_vacation_effective,
-                    startsOn
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
-            )
-            if (showSaveFeedback && state.saveResult != PlanMutationResult.Applied) {
-                AnnualVacationSaveFeedback(state.saveResult)
-            }
-            Button(
-                onClick = {
-                    allowanceDays?.let { onSave(it, carryOver, year) }
-                    showSaveFeedback = true
-                },
-                enabled = !busy && changed && allowanceDays != null,
-                modifier = Modifier.testTag("settings-annual-vacation-save")
-            ) {
-                Text(str(Res.string.save))
-            }
-        }
+    val requestedYear = submittedYear
+    val submittedPolicy = if (requestedYear != null && allowanceDays != null) {
+        AnnualVacationPolicy(requestedYear, allowanceDays, carryOver)
+    } else null
+    val applied = state.saveResult == PlanMutationResult.Applied && submittedPolicy != null &&
+            (submittedPolicy == settings.pending || submittedPolicy == settings.active)
+    LaunchedEffect(applied) {
+        if (applied) onSaved()
     }
+
+    AnnualAllowanceField(allowanceText, !busy, allowanceText.isNotBlank() && allowanceDays == null) {
+        allowanceInput = it
+        submittedYear = null
+    }
+    CarryOverSwitch(carryOver, enabled = !busy) {
+        carryoverInput = it
+        submittedYear = null
+    }
+    AnnualVacationEffectiveDate(settings, changed)
+    if (submittedYear != null && state.saveResult != PlanMutationResult.Applied) {
+        AnnualVacationSaveFeedback(state.saveResult)
+    }
+    Button(
+        onClick = {
+            allowanceDays?.let { days ->
+                allowanceInput = allowanceText
+                carryoverInput = carryOver
+                submittedYear = year
+                onSave(days, carryOver, year)
+            }
+        },
+        enabled = !busy && changed && allowanceDays != null,
+        modifier = Modifier.testTag("settings-annual-vacation-save")
+    ) {
+        Text(str(Res.string.save))
+    }
+}
+
+@Composable
+private fun AnnualVacationEffectiveDate(settings: AnnualVacationSettings, changed: Boolean) {
+    val startsOn = isolated(DisplayFormats.date(settings.nextEffectiveDate, LocalAppLanguage.current))
+    Text(
+        str(
+            if (settings.pending?.effectiveYear == settings.nextEffectiveYear && !changed) Res.string.annual_vacation_scheduled
+            else Res.string.annual_vacation_effective,
+            startsOn
+        ),
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+    )
 }
 
 @Composable

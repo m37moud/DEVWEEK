@@ -2,12 +2,6 @@ package dev.daymark.presentation.features.settings.component
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,9 +16,6 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +24,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -43,6 +35,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.daymark.app.HostPlatform
 import dev.daymark.location.LocationCapabilities
+import dev.daymark.presentation.features.settings.SettingsActions
+import dev.daymark.presentation.features.settings.SettingsUiState
 import dev.daymark.resources.Res
 import dev.daymark.resources.automation
 import dev.daymark.resources.automation_denied
@@ -64,92 +58,88 @@ import dev.daymark.resources.reminder_horizon
 import dev.daymark.resources.reminders_denied
 import dev.daymark.resources.reminders_off
 import dev.daymark.resources.reminders_optional
-import dev.daymark.settings.AppLanguage
+import dev.daymark.resources.settings_done
+import dev.daymark.resources.settings_reminders_on
+import dev.daymark.resources.settings_summary_value
+import dev.daymark.resources.settings_tracking
 import dev.daymark.settings.DisplayFormats
+import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.str
-import kotlinx.datetime.LocalDate
+import dev.daymark.ui.theme.LocalConfigurationHealth
 
 @Composable
-internal fun SettingsTrackingCard(
-    platform: HostPlatform,
-    capabilities: LocationCapabilities?,
-    automaticEnabled: Boolean,
-    permissionDenied: Boolean,
-    busy: Boolean,
-    remindersEnabled: Boolean,
-    requestingReminderPermission: Boolean,
-    reminderPermissionGranted: Boolean?,
-    reminderThrough: LocalDate?,
-    needsAttention: Boolean,
-    language: AppLanguage,
-    onOpenSystemSettings: () -> Unit,
-    onToggleAutomation: (Boolean) -> Unit,
-    onSetRemindersEnabled: (Boolean) -> Unit,
-    onRequestReminders: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .animateContentSize(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+internal fun SettingsTrackingCard(platform: HostPlatform, state: SettingsUiState, actions: SettingsActions) {
+    val health = LocalConfigurationHealth.current
+    var editing by rememberSaveable { mutableStateOf(false) }
+    val enabled = !state.busy && !state.requestingReminderPermission
+    SettingsEditorCard(
+        SettingsEditorHeader(
+            Res.string.settings_tracking,
+            "settings-tracking-edit",
+            Res.string.settings_done,
+            editing,
+            enabled
         ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        onToggle = { editing = !editing }
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            LocationStatusSection(
-                capabilities = capabilities,
-                onOpenSystemSettings = onOpenSystemSettings
-            )
-
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            )
-
-            if (platform == HostPlatform.ANDROID) {
-                AndroidAutomationSection(
-                    automaticEnabled = automaticEnabled,
-                    permissionDenied = permissionDenied,
-                    busy = busy,
-                    onToggleAutomation = onToggleAutomation
-                )
-            } else if (platform == HostPlatform.IOS) {
-                IosRemindersSection(
-                    remindersEnabled = remindersEnabled,
-                    requestingReminderPermission = requestingReminderPermission,
-                    reminderPermissionGranted = reminderPermissionGranted,
-                    reminderThrough = reminderThrough,
-                    busy = busy,
-                    language = language,
-                    onSetRemindersEnabled = onSetRemindersEnabled,
-                    onRequestReminders = onRequestReminders
-                )
-            }
-
-            AnimatedVisibility(
-                visible = needsAttention,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
-            ) {
-                ConfigurationAttentionCallout()
-            }
-        }
+        if (editing) TrackingControls(platform, state, actions)
+        else TrackingSummary(platform, state)
+        TrackingWarnings(platform, state)
+        if (health.needsAttention) ConfigurationAttentionCallout()
     }
 }
+
+@Composable
+private fun TrackingSummary(platform: HostPlatform, state: SettingsUiState) {
+    val status = str(if (state.capabilities.preciseLocationAvailable()) Res.string.enabled else Res.string.disabled)
+    SettingsSummaryText(str(Res.string.settings_summary_value, str(Res.string.location_health), status))
+    when (platform) {
+        HostPlatform.ANDROID ->
+            SettingsSummaryText(str(if (state.automaticEnabled) Res.string.automation_on else Res.string.automation_off))
+
+        HostPlatform.IOS ->
+            SettingsSummaryText(str(if (state.settings.remindersEnabled) Res.string.settings_reminders_on else Res.string.reminders_off))
+
+        else -> Unit
+    }
+}
+
+@Composable
+private fun TrackingControls(platform: HostPlatform, state: SettingsUiState, actions: SettingsActions) {
+    LocationStatusSection(state.capabilities, actions.openSystemSettings)
+    when (platform) {
+        HostPlatform.ANDROID -> AndroidAutomationSection(state.automaticEnabled, state.busy, actions.setAutomation)
+        HostPlatform.IOS -> IosRemindersSection(state, actions)
+        else -> Unit
+    }
+}
+
+@Composable
+private fun TrackingWarnings(platform: HostPlatform, state: SettingsUiState) {
+    val warning = when {
+        platform == HostPlatform.ANDROID && state.permissionDenied -> Res.string.automation_denied
+        platform == HostPlatform.IOS && state.reminderPermissionGranted == false -> Res.string.reminders_denied
+        else -> null
+    }
+    warning?.let { Text(str(it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+    if (platform == HostPlatform.IOS) {
+        val throughDate = LocalConfigurationHealth.current.reminderThrough
+        SettingsSummaryText(
+            if (throughDate == null) str(Res.string.reminder_horizon)
+            else str(Res.string.horizon_through, DisplayFormats.date(throughDate, LocalAppLanguage.current))
+        )
+    }
+}
+
+private fun LocationCapabilities?.preciseLocationAvailable(): Boolean =
+    this != null && foregroundGranted && preciseGranted && servicesEnabled
 
 @Composable
 private fun LocationStatusSection(
     capabilities: LocationCapabilities?,
     onOpenSystemSettings: () -> Unit
 ) {
-    val isEnabled = capabilities?.let {
-        it.foregroundGranted && it.preciseGranted && it.servicesEnabled
-    } == true
+    val isEnabled = capabilities.preciseLocationAvailable()
 
     val badgeBg by animateColorAsState(
         targetValue = if (isEnabled) {
@@ -217,7 +207,6 @@ private fun LocationStatusSection(
 @Composable
 private fun AndroidAutomationSection(
     automaticEnabled: Boolean,
-    permissionDenied: Boolean,
     busy: Boolean,
     onToggleAutomation: (Boolean) -> Unit
 ) {
@@ -320,100 +309,23 @@ private fun AndroidAutomationSection(
             )
         }
 
-        AnimatedVisibility(
-            visible = permissionDenied,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically()
-        ) {
-            Text(
-                text = str(Res.string.automation_denied),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error
-            )
-        }
     }
 }
 
 @Composable
-private fun IosRemindersSection(
-    remindersEnabled: Boolean,
-    requestingReminderPermission: Boolean,
-    reminderPermissionGranted: Boolean?,
-    reminderThrough: LocalDate?,
-    busy: Boolean,
-    language: AppLanguage,
-    onSetRemindersEnabled: (Boolean) -> Unit,
-    onRequestReminders: () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            text = str(Res.string.ios_manual_help),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Text(
-            text = str(Res.string.reminder_horizon),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        if (!remindersEnabled) {
-            Text(
-                text = str(Res.string.reminders_off),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        Button(
-            enabled = !busy && !requestingReminderPermission,
-            onClick = {
-                if (remindersEnabled) onSetRemindersEnabled(false)
-                else onRequestReminders()
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = str(
-                    if (remindersEnabled) {
-                        Res.string.disable_reminders
-                    } else {
-                        Res.string.reminders_optional
-                    }
-                )
-            )
-        }
-
-        AnimatedVisibility(
-            visible = reminderPermissionGranted == false,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically()
-        ) {
-            Text(
-                text = str(Res.string.reminders_denied),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error
-            )
-        }
-
-        reminderThrough?.let { throughDate ->
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = str(
-                        Res.string.horizon_through,
-                        DisplayFormats.date(throughDate, language)
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.padding(12.dp)
-                )
-            }
-        }
+private fun IosRemindersSection(state: SettingsUiState, actions: SettingsActions) {
+    val remindersEnabled = state.settings.remindersEnabled
+    SettingsSummaryText(str(Res.string.ios_manual_help))
+    if (!remindersEnabled) SettingsSummaryText(str(Res.string.reminders_off))
+    Button(
+        enabled = !state.busy && !state.requestingReminderPermission,
+        onClick = {
+            if (remindersEnabled) actions.setRemindersEnabled(false)
+            else actions.requestReminders()
+        },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(str(if (remindersEnabled) Res.string.disable_reminders else Res.string.reminders_optional))
     }
 }
 

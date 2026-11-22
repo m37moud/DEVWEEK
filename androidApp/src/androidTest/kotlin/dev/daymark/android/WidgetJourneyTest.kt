@@ -112,8 +112,9 @@ class WidgetJourneyTest {
             }
             compose.onNodeWithTag("nav-settings").performClick()
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithTag("settings-language-en").fetchSemanticsNodes().isNotEmpty()
+                compose.onAllNodesWithTag("settings-preferences-edit").fetchSemanticsNodes().isNotEmpty()
             }
+            compose.onNodeWithTag("settings-preferences-edit").performScrollTo().performClick()
             compose.onNodeWithTag("settings-language-en").performScrollTo().performClick()
             try {
                 compose.waitUntil(10_000) { AndroidWidgetPublisher.readFile(file)?.effectiveLocale == "en" }

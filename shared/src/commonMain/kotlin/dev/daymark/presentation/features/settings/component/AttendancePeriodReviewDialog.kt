@@ -14,7 +14,6 @@ import androidx.compose.ui.unit.dp
 import dev.daymark.models.plan.AttendancePeriodReview
 import dev.daymark.presentation.component.PlanMutationFeedback
 import dev.daymark.presentation.component.attendancePeriodDates
-import dev.daymark.presentation.features.settings.SettingsActions
 import dev.daymark.resources.Res
 import dev.daymark.resources.attendance_period_balance_impact
 import dev.daymark.resources.cancel
@@ -30,11 +29,12 @@ import dev.daymark.settings.str
 internal fun AttendancePeriodReviewDialog(
     review: AttendancePeriodReview,
     enabled: Boolean,
-    actions: SettingsActions
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
 ) {
     val language = LocalAppLanguage.current
     AlertDialog(
-        onDismissRequest = actions.dismissPeriodReview,
+        onDismissRequest = onDismiss,
         title = { Text(str(Res.string.preview_title)) },
         text = {
             Column(
@@ -61,7 +61,7 @@ internal fun AttendancePeriodReviewDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = actions.confirmPeriodChange,
+                onClick = onConfirm,
                 enabled = enabled && review.rejection == null,
                 modifier = Modifier.testTag("attendance-period-save")
             ) {
@@ -69,7 +69,7 @@ internal fun AttendancePeriodReviewDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = actions.dismissPeriodReview, enabled = enabled) {
+            TextButton(onClick = onDismiss, enabled = enabled) {
                 Text(str(Res.string.cancel))
             }
         }

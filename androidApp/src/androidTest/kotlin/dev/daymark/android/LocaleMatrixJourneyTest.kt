@@ -56,12 +56,29 @@ class LocaleMatrixJourneyTest {
                 for (language in listOf(LanguagePreference.EN, LanguagePreference.AR)) for (theme in listOf(ThemePreference.LIGHT, ThemePreference.DARK)) {
                     runBlocking { fixture.graph.settings.update(language = language, theme = theme) }
                     compose.onNodeWithTag("nav-settings").performClick()
+                    val settingsTitle = if (language == LanguagePreference.AR) "الإعدادات" else "Settings"
+                    compose.waitUntil(10_000) {
+                        compose.onAllNodesWithText(settingsTitle).fetchSemanticsNodes().isNotEmpty() &&
+                                compose.onAllNodesWithTag("settings-routine-edit").fetchSemanticsNodes().isNotEmpty()
+                    }
                     compose.onNodeWithTag("settings-name").performScrollTo().assertIsDisplayed()
+                    if (!corrected) {
+                        val screenshot = compose.onRoot().captureToImage().asAndroidBitmap()
+                        File(context.getExternalFilesDir(null), "settings-${language.name}-${theme.name}.png")
+                            .outputStream().use { screenshot.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                    }
+                    val editRoutine =
+                        if (language == LanguagePreference.AR) "تعديل الجدول والمكان" else "Edit Routine and place"
+                    compose.onNodeWithTag("settings-routine-edit").performScrollTo()
+                        .assertContentDescriptionEquals(editRoutine).performClick()
                     compose.onNodeWithTag("plan-zone").performScrollTo().assertIsDisplayed()
                     compose.onNodeWithTag("plan-review").performScrollTo().assertIsDisplayed()
                     compose.onNodeWithTag("report-connect").performScrollTo().assertIsDisplayed()
                     compose.onNodeWithTag("delete-local-data").performScrollTo().assertIsDisplayed()
                     compose.onNodeWithTag("nav-plan").performClick()
+                    compose.waitUntil(10_000) {
+                        compose.onAllNodesWithTag("plan-add-time-off").fetchSemanticsNodes().isNotEmpty()
+                    }
                     compose.onNodeWithTag("plan-add-time-off").performScrollTo().assertIsDisplayed()
                     compose.onNodeWithTag("nav-today").performClick()
                     val status = if (corrected) {

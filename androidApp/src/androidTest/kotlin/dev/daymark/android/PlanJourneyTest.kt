@@ -35,6 +35,9 @@ class PlanJourneyTest {
                 compose.onAllNodesWithTag("nav-plan").fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("nav-settings").performClick()
+            waitForTag("settings-routine-edit")
+            compose.onNodeWithTag("plan-review").assertDoesNotExist()
+            compose.onNodeWithTag("settings-routine-edit").performScrollTo().performClick()
             waitForTag("plan-zone")
             compose.onNodeWithTag("plan-zone").performScrollTo().performClick()
             compose.onNodeWithTag("zone-search").performTextReplacement("Asia/Tokyo")
@@ -44,6 +47,10 @@ class PlanJourneyTest {
                 compose.onAllNodesWithTag("preview-cancel").fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("preview-cancel").performClick()
+            compose.onNodeWithTag("settings-routine-edit").performScrollTo().performClick()
+            compose.onNodeWithTag("plan-zone").assertDoesNotExist()
+            compose.onNodeWithTag("settings-routine-edit").performScrollTo().performClick()
+            compose.onNodeWithTag("plan-zone").assertTextContains("UTC", substring = true)
             Assert.assertEquals(
                 "UTC",
                 runBlocking { fixture.graph.repository.attendance.loadCurrentDay(fixture.clock.now())!!.plan.zoneId })
@@ -69,8 +76,12 @@ class PlanJourneyTest {
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("history-root").fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithTag("history-root")
-                .performScrollToNode(hasTestTag("history-record-2026-10-27"))
+            val history = compose.onNodeWithTag("history-root")
+            history.performScrollToNode(hasTestTag("history-calendar"))
+            val vacationDay = hasTestTag("calendar-date-2026-10-27") and
+                    hasContentDescription("Vacation", substring = true)
+            compose.waitUntil(10_000) { compose.onAllNodes(vacationDay).fetchSemanticsNodes().isNotEmpty() }
+            history.performScrollToNode(hasTestTag("history-record-2026-10-27"))
             compose.onNodeWithTag("history-record-2026-10-27").performClick()
             compose.onNodeWithTag("history-time-off-action").performClick()
             compose.waitUntil(10_000) {
