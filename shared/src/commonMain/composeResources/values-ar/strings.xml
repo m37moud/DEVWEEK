@@ -99,6 +99,17 @@
     <string name="status_absent">غائب</string>
     <string name="status_day_off">يوم راحة</string>
     <string name="status_holiday">عطلة</string>
+    <string name="status_work_mission">مأمورية عمل</string>
+    <string name="history_work_missions">المأموريات</string>
+    <string name="history_work_days">إجمالي أيام العمل</string>
+    <string name="work_mission_note">ملاحظة (اختيارية)</string>
+    <string name="work_mission_remove">إزالة المأمورية</string>
+    <string name="work_mission_conflict">يوجد إدخال متعارض في أحد الأيام المحددة. أزل الإجازة أو العطلة أو المأمورية المسجّلة أولًا.</string>
+    <string name="work_mission_ineligible">اختر تواريخ ضمن فترة التتبّع تخص متابع العمل.</string>
+    <string name="work_mission_note_too_long">الملاحظة أطول من الحد الذي يمكن مزامنته مع جداول بيانات Google.</string>
+    <string name="time_off_select_range">نطاق متصل</string>
+    <string name="time_off_select_days">أيام متفرقة</string>
+    <string name="time_off_selected_days">الأيام المحددة: %1$s</string>
     <string name="status_vacation">إجازة</string>
     <string name="source_none">لم يتم تأكيد الحضور بعد</string>
     <string name="source_automatic">تم التحقق من الموقع تلقائيًا</string>
@@ -214,7 +225,7 @@
     <string name="fri_short">جم</string>
     <string name="sat_short">سب</string>
     <string name="sun_short">أح</string>
-    <string name="attendance_legend">✓ حاضر · ! متأخر · × غائب · — يوم راحة · ○ مخطط · · غير متتبع</string>
+    <string name="attendance_legend">✓ حاضر · ! متأخر · × غائب · ◆ مأمورية عمل · — يوم راحة · ○ مخطط · · غير متتبع</string>
     <string name="planned_date">مخطط</string>
     <string name="not_tracked_date">غير متتبع</string>
     <string name="month_so_far">هذا الشهر</string>

@@ -112,7 +112,7 @@ internal fun WidgetContent(
         "PRESENT" -> palette(Color(0xFFDCEFD8), Color(0xFF1B3626))
         "LATE" -> palette(Color(0xFFFDE8CD), Color(0xFF3D280B))
         "ABSENT" -> palette(Color(0xFFFCE4E4), Color(0xFF3F1B1B))
-        "DAY_OFF", "HOLIDAY", "VACATION" -> palette(Color(0xFFE2ECE5), Color(0xFF203328))
+        "DAY_OFF", "HOLIDAY", "VACATION", "WORK_MISSION" -> palette(Color(0xFFE2ECE5), Color(0xFF203328))
         else -> palette(Color(0xFFEAF1EC), Color(0xFF1E2B23))
     }
 
@@ -241,6 +241,7 @@ private fun widgetStatusResource(status: String): Int = when (status) {
     "DAY_OFF" -> R.string.widget_status_day_off
     "HOLIDAY" -> R.string.widget_status_holiday
     "VACATION" -> R.string.widget_status_vacation
+    "WORK_MISSION" -> R.string.widget_status_work_mission
     "AWAITING_CHECK" -> R.string.widget_status_awaiting_check
     else -> R.string.widget_status_scheduled
 }
@@ -249,7 +250,7 @@ private fun widgetStatusIcon(status: String?): Int = when (status) {
     "PRESENT" -> R.drawable.widget_present_icon
     "LATE" -> R.drawable.widget_late_icon
     "ABSENT" -> R.drawable.widget_absent_icon
-    "DAY_OFF", "HOLIDAY", "VACATION" -> R.drawable.widget_off_icon
+    "DAY_OFF", "HOLIDAY", "VACATION", "WORK_MISSION" -> R.drawable.widget_off_icon
     else -> R.drawable.widget_pending_icon
 }
 

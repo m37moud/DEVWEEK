@@ -6,6 +6,7 @@
     <string name="widget_status_absent">Absent</string>
     <string name="widget_status_day_off">Day off</string>
     <string name="widget_status_holiday">Holiday</string>
+    <string name="widget_status_work_mission">Work mission</string>
     <string name="widget_status_vacation">Vacation</string>
     <string name="widget_not_started">Scheduled tracking has not started. You can still check in manually today.</string>
     <string name="widget_open">Open Daymark</string>

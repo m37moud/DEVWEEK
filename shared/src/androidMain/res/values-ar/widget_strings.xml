@@ -6,6 +6,7 @@
     <string name="widget_status_absent">غائب</string>
     <string name="widget_status_day_off">يوم راحة</string>
     <string name="widget_status_holiday">عطلة</string>
+    <string name="widget_status_work_mission">مأمورية عمل</string>
     <string name="widget_status_vacation">إجازة</string>
     <string name="widget_not_started">لم يبدأ التتبع المجدول بعد. يمكنك تسجيل حضور اليوم يدويًا.</string>
     <string name="widget_open">افتح التطبيق</string>

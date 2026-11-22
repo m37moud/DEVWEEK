@@ -138,6 +138,41 @@ private fun HistoryNarrowTextPreview() {
     }
 }
 
+@Preview(name = "Work missions Arabic", locale = "ar", widthDp = 320, fontScale = 1.5f)
+@Composable
+private fun HistoryWorkMissionArabicPreview() {
+    val from = LocalDate(2026, 10, 21)
+    val through = LocalDate(2026, 11, 20)
+    CompositionLocalProvider(LocalAppLanguage provides AppLanguage.AR) {
+        DaymarkTheme(ThemePreference.DARK) {
+            HistoryDetailContent(
+                state = HistoryDetailUiState(
+                    metric = HistoryMetric.WORK_MISSION,
+                    from = from,
+                    through = through,
+                    range = HistoryRange(listOf(previewWorkMissionRecord()), from, through),
+                    ready = true
+                ),
+                actions = HistoryDetailActions({}, { _, _ -> }, {}, {}, {})
+            )
+        }
+    }
+}
+
+internal fun previewWorkMissionRecord(): HistoryRecord {
+    val original = previewLateRecord()
+    return original.copy(
+        evidence = null,
+        outcome = dev.daymark.models.attendance.DayOutcome(
+            dev.daymark.models.attendance.AttendanceStatus.WORK_MISSION,
+            dev.daymark.models.attendance.AttendanceSource.MANUAL_WORK_MISSION,
+            null,
+            dev.daymark.plan.TimeOffKind.WORK_MISSION
+        ),
+        workMissionNote = "زيارة عميل / Client visit"
+    )
+}
+
 private fun previewLateRecord(): HistoryRecord {
     val arrival = Instant.parse("2026-11-10T09:00:00Z")
     val confirmed = Instant.parse("2026-11-10T09:10:00Z")

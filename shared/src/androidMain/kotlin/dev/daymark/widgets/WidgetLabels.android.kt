@@ -32,6 +32,7 @@ internal actual fun widgetStatusLabel(status: AttendanceStatus?, language: AppLa
             AttendanceStatus.DAY_OFF -> R.string.widget_status_day_off
             AttendanceStatus.HOLIDAY -> R.string.widget_status_holiday
             AttendanceStatus.VACATION -> R.string.widget_status_vacation
+            AttendanceStatus.WORK_MISSION -> R.string.widget_status_work_mission
         }
     )
 }

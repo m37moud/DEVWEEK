@@ -34,6 +34,9 @@ fun evaluateDay(
         null,
         off
     )
+    if (off == TimeOffKind.WORK_MISSION && plan.category == TrackerCategory.WORK) return DayOutcome(
+        AttendanceStatus.WORK_MISSION, AttendanceSource.MANUAL_WORK_MISSION, null, off
+    )
     if (!plan.isScheduled) return DayOutcome(
         AttendanceStatus.DAY_OFF,
         AttendanceSource.NONE,

@@ -15,11 +15,21 @@ internal fun dates(from: LocalDate, through: LocalDate): Sequence<LocalDate> = s
     }
 }
 
-internal fun timeOffOn(entries: List<TimeOffEntry>, date: LocalDate): TimeOffKind? = when {
-    entries.any { it.kind == TimeOffKind.HOLIDAY && date in it.from..it.through } -> TimeOffKind.HOLIDAY
-    entries.any { it.kind == TimeOffKind.VACATION && date in it.from..it.through } -> TimeOffKind.VACATION
-    else -> null
+private val dayEntryPriority = listOf(TimeOffKind.HOLIDAY, TimeOffKind.VACATION, TimeOffKind.WORK_MISSION)
+
+internal fun dayEntry(
+    entries: List<TimeOffEntry>,
+    date: LocalDate,
+    category: TrackerCategory? = null
+): TimeOffEntry? = dayEntryPriority.firstNotNullOfOrNull { kind ->
+    entries.firstOrNull {
+        it.kind == kind && date in it.from..it.through &&
+                (kind != TimeOffKind.WORK_MISSION || category == TrackerCategory.WORK)
+    }
 }
+
+internal fun timeOffOn(entries: List<TimeOffEntry>, date: LocalDate): TimeOffKind? =
+    dayEntry(entries, date)?.kind
 
 fun eligibleVacationDates(
     entries: List<TimeOffEntry>,

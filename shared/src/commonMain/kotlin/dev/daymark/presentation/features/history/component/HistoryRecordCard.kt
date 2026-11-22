@@ -52,7 +52,7 @@ internal fun HistoryRecordCard(
     val status = record.outcome.status
 
     val (badgeContainerColor, badgeContentColor, dotColor) = when (status) {
-        AttendanceStatus.PRESENT -> Triple(
+        AttendanceStatus.PRESENT, AttendanceStatus.WORK_MISSION -> Triple(
             MaterialTheme.colorScheme.primaryContainer,
             MaterialTheme.colorScheme.onPrimaryContainer,
             MaterialTheme.colorScheme.primary
@@ -130,31 +130,35 @@ internal fun HistoryRecordCard(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
-                    record.outcome.confirmedAt?.let { at ->
+                    if (status == AttendanceStatus.WORK_MISSION) {
+                        HistoryStatusPill(status, badgeContainerColor, badgeContentColor, dotColor)
+                    } else {
+                        record.outcome.confirmedAt?.let { at ->
+                            Text(
+                                text = str(
+                                    Res.string.confirmed_at,
+                                    DisplayFormats.time(at, record.plan.zoneId, language)
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.testTag("history-confirmed-$date")
+                            )
+                        } ?: run {
+                            Text(
+                                text = str(status.label()),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
                         Text(
-                            text = str(
-                                Res.string.confirmed_at,
-                                DisplayFormats.time(at, record.plan.zoneId, language)
-                            ),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.testTag("history-confirmed-$date")
-                        )
-                    } ?: run {
-                        Text(
-                            text = str(status.label()),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            text = str(record.outcome.source.label()),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-
-                    Text(
-                        text = str(record.outcome.source.label()),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
 
                 // Trailing Status Pill + Chevron
@@ -162,27 +166,8 @@ internal fun HistoryRecordCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = badgeContainerColor
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .background(color = dotColor, shape = CircleShape)
-                            )
-                            Text(
-                                text = str(status.label()),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Medium,
-                                color = badgeContentColor
-                            )
-                        }
+                    if (status != AttendanceStatus.WORK_MISSION) {
+                        HistoryStatusPill(status, badgeContainerColor, badgeContentColor, dotColor)
                     }
 
                     Icon(
@@ -195,7 +180,9 @@ internal fun HistoryRecordCard(
             }
 
             // Evidence Note Preview if available
-            record.evidence?.note?.takeIf { it.isNotEmpty() }?.let { note ->
+            val visibleNote =
+                if (status == AttendanceStatus.WORK_MISSION) record.workMissionNote else record.evidence?.note
+            visibleNote?.takeIf { it.isNotEmpty() }?.let { note ->
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -211,6 +198,29 @@ internal fun HistoryRecordCard(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun HistoryStatusPill(
+    status: AttendanceStatus,
+    containerColor: Color,
+    contentColor: Color,
+    dotColor: Color
+) {
+    Surface(shape = CircleShape, color = containerColor, contentColor = contentColor) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Box(Modifier.size(6.dp).background(dotColor, CircleShape))
+            Text(
+                text = str(status.label()),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }

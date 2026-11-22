@@ -23,7 +23,8 @@ fun WidgetSnapshot.widgetAction(now: Instant): WidgetAction {
             "LATE",
             "DAY_OFF",
             "HOLIDAY",
-            "VACATION"
+            "VACATION",
+            "WORK_MISSION"
         )
     ) return WidgetAction.OPEN_APP
     if (arrivalEpochMillis != null && now.toEpochMilliseconds() < arrivalEpochMillis) return WidgetAction.DISABLED

@@ -66,6 +66,7 @@ internal fun bilingualStatus(status: AttendanceStatus): String =
         AttendanceStatus.DAY_OFF -> "يوم راحة"
         AttendanceStatus.HOLIDAY -> "عطلة"
         AttendanceStatus.VACATION -> "إجازة"
+        AttendanceStatus.WORK_MISSION -> "مأمورية عمل"
     }
 
 fun projectDay(record: HistoryRecord, revision: Long, updatedAt: Instant): ReportProjection {
@@ -83,7 +84,10 @@ fun projectDay(record: HistoryRecord, revision: Long, updatedAt: Instant): Repor
         JsonPrimitive(bilingualStatus(outcome.status)),
         JsonPrimitive(time(outcome.confirmedAt)),
         JsonPrimitive(outcome.source.name),
-        JsonPrimitive(record.evidence?.note.orEmpty()),
+        JsonPrimitive(
+            if (outcome.status == AttendanceStatus.WORK_MISSION) record.workMissionNote.orEmpty()
+            else record.evidence?.note.orEmpty()
+        ),
         JsonPrimitive(updatedAt.toString()),
         JsonPrimitive(revision),
         JsonPrimitive(outcome.offReason?.name.orEmpty()),
@@ -112,7 +116,7 @@ fun projectTimeOff(
                 it.kind.name,
                 it.from.toString(),
                 it.through.toString(),
-                "",
+                it.note.orEmpty(),
                 it.updatedAt.toString()
             ).map(::JsonPrimitive)
         } ?: List(6) { JsonPrimitive("") }

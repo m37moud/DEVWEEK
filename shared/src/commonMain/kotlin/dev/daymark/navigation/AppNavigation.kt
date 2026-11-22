@@ -81,7 +81,7 @@ data class HistoryRoute(val year: Int, val month: Int) : NavKey
 
 @Serializable
 @SerialName("dev.daymark.ui.PlanRoute")
-data class PlanRoute(val timeOffDate: String? = null) : NavKey
+data class PlanRoute(val timeOffDate: String? = null, val workMission: Boolean = false) : NavKey
 
 @Serializable
 @SerialName("dev.daymark.ui.SettingsRoute")
@@ -182,7 +182,7 @@ fun AppNavigation(appModel: AppViewModel, platform: HostPlatform, tracker: Track
             backStack = stack,
             modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
             onBack = {
-                if (stack.lastOrNull() is HistoryDetailRoute) stack.removeLastOrNull()
+                if (stack.size > 1) stack.removeLastOrNull()
                 else if (stack.lastOrNull() != TodayRoute && tracker != null) go(TodayRoute)
             },
             entryDecorators = listOf(
@@ -228,6 +228,7 @@ fun AppNavigation(appModel: AppViewModel, platform: HostPlatform, tracker: Track
                         model = model,
                         onBack = { go(TodayRoute) },
                         onEditTimeOff = { date -> go(PlanRoute(date.toString())) },
+                        onEditWorkMission = { date -> stack.add(PlanRoute(date.toString(), workMission = true)) },
                         onMetric = { metric ->
                             val current = model.uiState.value
                             stack.add(HistoryDetailRoute(metric, current.year, current.month))
@@ -240,11 +241,15 @@ fun AppNavigation(appModel: AppViewModel, platform: HostPlatform, tracker: Track
                     HistoryDetailScreen(
                         model,
                         onBack = { stack.removeLastOrNull() },
-                        onEditTimeOff = { date -> go(PlanRoute(date.toString())) })
+                        onEditTimeOff = { date -> go(PlanRoute(date.toString())) },
+                        onEditWorkMission = { date -> stack.add(PlanRoute(date.toString(), workMission = true)) }
+                    )
                 }
                 entry<PlanRoute> { route ->
                     PlanScreen(
-                        initialTimeOffDate = route.timeOffDate?.let(LocalDate::parse)
+                        initialTimeOffDate = route.timeOffDate?.let(LocalDate::parse),
+                        initialWorkMission = route.workMission,
+                        onCloseWorkMission = { if (route.workMission && stack.lastOrNull() == route) stack.removeLastOrNull() }
                     )
                 }
                 entry<SettingsRoute> {

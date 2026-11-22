@@ -57,11 +57,13 @@ class HistoryDetailsJourneyTest {
             }
             compose.onNodeWithTag("nav-history").performClick()
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithText("Attendance").fetchSemanticsNodes().isNotEmpty()
+                compose.onAllNodesWithText("Total work days").fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithText("Attendance").performScrollTo().performClick()
+            compose.onNodeWithText("Total work days").performScrollTo().performClick()
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithTag("history-detail-root").fetchSemanticsNodes().isNotEmpty()
+                val detailRecord = hasTestTag("history-record-2026-10-27") and
+                        hasAnyAncestor(hasTestTag("history-detail-root"))
+                compose.onAllNodes(detailRecord).fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithText("Apply date range").assertIsDisplayed()
             compose.onNodeWithTag("history-detail-root")

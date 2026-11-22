@@ -75,7 +75,7 @@ class AttendanceResultNotifier(
 
         is CheckOutcome.Rejected -> outcome.currentDay?.status !in setOf(
             AttendanceStatus.PRESENT, AttendanceStatus.LATE,
-            AttendanceStatus.HOLIDAY, AttendanceStatus.VACATION, AttendanceStatus.DAY_OFF
+            AttendanceStatus.HOLIDAY, AttendanceStatus.VACATION, AttendanceStatus.DAY_OFF, AttendanceStatus.WORK_MISSION
         ) &&
                 outcome.currentDay?.source != AttendanceSource.MANUAL_CORRECTION &&
                 outcome.reason in setOf(

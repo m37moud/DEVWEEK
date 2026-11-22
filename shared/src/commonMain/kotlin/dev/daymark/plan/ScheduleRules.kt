@@ -10,7 +10,7 @@ import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
-enum class TimeOffKind { HOLIDAY, VACATION }
+enum class TimeOffKind { HOLIDAY, VACATION, WORK_MISSION }
 
 data class WeeklySchedule(
     val days: Set<DayOfWeek>, val arrival: LocalTime, val overrides: Map<DayOfWeek, LocalTime>,

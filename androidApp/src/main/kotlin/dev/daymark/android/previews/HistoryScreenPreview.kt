@@ -3,6 +3,7 @@ package dev.daymark.android.previews
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import dev.daymark.history.AttendancePeriodSettings
+import dev.daymark.models.attendance.HistoryMonth
 import dev.daymark.presentation.features.history.HistoryActions
 import dev.daymark.presentation.features.history.HistoryContent
 import dev.daymark.presentation.features.history.HistoryUiState
@@ -19,6 +20,7 @@ private fun HistoryAttendancePeriodPreview() {
             state = HistoryUiState(
                 year = 2026,
                 month = 11,
+                history = HistoryMonth(listOf(previewWorkMissionRecord()), 0, 0, 0, showsWorkMissions = true),
                 ready = true,
                 today = today,
                 period = AttendancePeriodSettings(20).periodFor(today)

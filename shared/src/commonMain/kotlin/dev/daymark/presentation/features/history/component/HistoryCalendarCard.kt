@@ -60,6 +60,7 @@ import dev.daymark.models.attendance.HistoryRecord
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.presentation.component.calendarWeeks
+import dev.daymark.presentation.component.attendanceGlyph
 import dev.daymark.presentation.component.label
 import dev.daymark.presentation.component.shortLabel
 import dev.daymark.resources.Res
@@ -309,7 +310,12 @@ private fun CalendarDayCell(
                     color = contentColor
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                if (dotColor != Color.Transparent) {
+                if (status == AttendanceStatus.WORK_MISSION) {
+                    Text(
+                        attendanceGlyph(status), style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else if (dotColor != Color.Transparent) {
                     Box(
                         modifier = Modifier
                             .size(5.dp)

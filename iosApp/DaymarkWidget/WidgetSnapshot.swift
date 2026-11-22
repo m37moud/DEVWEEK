@@ -67,7 +67,7 @@ struct NativeWidgetSnapshot: Codable {
         guard schemaVersion == 1, let tracker = UUID(uuidString: trackerId), generatedAtEpochMillis >= 0,
               ["en", "ar"].contains(effectiveLocale), !displayStatus.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               ["SYSTEM", "LIGHT", "DARK"].contains(themePreference),
-              ["SCHEDULED", "AWAITING_CHECK", "PRESENT", "LATE", "ABSENT", "DAY_OFF", "HOLIDAY", "VACATION"].contains(statusCode),
+              ["SCHEDULED", "AWAITING_CHECK", "PRESENT", "LATE", "ABSENT", "DAY_OFF", "HOLIDAY", "VACATION", "WORK_MISSION"].contains(statusCode),
               TimeZone(identifier: zoneId) != nil, Self.isCanonicalDate(attendanceDate),
               quickCheckRoute == "daymark://quick-check?v=1&trackerId=\(tracker.uuidString.lowercased())",
               (deadlineDisplay == nil) == (deadlineEpochMillis == nil) else { return false }
@@ -109,7 +109,7 @@ extension NativeWidgetSnapshot {
 
     func action(at date: Date) -> Action {
         guard let status = resolvedStatus(at: date), isTracked else { return .openApp }
-        if ["PRESENT", "LATE", "DAY_OFF", "HOLIDAY", "VACATION"].contains(status) { return .openApp }
+        if ["PRESENT", "LATE", "DAY_OFF", "HOLIDAY", "VACATION", "WORK_MISSION"].contains(status) { return .openApp }
         if let arrivalEpochMillis, date.timeIntervalSince1970 * 1000 < Double(arrivalEpochMillis) { return .disabled }
         return ["AWAITING_CHECK", "ABSENT"].contains(status) ? .checkIn : .openApp
     }

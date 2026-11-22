@@ -58,8 +58,9 @@ class TodayMetricsJourneyTest {
         val fixture = AttendanceTestApp(context, name)
         var shown by mutableStateOf(true)
         val arabic = language == AppLanguage.AR
-        val labels = if (arabic) listOf("الحضور", "متأخر", "غائب", "الإجازات", "العطلات الرسمية")
-        else listOf("Attendance", "Late", "Absent", "Leave", "Official holidays")
+        val labels =
+            if (arabic) listOf("إجمالي أيام العمل", "متأخر", "غائب", "الإجازات", "العطلات الرسمية", "المأموريات")
+            else listOf("Total work days", "Late", "Absent", "Leave", "Official holidays", "Work missions")
         try {
             runBlocking {
                 fixture.graph.settings.update(
@@ -83,20 +84,16 @@ class TodayMetricsJourneyTest {
                 }
                 compose.onNodeWithTag("nav-history").performClick()
             }
+            val destinationRoot = hasTestTag("$destination-root")
             for ((index, metric) in HistoryMetric.entries.withIndex()) {
+                val tile = hasTestTag("metric-${metric.name}") and hasAnyAncestor(destinationRoot)
+                val count = DisplayFormats.number(if (index < 2) 1 else 0, language)
+                val loadedTile = tile and hasText(labels[index]) and hasText(count)
                 compose.waitUntil(10_000) {
-                    compose.onAllNodesWithTag("$destination-root").fetchSemanticsNodes()
-                        .isNotEmpty()
+                    compose.onAllNodes(loadedTile).fetchSemanticsNodes().isNotEmpty()
                 }
-                if (destination == "today") {
-                    compose.onNodeWithText(if (arabic) "هذا الشهر" else "This month")
-                        .performScrollTo().assertIsDisplayed()
-                }
-                val count = if (index < 2) 1 else 0
-                compose.onNodeWithTag("metric-${metric.name}")
-                    .performScrollTo().assertHasClickAction()
-                    .assertTextContains(labels[index])
-                    .assertTextContains(DisplayFormats.number(count, language))
+                compose.onNode(tile).performScrollTo().assertHasClickAction()
+                    .assertTextContains(labels[index]).assertTextContains(count)
                 if (index == 0 && destination == "today") {
                     compose.onNodeWithTag("today-month-counts").performScrollTo()
                     compose.waitForIdle()
@@ -113,10 +110,10 @@ class TodayMetricsJourneyTest {
                             screenshot.recycle()
                         }
                 }
-                compose.onNodeWithTag("metric-${metric.name}").performClick()
+                compose.onNode(tile).performClick()
                 compose.waitUntil(10_000) {
-                    compose.onAllNodesWithTag("history-detail-root").fetchSemanticsNodes()
-                        .isNotEmpty()
+                    compose.onAllNodesWithTag("history-detail-root").fetchSemanticsNodes().isNotEmpty() &&
+                            compose.onAllNodesWithText(labels[index]).fetchSemanticsNodes().isNotEmpty()
                 }
                 compose.onAllNodesWithText(labels[index]).onFirst().assertIsDisplayed()
                 val monthEnd = DisplayFormats.date(LocalDate(2026, 10, 31), language)

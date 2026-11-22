@@ -24,8 +24,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.daymark.models.plan.TimeOffCommand
+import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.plan.PlanReviewToken
 import dev.daymark.plan.TimeOffKind
+import dev.daymark.presentation.features.plan.component.TimeOffEditorTarget
 import dev.daymark.presentation.component.PlanMutationFeedback
 import dev.daymark.presentation.component.PlanPreviewDialog
 import dev.daymark.presentation.features.plan.component.PlanTimeOffCard
@@ -49,7 +51,9 @@ data class PlanActions(
 @Composable
 fun PlanScreen(
     model: PlanViewModel = koinViewModel(),
-    initialTimeOffDate: LocalDate? = null
+    initialTimeOffDate: LocalDate? = null,
+    initialWorkMission: Boolean = false,
+    onCloseWorkMission: (() -> Unit)? = null
 ) {
     val state by model.uiState.collectAsStateWithLifecycle()
     val actions = remember(model) {
@@ -59,7 +63,9 @@ fun PlanScreen(
         state = state,
         clock = model.clock,
         initialTimeOffDate = initialTimeOffDate,
-        actions = actions
+        actions = actions,
+        initialWorkMission = initialWorkMission,
+        onCloseWorkMission = onCloseWorkMission
     )
 }
 
@@ -68,22 +74,38 @@ fun PlanContent(
     state: PlanUiState,
     clock: Clock,
     initialTimeOffDate: LocalDate?,
-    actions: PlanActions
+    actions: PlanActions,
+    initialWorkMission: Boolean = false,
+    onCloseWorkMission: (() -> Unit)? = null
 ) {
     val savedPlan = state.plan?.current
     var editOffId by rememberSaveable { mutableStateOf<String?>(null) }
     val editOff = state.entries.firstOrNull { it.id == editOffId }
     var timeOffStartDate by rememberSaveable { mutableStateOf<String?>(null) }
     var addingOff by rememberSaveable { mutableStateOf(false) }
+    var addingMissionFromHistory by rememberSaveable { mutableStateOf(false) }
     var handledInitialDate by rememberSaveable(initialTimeOffDate) { mutableStateOf(false) }
 
     LaunchedEffect(state.ready, initialTimeOffDate) {
         if (state.ready && initialTimeOffDate != null && !handledInitialDate) {
             handledInitialDate = true
+            addingMissionFromHistory = initialWorkMission
             editOffId = state.entries.sortedBy { if (it.kind == TimeOffKind.HOLIDAY) 0 else 1 }
-                .firstOrNull { initialTimeOffDate in it.from..it.through }?.id
+                .firstOrNull {
+                    initialTimeOffDate in it.from..it.through &&
+                            (!initialWorkMission || it.kind == TimeOffKind.WORK_MISSION)
+                }?.id
             timeOffStartDate = initialTimeOffDate.toString()
             addingOff = editOffId == null
+        }
+    }
+
+    LaunchedEffect(state.result) {
+        if (state.result == PlanMutationResult.Applied) {
+            if (addingMissionFromHistory) onCloseWorkMission?.invoke()
+            addingOff = false
+            editOffId = null
+            addingMissionFromHistory = false
         }
     }
 
@@ -128,29 +150,36 @@ fun PlanContent(
                 busy = state.busy,
                 onAddTimeOff = {
                     timeOffStartDate = null
+                    addingMissionFromHistory = false
                     addingOff = true
                 },
-                onEditEntry = { editOffId = it.id }
+                onEditEntry = {
+                    addingMissionFromHistory = false
+                    editOffId = it.id
+                }
             )
         }
     }
 
-    if ((addingOff || editOff != null) && savedPlan != null && state.timeOffPreview == null) {
+    if ((addingOff || editOff != null) && savedPlan != null) {
         val today = clock.now().toLocalDateTime(TimeZone.of(savedPlan.schedule.zoneId)).date
+        val availableKinds = if (addingMissionFromHistory) listOf(TimeOffKind.WORK_MISSION)
+        else TimeOffKind.entries.filter {
+            it != TimeOffKind.WORK_MISSION || (editOff == null && state.plan.hasWorkDates)
+        }
         TimeOffEditorDialog(
-            entry = editOff,
-            today = timeOffStartDate?.let(LocalDate::parse) ?: today,
-            category = savedPlan.category,
+            target = TimeOffEditorTarget(
+                editOff, timeOffStartDate?.let(LocalDate::parse) ?: today,
+                savedPlan.category, availableKinds
+            ),
             busy = state.busy,
             onDismiss = {
+                if (addingMissionFromHistory) onCloseWorkMission?.invoke()
                 addingOff = false
                 editOffId = null
+                addingMissionFromHistory = false
             },
-            onPreview = { command ->
-                addingOff = false
-                editOffId = null
-                actions.previewTimeOff(command)
-            }
+            onPreview = actions.previewTimeOff
         )
     }
 

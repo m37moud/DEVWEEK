@@ -81,6 +81,20 @@ private fun PlanScreenAnnualReviewPreview() {
     }
 }
 
+@Preview(name = "Work mission editor", widthDp = 320, fontScale = 1.5f)
+@Composable
+private fun WorkMissionEditorPreview() {
+    DaymarkTheme(ThemePreference.DARK) {
+        PlanContent(
+            samplePlanState(),
+            Clock.System,
+            LocalDate(2026, 11, 19),
+            PlanActions({}, {}, {}),
+            initialWorkMission = true
+        )
+    }
+}
+
 private fun samplePlanState(): PlanUiState {
     val draft = PlanChange(
         WeeklySchedule(
@@ -103,6 +117,11 @@ private fun samplePlanState(): PlanUiState {
         ready = true,
         plan = PlanState(draft, null, null),
         entries = listOf(
+            TimeOffEntry(
+                "sample-mission", TimeOffKind.WORK_MISSION,
+                LocalDate(2026, 11, 19), LocalDate(2026, 11, 19),
+                Instant.fromEpochMilliseconds(0), "Client visit"
+            ),
             TimeOffEntry(
                 "sample-1",
                 TimeOffKind.VACATION,

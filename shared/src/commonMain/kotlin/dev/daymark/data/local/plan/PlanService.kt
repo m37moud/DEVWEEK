@@ -48,7 +48,8 @@ class PlanService(
                 store.active.change(),
                 pending?.change(),
                 pending?.let { LocalDate.parse(it.effectiveDate) },
-                (pending ?: store.active).placeName
+                (pending ?: store.active).placeName,
+                hasWorkDates = store.hasWorkDates
             )
         }
     }

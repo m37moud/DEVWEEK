@@ -48,6 +48,7 @@ internal fun attendanceGlyph(status: AttendanceStatus?): String = when (status) 
     AttendanceStatus.PRESENT -> "✓"
     AttendanceStatus.LATE -> "!"
     AttendanceStatus.ABSENT -> "×"
+    AttendanceStatus.WORK_MISSION -> "◆"
     AttendanceStatus.HOLIDAY, AttendanceStatus.VACATION, AttendanceStatus.DAY_OFF -> "—"
     AttendanceStatus.AWAITING_CHECK -> "…"
     AttendanceStatus.SCHEDULED -> "○"

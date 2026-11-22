@@ -28,7 +28,8 @@ import dev.daymark.settings.str
 internal fun HistoryDetailHeader(
     metric: HistoryMetric,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showWorkDaysLabel: Boolean = false
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -55,7 +56,7 @@ internal fun HistoryDetailHeader(
             }
         }
         Text(
-            text = str(metric.metricLabel()),
+            text = str(metric.metricLabel(showWorkDaysLabel)),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface

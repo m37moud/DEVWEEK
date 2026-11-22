@@ -93,7 +93,7 @@ class SyncCoordinatorTest {
                 assertEquals(SyncPassResult.Synced, sync.runPass(SyncTrigger.LAUNCH))
                 val numericRows =
                     server.cells.filter { (a1, rows) -> a1.startsWith("'Overview'") && !rows.single()[2].isString }.keys.toList()
-                assertEquals(4, numericRows.size)
+                assertEquals(6, numericRows.size)
                 numericRows.forEach { a1 ->
                     val row = server.cells.getValue(a1).single()
                     server.cells[a1] = listOf(row.take(2) + JsonPrimitive(row[2].content))

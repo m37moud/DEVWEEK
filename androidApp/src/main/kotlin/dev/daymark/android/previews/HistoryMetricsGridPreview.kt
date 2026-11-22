@@ -17,7 +17,8 @@ private fun HistoryMetricsGridLightPreview() {
                 late = 2,
                 absent = 1,
                 leaveRest = 3,
-                holidays = 1
+                holidays = 1,
+                workMissions = 2
             ),
             onMetric = {}
         )
@@ -34,7 +35,8 @@ private fun HistoryMetricsGridDarkPreview() {
                 late = 2,
                 absent = 1,
                 leaveRest = 3,
-                holidays = 1
+                holidays = 1,
+                workMissions = 2
             ),
             onMetric = {}
         )
@@ -51,7 +53,8 @@ private fun HistoryMetricsGridNarrowPreview() {
                 late = 2,
                 absent = 1,
                 leaveRest = 3,
-                holidays = 1
+                holidays = 1,
+                workMissions = 2
             ),
             onMetric = {}
         )
@@ -70,7 +73,8 @@ private fun HistoryMetricsGridPreview() {
                 late = 2,
                 absent = 1,
                 leaveRest = 3,
-                holidays = 1
+                holidays = 1,
+                workMissions = 2
             ),
             onMetric = {}
         )

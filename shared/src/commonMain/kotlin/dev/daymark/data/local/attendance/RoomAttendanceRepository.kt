@@ -35,7 +35,8 @@ import dev.daymark.models.attendance.FixVerdict
 import dev.daymark.models.attendance.HistoryMonth
 import dev.daymark.models.attendance.HistoryRecord
 import dev.daymark.models.attendance.StoredDay
-import dev.daymark.plan.TimeOffKind
+import dev.daymark.plan.dayEntry
+import dev.daymark.data.local.plan.entry
 import dev.daymark.plan.resolveLocalArrival
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
@@ -368,18 +369,12 @@ class RoomAttendanceRepository(
     }
 
     private fun stored(row: AttendanceEntity, entries: List<TimeOffEntity>): StoredDay {
-        val date = LocalDate.parse(row.date)
-        val matching =
-            entries.filter { LocalDate.parse(it.startDate) <= date && LocalDate.parse(it.endDate) >= date }
-        val off = when {
-            matching.any { it.kind == TimeOffKind.HOLIDAY.name } -> TimeOffKind.HOLIDAY
-            matching.any { it.kind == TimeOffKind.VACATION.name } -> TimeOffKind.VACATION
-            else -> null
-        }
+        val plan = row.plan()
+        val matching = entries.filter { row.date in it.startDate..it.endDate }
         return StoredDay(
-            row.plan(),
+            plan,
             row.evidence(),
-            off,
+            dayEntry(matching.map { it.entry() }, plan.key.date, plan.category)?.kind,
             AutomaticState.valueOf(row.automaticState),
             row.revision,
             row.userEditRevision

@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.models.attendance.Correction
 import dev.daymark.presentation.features.history.component.HistoryCorrectionDialog
 import dev.daymark.presentation.features.history.component.HistoryEmptyState
@@ -62,14 +63,16 @@ data class HistoryDetailActions(
     val selectRange: (LocalDate, LocalDate) -> Unit,
     val correct: (Correction) -> Unit,
     val timeOff: (LocalDate) -> Unit,
-    val beginCorrection: () -> Unit
+    val beginCorrection: () -> Unit,
+    val workMission: ((LocalDate) -> Unit)? = null
 )
 
 @Composable
 fun HistoryDetailScreen(
     model: HistoryDetailViewModel,
     onBack: () -> Unit,
-    onEditTimeOff: (LocalDate) -> Unit
+    onEditTimeOff: (LocalDate) -> Unit,
+    onEditWorkMission: ((LocalDate) -> Unit)? = null
 ) {
     val state by model.uiState.collectAsStateWithLifecycle()
     LifecycleStartEffect(model) {
@@ -83,7 +86,8 @@ fun HistoryDetailScreen(
             model::selectRange,
             model::saveCorrection,
             onEditTimeOff,
-            model::beginCorrection
+            model::beginCorrection,
+            onEditWorkMission
         )
     )
 }
@@ -115,7 +119,8 @@ fun HistoryDetailContent(
         item {
             HistoryDetailHeader(
                 metric = state.metric,
-                onBack = actions.back
+                onBack = actions.back,
+                showWorkDaysLabel = state.showWorkDaysLabel
             )
         }
 
@@ -183,7 +188,11 @@ fun HistoryDetailContent(
                     record = record,
                     state = state,
                     onSelect = { selected ->
-                        if (!selected.plan.isScheduled || selected.outcome.offReason != null) {
+                        if (selected.outcome.status == AttendanceStatus.WORK_MISSION &&
+                            actions.workMission != null
+                        ) {
+                            actions.workMission.invoke(selected.plan.key.date)
+                        } else if (!selected.plan.isScheduled || selected.outcome.offReason != null) {
                             offDate = selected.plan.key.date.toString()
                         } else {
                             actions.beginCorrection()
@@ -218,7 +227,8 @@ fun HistoryDetailContent(
                 language = appLanguage,
                 onSaveCorrection = actions.correct,
                 onEditTimeOff = actions.timeOff,
-                onDismiss = { if (!state.busy) editingDate = null }
+                onDismiss = { if (!state.busy) editingDate = null },
+                onEditWorkMission = actions.workMission
             )
         }
     }

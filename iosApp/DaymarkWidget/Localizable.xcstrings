@@ -120,6 +120,23 @@
         }
       }
     },
+    "widget_status_work_mission": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work mission"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مأمورية عمل"
+          }
+        }
+      }
+    },
     "widget_status_vacation": {
       "extractionState": "manual",
       "localizations": {

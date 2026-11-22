@@ -158,7 +158,8 @@ class TodayViewModel(
             AttendanceStatus.LATE,
             AttendanceStatus.DAY_OFF,
             AttendanceStatus.HOLIDAY,
-            AttendanceStatus.VACATION
+            AttendanceStatus.VACATION,
+            AttendanceStatus.WORK_MISSION
         ) &&
                 value.outcome?.source != AttendanceSource.MANUAL_CORRECTION
     }

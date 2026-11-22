@@ -12,7 +12,9 @@ import dev.daymark.data.local.markDirty
 import dev.daymark.data.local.plan.PlanningSnapshotReader
 import dev.daymark.data.local.plan.balanceYear
 import dev.daymark.models.attendance.AttendanceStatus
-import dev.daymark.models.attendance.HistoryRecord
+import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.data.local.plan.historyRecord
+import dev.daymark.history.isWorkedDay
 import dev.daymark.models.reporting.ProjectionKey
 import dev.daymark.models.reporting.RawRange
 import dev.daymark.models.reporting.ReportAccessException
@@ -148,11 +150,12 @@ class RoomReportStore(
         val days = dirty.keys.filter { it.startsWith("DAY:") }
             .map { LocalDate.parse(it.removePrefix("DAY:")) }.sorted().map { date ->
                 val plan = state.plan(date)
-                val evidence = state.rows[date]?.evidence()
-                // Stable across reads; a new session must not rewrite every row just because wall time advanced.
-                val updated = evidence?.updatedAt ?: Instant.parse(state.tracker.createdAt)
+                val record = state.historyRecord(plan)
+                val mission = state.dayEntry(plan)?.takeIf { record.outcome.status == AttendanceStatus.WORK_MISSION }
+                // Stable across reads; advancing the clock does not rewrite every row.
+                val updated = mission?.updatedAt ?: record.evidence?.updatedAt ?: Instant.parse(state.tracker.createdAt)
                 projectDay(
-                    HistoryRecord(plan, evidence, state.outcome(date)),
+                    record,
                     dirty.getValue("DAY:$date").revision,
                     updated
                 )
@@ -162,7 +165,11 @@ class RoomReportStore(
             dirty["TIME_OFF"]?.revision ?: 1,
             publishedCapacity(binding.trackerId, ProjectionKey.TimeOff)
         )
-        val actual = state.rows.keys.map { state.outcome(it).status }
+        val actual = state.rows.mapValues { (date, _) -> state.outcome(date).status }
+        val statuses = actual.values
+        val workDays = actual.count { (date, status) ->
+            state.rows.getValue(date).category == TrackerCategory.WORK.name && status.isWorkedDay
+        }
         fun field(key: String, label: String, value: String) =
             Triple(key, label, JsonPrimitive(value))
 
@@ -176,11 +183,16 @@ class RoomReportStore(
                 field("name", "Name / الاسم", state.tracker.displayName),
                 field("category", "Category / النوع", state.active.category),
                 field("zoneId", "Time zone / المنطقة الزمنية", state.active.schedule().zoneId),
-                count("present", "Present / حاضر", actual.count { it == AttendanceStatus.PRESENT }),
-                count("late", "Late / متأخر", actual.count { it == AttendanceStatus.LATE }),
-                count("absent", "Absent / غائب", actual.count { it == AttendanceStatus.ABSENT }),
+                count("present", "Present / حاضر", statuses.count { it == AttendanceStatus.PRESENT }),
+                count("late", "Late / متأخر", statuses.count { it == AttendanceStatus.LATE }),
+                count("absent", "Absent / غائب", statuses.count { it == AttendanceStatus.ABSENT }),
                 if (vacationBalance != null) count("vacationBalance", vacationLabel, vacationBalance.remainingDays)
-                else field("vacationBalance", vacationLabel, "")
+                else field("vacationBalance", vacationLabel, ""),
+                count("workDays", "Total work days / إجمالي أيام العمل", workDays),
+                count(
+                    "workMissions",
+                    "Work missions / المأموريات",
+                    statuses.count { it == AttendanceStatus.WORK_MISSION })
             ), dirty["OVERVIEW"]?.revision ?: 1
         )
         val periodsKey = ProjectionKey.AttendancePeriods

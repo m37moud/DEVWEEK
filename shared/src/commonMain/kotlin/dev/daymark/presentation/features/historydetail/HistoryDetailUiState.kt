@@ -21,9 +21,10 @@ data class HistoryDetailUiState(
 ) {
     val records
         get() = range.records.filter {
-            metric.includes(it) && it.plan.key.date <= range.today
+            metric.includes(it) && (metric == HistoryMetric.WORK_MISSION || it.plan.key.date <= range.today)
         }.sortedByDescending { it.plan.key.date }
     val earlierVacationDates
         get() = if (metric == HistoryMetric.LEAVE_REST) range.earlierVacationDates.asReversed() else emptyList()
-    val metrics get() = historyMetrics(range.records, range.today, range.earlierVacationDates)
+    val metrics = historyMetrics(range.records, range.today, range.earlierVacationDates)
+    val showWorkDaysLabel get() = range.showsWorkMissions && !metrics.hasNonWorkDays
 }

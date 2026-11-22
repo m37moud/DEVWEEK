@@ -43,7 +43,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.daymark.presentation.features.historydetail.HistoryDetailUiState
 import dev.daymark.resources.Res
@@ -123,8 +122,6 @@ internal fun HistoryRangeFilter(
                                     DisplayFormats.date(targetFrom, language)
                                 ),
                                 style = MaterialTheme.typography.bodySmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.padding(start = 6.dp)
                             )
                         }
@@ -159,8 +156,6 @@ internal fun HistoryRangeFilter(
                                     DisplayFormats.date(targetThrough, language)
                                 ),
                                 style = MaterialTheme.typography.bodySmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.padding(start = 6.dp)
                             )
                         }

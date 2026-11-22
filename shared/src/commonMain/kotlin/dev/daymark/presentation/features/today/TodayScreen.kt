@@ -156,6 +156,8 @@ fun TodayContent(
                         summary.date?.let { displayedDate ->
                             TodayMonthMetrics(
                                 metrics = summary.metrics,
+                                showWorkMissions = state.plan?.category == TrackerCategory.WORK ||
+                                        summary.metrics.workMissions > 0,
                                 onHistory = onHistory,
                                 onMetric = { actions.openMetric(it, summary.period?.month ?: displayedDate) },
                                 period = summary.period

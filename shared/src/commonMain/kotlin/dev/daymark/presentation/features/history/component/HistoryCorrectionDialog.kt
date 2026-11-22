@@ -63,6 +63,7 @@ import dev.daymark.resources.correction_note
 import dev.daymark.resources.correction_time
 import dev.daymark.resources.edit_record
 import dev.daymark.resources.edit_time_off
+import dev.daymark.resources.status_work_mission
 import dev.daymark.resources.invalid_correction
 import dev.daymark.resources.local_save_failed
 import dev.daymark.resources.note_too_long
@@ -89,7 +90,8 @@ internal fun HistoryCorrectionDialog(
     language: AppLanguage,
     onSaveCorrection: (Correction) -> Unit,
     onEditTimeOff: (LocalDate) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onEditWorkMission: ((LocalDate) -> Unit)? = null
 ) {
     var status by rememberSaveable {
         mutableStateOf(
@@ -218,6 +220,19 @@ internal fun HistoryCorrectionDialog(
                         .testTag("correction-note"),
                     maxLines = 4
                 )
+
+                if (record.plan.category == TrackerCategory.WORK && onEditWorkMission != null) {
+                    TextButton(
+                        enabled = !busy,
+                        modifier = Modifier.testTag("history-work-mission-action"),
+                        onClick = {
+                            onDismiss()
+                            onEditWorkMission(record.plan.key.date)
+                        }
+                    ) {
+                        Text(str(Res.string.status_work_mission))
+                    }
+                }
 
                 // Secondary action: Edit time off
                 TextButton(

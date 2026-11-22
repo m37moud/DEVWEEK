@@ -51,28 +51,39 @@ data class TimeOffEntry(
     val kind: TimeOffKind,
     val from: LocalDate,
     val through: LocalDate,
-    val updatedAt: Instant
+    val updatedAt: Instant,
+    val note: String? = null
 ) {
     init {
         require(from <= through)
     }
+
+    override fun toString() = "TimeOffEntry(id=$id, kind=$kind, note=<redacted>)"
 }
 
 sealed interface TimeOffCommand {
     data class Add(val kind: TimeOffKind, val from: LocalDate, val through: LocalDate) :
         TimeOffCommand
 
+    data class AddDates(val kind: TimeOffKind, val dates: Set<LocalDate>, val note: String? = null) :
+        TimeOffCommand {
+        override fun toString() = "AddDates(kind=$kind, count=${dates.size}, note=<redacted>)"
+    }
+
     data class Replace(
         val entryId: String,
         val kind: TimeOffKind,
         val from: LocalDate,
-        val through: LocalDate
-    ) : TimeOffCommand
+        val through: LocalDate,
+        val note: String? = null
+    ) : TimeOffCommand {
+        override fun toString() = "Replace(entryId=$entryId, kind=$kind, note=<redacted>)"
+    }
 
     data class Remove(val entryId: String) : TimeOffCommand
 }
 
-enum class PlanRejection { INVALID_RANGE, INVALID_VALUE, INSUFFICIENT_BALANCE, LOCAL_SAVE_FAILED }
+enum class PlanRejection { INVALID_RANGE, INVALID_VALUE, INSUFFICIENT_BALANCE, LOCAL_SAVE_FAILED, WORK_MISSION_CONFLICT, WORK_MISSION_INELIGIBLE, NOTE_TOO_LONG }
 data class TimeOffDayChange(
     val key: DayKey, val before: DayOutcome, val after: DayOutcome,
     val evidence: AttendanceEvidence?, val category: TrackerCategory, val zoneId: String
@@ -114,7 +125,8 @@ data class PlanState(
     val current: PlanChange,
     val pending: PlanChange?,
     val effectiveFrom: LocalDate?,
-    val placeName: String = ""
+    val placeName: String = "",
+    val hasWorkDates: Boolean = current.category == TrackerCategory.WORK || pending?.category == TrackerCategory.WORK
 ) {
     override fun toString() = "PlanState(metadata=<redacted>)"
 }

@@ -9,6 +9,7 @@ import dev.daymark.data.local.TrackerEntity
 import dev.daymark.history.AttendancePeriodSettings
 import dev.daymark.models.attendance.DayKey
 import dev.daymark.models.attendance.DayPlan
+import dev.daymark.models.attendance.DayOutcome
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.plan.AnnualVacationPolicy
 import dev.daymark.models.plan.PlanChange
@@ -19,7 +20,7 @@ import dev.daymark.models.plan.TimeOffEntry
 import dev.daymark.models.plan.TimeOffPreview
 import dev.daymark.plan.TimeOffKind
 import dev.daymark.plan.resolveDay
-import dev.daymark.plan.timeOffOn
+import dev.daymark.plan.dayEntry
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
@@ -32,7 +33,8 @@ internal fun TimeOffEntity.entry() = TimeOffEntry(
     TimeOffKind.valueOf(kind),
     LocalDate.parse(startDate),
     LocalDate.parse(endDate),
-    Instant.parse(updatedAt)
+    Instant.parse(updatedAt),
+    note
 )
 
 internal fun TimeOffEntry.entity(trackerId: String) = TimeOffEntity(
@@ -41,7 +43,7 @@ internal fun TimeOffEntry.entity(trackerId: String) = TimeOffEntity(
     kind.name,
     from.toString(),
     through.toString(),
-    null,
+    note,
     updatedAt.toString()
 )
 
@@ -82,6 +84,10 @@ internal data class PlanningStore(
     val today = now.toLocalDateTime(TimeZone.of(active.schedule().zoneId)).date
     val vacationYear = periodSettings.vacationYear(today)
     val firstDate = LocalDate.parse(versions.first().effectiveDate)
+    val hasWorkDates: Boolean
+        get() = rows.values.any { it.category == TrackerCategory.WORK.name } ||
+                versions.sortedByDescending { it.version }.distinctBy { it.effectiveDate }
+                    .any { it.category == TrackerCategory.WORK.name }
 
     // Tracker identity prevents a preview from an erased profile matching a newly created profile at revision zero.
     val revision = Uuid.parse(tracker.id)
@@ -106,8 +112,19 @@ internal data class PlanningStore(
         date: LocalDate,
         off: List<TimeOffEntry> = entries,
         expectations: List<PlanVersionEntity> = versions
-    ) =
-        evaluateDay(plan(date, expectations), rows[date]?.evidence(), timeOffOn(off, date), now)
+    ): DayOutcome {
+        val plan = plan(date, expectations)
+        return evaluateDay(plan, rows[date]?.evidence(), dayEntry(off, date, plan.category)?.kind, now)
+    }
+
+    fun dayEntry(plan: DayPlan): TimeOffEntry? = dayEntry(entries, plan.key.date, plan.category)
+
+    fun canBookWorkMission(date: LocalDate): Boolean {
+        if (date < firstDate) return false
+        val plan = plan(date)
+        return plan.category == TrackerCategory.WORK &&
+                (date in rows || plan.arrival >= Instant.parse(tracker.trackingStartsAt))
+    }
 }
 
 

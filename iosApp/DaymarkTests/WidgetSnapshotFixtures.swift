@@ -44,6 +44,11 @@ enum WidgetSnapshotFixtures {
         precondition(snapshot.resolvedStatus(at: formatter.date(from: "2026-10-27T09:05:00Z")!) == "AWAITING_CHECK")
         precondition(snapshot.resolvedStatus(at: formatter.date(from: "2026-10-27T09:05:01Z")!) == "ABSENT")
         precondition(snapshot.action(at: formatter.date(from: "2026-10-28T09:00:00Z")!) == .openApp)
+        let missionData = arabic.replacingOccurrences(of: #""statusCode":"PRESENT""#, with: #""statusCode":"WORK_MISSION""#)
+        let mission = NativeWidgetSnapshot.decode(Data(missionData.utf8))!
+        let beforeArrival = formatter.date(from: "2026-10-27T08:59:59Z")!
+        precondition(mission.resolvedStatus(at: beforeArrival) == "WORK_MISSION")
+        precondition(mission.action(at: beforeArrival) == .openApp)
         let untracked = NativeWidgetSnapshot.decode(Data(raw.replacingOccurrences(of: "\"isTracked\":true", with: "\"isTracked\":false").utf8))!
         precondition(untracked.action(at: formatter.date(from: "2026-10-27T09:10:00Z")!) == .openApp)
     }

@@ -8,7 +8,6 @@ import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.plan.PlanReader
 import dev.daymark.plan.PlannedDay
 import dev.daymark.plan.ScheduleContext
-import dev.daymark.plan.timeOffOn
 import kotlin.time.Clock
 import kotlinx.datetime.LocalDate
 
@@ -36,9 +35,10 @@ class RoomPlanReader(
     override suspend fun day(date: LocalDate): PlannedDay {
         val store = requireNotNull(snapshot) { "Read the schedule context first" }
         val evidence = store.rows[date]?.evidence()
+        val plan = store.plan(date)
         return PlannedDay(
-            store.plan(date),
-            timeOffOn(store.entries, date),
+            plan,
+            store.dayEntry(plan)?.kind,
             evidence?.let {
                 it.source == AttendanceSource.MANUAL_CORRECTION || it.status in listOf(
                     AttendanceStatus.PRESENT,

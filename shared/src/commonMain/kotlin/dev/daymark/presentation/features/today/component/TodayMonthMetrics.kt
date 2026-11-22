@@ -30,6 +30,7 @@ internal fun TodayMonthMetrics(
     onHistory: () -> Unit,
     onMetric: (HistoryMetric) -> Unit,
     modifier: Modifier = Modifier,
+    showWorkMissions: Boolean = false,
     period: AttendancePeriod? = null
 ) {
     Column(
@@ -58,6 +59,6 @@ internal fun TodayMonthMetrics(
         if (period != null) {
             Text(attendancePeriodDates(period), style = MaterialTheme.typography.bodySmall)
         }
-        HistoryMetricsGrid(metrics, onMetric, Modifier.testTag("today-month-counts"))
+        HistoryMetricsGrid(metrics, onMetric, Modifier.testTag("today-month-counts"), showWorkMissions)
     }
 }

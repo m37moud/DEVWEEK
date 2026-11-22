@@ -50,7 +50,7 @@ private fun TodayScreenPreview() {
                 27 -> AttendanceStatus.AWAITING_CHECK
                 28 -> AttendanceStatus.HOLIDAY
                 29 -> AttendanceStatus.VACATION
-                30 -> AttendanceStatus.SCHEDULED
+                30 -> AttendanceStatus.WORK_MISSION
                 else -> AttendanceStatus.DAY_OFF
             },
             planned = dayNumber > 27
@@ -66,7 +66,8 @@ private fun TodayScreenPreview() {
             late = 2,
             absent = 1,
             leaveRest = 3,
-            holidays = 1
+            holidays = 1,
+            workMissions = 1
         ),
         week = weekDays,
         nextAttendance = plan.copy(

@@ -40,12 +40,16 @@ class WidgetPresentationTest {
             snapshot.widgetAction(Instant.parse("2026-10-28T10:00:00Z"))
         )
         assertEquals(WidgetAction.OPEN_APP, snapshot.copy(isTracked = false).widgetAction(now))
-        for (status in listOf("PRESENT", "LATE", "DAY_OFF", "HOLIDAY", "VACATION")) {
+        for (status in listOf("PRESENT", "LATE", "DAY_OFF", "HOLIDAY", "VACATION", "WORK_MISSION")) {
             assertEquals(
                 WidgetAction.OPEN_APP,
                 snapshot.copy(statusCode = status).widgetAction(now)
             )
         }
+        assertEquals(
+            WidgetAction.OPEN_APP,
+            snapshot.copy(statusCode = "WORK_MISSION").widgetAction(Instant.parse("2026-10-27T08:00:00Z"))
+        )
         assertEquals(WidgetAction.CHECK_IN, snapshot.copy(statusCode = "ABSENT").widgetAction(now))
     }
 }

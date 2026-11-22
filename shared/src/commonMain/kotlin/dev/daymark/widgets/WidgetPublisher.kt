@@ -71,6 +71,7 @@ class WidgetPublisher(
         val isTracked =
             day.revision > 0 || day.plan.arrival >= Instant.parse(tracker.trackingStartsAt)
         val outcome = evaluateDay(day.plan, day.evidence, day.off, now)
+        val showsSchedule = isTracked && outcome.status != AttendanceStatus.WORK_MISSION
         val version =
             planningDao.versions(tracker.id).firstOrNull { it.version == day.plan.scheduleVersion }
         val label = version?.placeName.orEmpty().let {
@@ -86,15 +87,15 @@ class WidgetPublisher(
                 displayStatus = statusLabel(if (isTracked) outcome.status else null, language),
                 statusCode = if (isTracked) outcome.status.name else AttendanceStatus.SCHEDULED.name,
                 placeLabel = label,
-                deadlineDisplay = if (isTracked) DisplayFormats.time(
+                deadlineDisplay = if (showsSchedule) DisplayFormats.time(
                     day.plan.deadline,
                     day.plan.zoneId,
                     language
                 ) else null,
-                deadlineEpochMillis = if (isTracked) day.plan.deadline.toEpochMilliseconds() else null,
+                deadlineEpochMillis = if (showsSchedule) day.plan.deadline.toEpochMilliseconds() else null,
                 zoneId = day.plan.zoneId,
                 quickCheckRoute = encodeQuickCheckRoute(QuickCheckRoute(trackerId = tracker.id)),
-                arrivalEpochMillis = if (isTracked) day.plan.arrival.toEpochMilliseconds() else null,
+                arrivalEpochMillis = if (showsSchedule) day.plan.arrival.toEpochMilliseconds() else null,
                 themePreference = preferences.theme.name,
                 isTracked = isTracked
             )

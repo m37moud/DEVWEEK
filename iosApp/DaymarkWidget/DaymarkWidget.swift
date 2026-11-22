@@ -150,7 +150,7 @@ private struct AttendanceWidgetView: View {
 
 struct AttendanceWidgetPreviews: PreviewProvider {
     static var previews: some View {
-        ForEach(["AWAITING_CHECK", "SCHEDULED", "PRESENT", "DAY_OFF", "STALE"], id: \.self) { status in
+        ForEach(["AWAITING_CHECK", "SCHEDULED", "PRESENT", "WORK_MISSION", "DAY_OFF", "STALE"], id: \.self) { status in
             AttendanceWidgetView(entry: previewEntry(status))
                 .padding().background(widgetBackground(nil))
                 .previewContext(WidgetPreviewContext(family: .systemSmall))

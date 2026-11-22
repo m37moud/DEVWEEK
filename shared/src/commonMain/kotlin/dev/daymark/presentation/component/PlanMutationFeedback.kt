@@ -20,6 +20,9 @@ import dev.daymark.resources.plan_invalid
 import dev.daymark.resources.plan_saved
 import dev.daymark.resources.plan_stale
 import dev.daymark.resources.plan_storage_failed
+import dev.daymark.resources.work_mission_conflict
+import dev.daymark.resources.work_mission_ineligible
+import dev.daymark.resources.work_mission_note_too_long
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.isolated
@@ -28,6 +31,9 @@ import dev.daymark.settings.str
 internal fun PlanRejection.message() = when (this) {
     PlanRejection.INSUFFICIENT_BALANCE -> Res.string.plan_insufficient
     PlanRejection.LOCAL_SAVE_FAILED -> Res.string.plan_storage_failed
+    PlanRejection.WORK_MISSION_CONFLICT -> Res.string.work_mission_conflict
+    PlanRejection.WORK_MISSION_INELIGIBLE -> Res.string.work_mission_ineligible
+    PlanRejection.NOTE_TOO_LONG -> Res.string.work_mission_note_too_long
     PlanRejection.INVALID_RANGE, PlanRejection.INVALID_VALUE -> Res.string.plan_invalid
 }
 

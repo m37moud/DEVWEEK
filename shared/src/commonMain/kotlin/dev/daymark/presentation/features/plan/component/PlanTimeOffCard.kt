@@ -42,13 +42,11 @@ import androidx.compose.ui.unit.dp
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.plan.TimeOffEntry
 import dev.daymark.plan.TimeOffKind
+import dev.daymark.presentation.component.label
 import dev.daymark.resources.Res
 import dev.daymark.resources.add_time_off
 import dev.daymark.resources.edit
 import dev.daymark.resources.time_off_empty
-import dev.daymark.resources.status_day_off
-import dev.daymark.resources.status_holiday
-import dev.daymark.resources.status_vacation
 import dev.daymark.resources.time_off_from
 import dev.daymark.resources.time_off_through
 import dev.daymark.settings.DisplayFormats
@@ -195,11 +193,7 @@ private fun PlanTimeOffEntryItem(
                         }
                     ) {
                         Text(
-                            text = str(
-                                if (isHoliday) Res.string.status_holiday
-                                else if (category == TrackerCategory.WORK) Res.string.status_vacation
-                                else Res.string.status_day_off
-                            ),
+                            text = str(entry.kind.label(category)),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = if (isHoliday) {
@@ -241,6 +235,10 @@ private fun PlanTimeOffEntryItem(
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
+            }
+
+            entry.note?.let { note ->
+                Text(isolated(note), style = MaterialTheme.typography.bodyMedium)
             }
 
             if (isSingleDay) {

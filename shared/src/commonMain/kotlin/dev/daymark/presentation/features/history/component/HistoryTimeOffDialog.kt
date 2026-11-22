@@ -11,6 +11,8 @@ import androidx.compose.ui.platform.testTag
 import dev.daymark.resources.Res
 import dev.daymark.resources.cancel
 import dev.daymark.resources.edit_time_off
+import dev.daymark.resources.status_work_mission
+import androidx.compose.foundation.layout.Column
 import dev.daymark.resources.time_off_edit_help
 import dev.daymark.settings.str
 import kotlinx.datetime.LocalDate
@@ -19,7 +21,8 @@ import kotlinx.datetime.LocalDate
 internal fun HistoryTimeOffDialog(
     date: LocalDate,
     onEditTimeOff: (LocalDate) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onEditWorkMission: ((LocalDate) -> Unit)? = null
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -30,10 +33,18 @@ internal fun HistoryTimeOffDialog(
             )
         },
         text = {
-            Text(
-                text = str(Res.string.time_off_edit_help),
-                style = MaterialTheme.typography.bodyMedium
-            )
+            Column {
+                Text(str(Res.string.time_off_edit_help), style = MaterialTheme.typography.bodyMedium)
+                if (onEditWorkMission != null) {
+                    TextButton(
+                        modifier = Modifier.testTag("history-work-mission-action"),
+                        onClick = {
+                            onDismiss()
+                            onEditWorkMission(date)
+                        }
+                    ) { Text(str(Res.string.status_work_mission)) }
+                }
+            }
         },
         confirmButton = {
             Button(

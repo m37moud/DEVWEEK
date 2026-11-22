@@ -92,6 +92,17 @@
     <string name="status_absent">Absent</string>
     <string name="status_day_off">Day off</string>
     <string name="status_holiday">Holiday</string>
+    <string name="status_work_mission">Work mission</string>
+    <string name="history_work_missions">Work missions</string>
+    <string name="history_work_days">Total work days</string>
+    <string name="work_mission_note">Note (optional)</string>
+    <string name="work_mission_remove">Remove work mission</string>
+    <string name="work_mission_conflict">A selected day already has a conflicting entry. Remove the existing vacation, holiday, or work mission first.</string>
+    <string name="work_mission_ineligible">Choose dates in the tracked period that belong to a Work tracker.</string>
+    <string name="work_mission_note_too_long">The note is too long to sync with Google Sheets.</string>
+    <string name="time_off_select_range">Date range</string>
+    <string name="time_off_select_days">Separate days</string>
+    <string name="time_off_selected_days">Selected days: %1$s</string>
     <string name="status_vacation">Vacation</string>
     <string name="source_none">No confirmation yet</string>
     <string name="source_automatic">Location checked automatically</string>
@@ -209,7 +220,7 @@
     <string name="fri_short">Fri</string>
     <string name="sat_short">Sat</string>
     <string name="sun_short">Sun</string>
-    <string name="attendance_legend">✓ Present · ! Late · × Absent · — Day off · ○ Planned · · Not tracked</string>
+    <string name="attendance_legend">✓ Present · ! Late · × Absent · ◆ Work mission · — Day off · ○ Planned · · Not tracked</string>
     <string name="planned_date">Planned</string>
     <string name="not_tracked_date">Not tracked</string>
     <string name="month_so_far">This month</string>

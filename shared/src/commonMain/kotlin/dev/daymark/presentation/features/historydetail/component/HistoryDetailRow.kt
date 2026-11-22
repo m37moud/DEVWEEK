@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.history.HistoryMetric
 import dev.daymark.history.lateDuration
 import dev.daymark.models.attendance.HistoryRecord
@@ -35,7 +36,7 @@ internal fun HistoryDetailRow(
 ) {
     val language = LocalAppLanguage.current
     val date = record.plan.key.date
-    val arrivalTime = DisplayFormats.time(record.plan.arrival, record.plan.zoneId, language)
+    val isMission = record.outcome.status == AttendanceStatus.WORK_MISSION
     val isLate = state.metric == HistoryMetric.LATE
 
     Column(
@@ -59,16 +60,15 @@ internal fun HistoryDetailRow(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = "•",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.outlineVariant
-                )
-                Text(
-                    text = str(Res.string.history_scheduled_arrival, arrivalTime),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (!isMission) {
+                    Text("•", color = MaterialTheme.colorScheme.outlineVariant)
+                    val arrivalTime = DisplayFormats.time(record.plan.arrival, record.plan.zoneId, language)
+                    Text(
+                        text = str(Res.string.history_scheduled_arrival, arrivalTime),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             if (isLate) {
                 Surface(

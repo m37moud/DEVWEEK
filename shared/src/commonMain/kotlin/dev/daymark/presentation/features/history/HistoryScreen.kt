@@ -67,7 +67,8 @@ fun HistoryScreen(
     model: HistoryViewModel,
     onBack: () -> Unit,
     onEditTimeOff: (LocalDate) -> Unit,
-    onMetric: (HistoryMetric) -> Unit = {}
+    onMetric: (HistoryMetric) -> Unit = {},
+    onEditWorkMission: ((LocalDate) -> Unit)? = null
 ) {
     val state by model.uiState.collectAsStateWithLifecycle()
     LifecycleStartEffect(model) {
@@ -77,7 +78,7 @@ fun HistoryScreen(
     val actions = remember(model, onMetric) {
         HistoryActions(model::selectMonth, model::saveCorrection, onMetric)
     }
-    HistoryContent(state, onBack, onEditTimeOff, actions)
+    HistoryContent(state, onBack, onEditTimeOff, actions, onEditWorkMission)
 }
 
 @Composable
@@ -85,7 +86,8 @@ fun HistoryContent(
     state: HistoryUiState,
     onBack: () -> Unit,
     onEditTimeOff: (LocalDate) -> Unit,
-    actions: HistoryActions
+    actions: HistoryActions,
+    onEditWorkMission: ((LocalDate) -> Unit)? = null
 ) {
     val language = LocalAppLanguage.current
     var editing by remember { mutableStateOf<HistoryRecord?>(null) }
@@ -101,7 +103,9 @@ fun HistoryContent(
     val selected = selectedDate?.let(LocalDate::parse)
     val shown = remember(state, selected) {
         state.history.records.filter {
-            (selected == null || it.plan.key.date == selected) && it.plan.key.date <= state.today
+            val date = it.plan.key.date
+            val isSelectedMission = date == selected && it.outcome.status == AttendanceStatus.WORK_MISSION
+            (selected == null || date == selected) && (date <= state.today || isSelectedMission)
         }.sortedByDescending { it.plan.key.date }
     }
 
@@ -145,7 +149,8 @@ fun HistoryContent(
                 records = state.history.records,
                 language = language,
                 onClearFilter = { selectedDate = null },
-                onEditTimeOff = onEditTimeOff
+                onEditTimeOff = onEditTimeOff,
+                onEditWorkMission = onEditWorkMission
             )
         }
 
@@ -184,17 +189,28 @@ fun HistoryContent(
                 record = record,
                 language = language,
                 onEditRecord = { editing = it },
-                onSelectOffDate = { offDate = it },
+                onSelectOffDate = { date ->
+                    if (record.outcome.status == AttendanceStatus.WORK_MISSION && onEditWorkMission != null) {
+                        onEditWorkMission(date)
+                    } else {
+                        offDate = date
+                    }
+                },
                 modifier = Modifier.animateItem()
             )
         }
     }
 
     offDate?.let { date ->
+        val record = state.history.records.firstOrNull { it.plan.key.date == date }
         HistoryTimeOffDialog(
             date = date,
             onEditTimeOff = onEditTimeOff,
-            onDismiss = { offDate = null }
+            onDismiss = { offDate = null },
+            onEditWorkMission = onEditWorkMission?.takeIf {
+                record?.plan?.category == TrackerCategory.WORK &&
+                        record.outcome.offReason == null
+            }
         )
     }
 
@@ -209,7 +225,8 @@ fun HistoryContent(
                 language = language,
                 onSaveCorrection = actions.saveCorrection,
                 onEditTimeOff = onEditTimeOff,
-                onDismiss = { if (!state.busy) editing = null }
+                onDismiss = { if (!state.busy) editing = null },
+                onEditWorkMission = onEditWorkMission
             )
         }
     }

@@ -40,6 +40,8 @@ import dev.daymark.resources.status_late
 import dev.daymark.resources.status_present
 import dev.daymark.resources.status_scheduled
 import dev.daymark.resources.status_vacation
+import dev.daymark.resources.status_work_mission
+import dev.daymark.plan.TimeOffKind
 import dev.daymark.resources.sunday
 import dev.daymark.resources.thursday
 import dev.daymark.resources.tuesday
@@ -102,6 +104,13 @@ internal fun AttendanceStatus.label(): StringResource = when (this) {
     AttendanceStatus.DAY_OFF -> Res.string.status_day_off
     AttendanceStatus.HOLIDAY -> Res.string.status_holiday
     AttendanceStatus.VACATION -> Res.string.status_vacation
+    AttendanceStatus.WORK_MISSION -> Res.string.status_work_mission
+}
+
+internal fun TimeOffKind.label(category: TrackerCategory): StringResource = when (this) {
+    TimeOffKind.HOLIDAY -> Res.string.status_holiday
+    TimeOffKind.VACATION -> if (category == TrackerCategory.WORK) Res.string.status_vacation else Res.string.status_day_off
+    TimeOffKind.WORK_MISSION -> Res.string.status_work_mission
 }
 
 internal fun AttendanceSource.label(): StringResource = when (this) {
@@ -110,6 +119,7 @@ internal fun AttendanceSource.label(): StringResource = when (this) {
     AttendanceSource.MANUAL_GPS -> Res.string.source_manual
     AttendanceSource.MANUAL_CORRECTION -> Res.string.source_correction
     AttendanceSource.MANUAL_TIME_OFF -> Res.string.source_time_off
+    AttendanceSource.MANUAL_WORK_MISSION -> Res.string.status_work_mission
 }
 
 internal fun CheckRejection.label(): StringResource = when (this) {

@@ -27,10 +27,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import dev.daymark.models.attendance.HistoryRecord
+import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.resources.Res
 import dev.daymark.resources.edit_time_off
 import dev.daymark.resources.future_date_plan
 import dev.daymark.resources.show_all_records
+import dev.daymark.resources.status_work_mission
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.str
@@ -46,7 +48,8 @@ internal fun HistoryFilterBanner(
     language: AppLanguage,
     onClearFilter: () -> Unit,
     onEditTimeOff: (LocalDate) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onEditWorkMission: ((LocalDate) -> Unit)? = null
 ) {
     AnimatedVisibility(
         visible = selected != null,
@@ -56,8 +59,10 @@ internal fun HistoryFilterBanner(
     ) {
         if (selected == null) return@AnimatedVisibility
 
-        val isFutureWithoutRecord =
-            selected > today && records.none { it.plan.key.date == selected }
+        val record = records.firstOrNull { it.plan.key.date == selected }
+        val isFutureWithoutRecord = selected > today && record == null
+        val canBookFutureMission = selected > today && record?.plan?.category == TrackerCategory.WORK &&
+                record.outcome.offReason == null
 
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -92,6 +97,12 @@ internal fun HistoryFilterBanner(
                             modifier = Modifier.padding(end = 2.dp)
                         )
                         Text(text = str(Res.string.show_all_records))
+                    }
+                }
+
+                if (canBookFutureMission && onEditWorkMission != null) {
+                    OutlinedButton(onClick = { onEditWorkMission(selected) }) {
+                        Text(str(Res.string.status_work_mission))
                     }
                 }
 

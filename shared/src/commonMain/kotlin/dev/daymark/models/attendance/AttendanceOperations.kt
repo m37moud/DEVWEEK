@@ -9,15 +9,19 @@ import kotlinx.datetime.LocalTime
 data class HistoryRecord(
     val plan: DayPlan,
     val evidence: AttendanceEvidence?,
-    val outcome: DayOutcome
-)
+    val outcome: DayOutcome,
+    val workMissionNote: String? = null
+) {
+    override fun toString() = "HistoryRecord(key=${plan.key}, outcome=$outcome)"
+}
 
 data class HistoryMonth(
     val records: List<HistoryRecord>,
     val present: Int,
     val late: Int,
     val absent: Int,
-    val earlierVacationDates: List<LocalDate> = emptyList()
+    val earlierVacationDates: List<LocalDate> = emptyList(),
+    val showsWorkMissions: Boolean = false
 )
 
 enum class AutomaticState { UNCLAIMED, CLAIMED, FINISHED, INTERRUPTED }

@@ -9,6 +9,7 @@ import dev.daymark.data.local.plan.earlierVacationDates
 import dev.daymark.data.local.plan.historyRecords
 import dev.daymark.data.local.plan.nextHistoryBoundary
 import dev.daymark.history.HistoryRange
+import dev.daymark.models.attendance.TrackerCategory
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
@@ -59,7 +60,8 @@ internal class HistoryRangeReader(
                     records,
                     snapshot.firstDate,
                     snapshot.today,
-                    snapshot.earlierVacationDates(from, through)
+                    snapshot.earlierVacationDates(from, through),
+                    TrackerCategory.valueOf(snapshot.active.category)
                 )
             )
             val next = snapshot.nextHistoryBoundary(records)

@@ -30,6 +30,19 @@ class HistoryMetricsTest {
     }
 
     @Test
+    fun a_period_spanning_school_and_work_keeps_the_generic_attendance_total() {
+        val today = LocalDate(2026, 10, 28)
+        val school =
+            record(AttendanceStatus.PRESENT).let { it.copy(plan = it.plan.copy(category = TrackerCategory.SCHOOL)) }
+        val mission = record(AttendanceStatus.WORK_MISSION, today)
+        val metrics = historyMetrics(listOf(school, mission), today)
+        assertEquals(2, metrics.attendance)
+        assertEquals(1, metrics.workMissions)
+        assertEquals(true, metrics.hasNonWorkDays)
+        assertEquals(false, historyMetrics(listOf(mission), today).hasNonWorkDays)
+    }
+
+    @Test
     fun late_duration_uses_chosen_status_and_clamps_negative_corrections() {
         assertEquals(Duration.ZERO, record(AttendanceStatus.PRESENT).lateDuration())
         assertEquals(

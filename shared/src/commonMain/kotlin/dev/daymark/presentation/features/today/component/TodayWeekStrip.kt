@@ -63,7 +63,8 @@ internal fun TodayWeekStrip(
                 val showPlanned = day.planned && day.status !in setOf(
                     AttendanceStatus.DAY_OFF,
                     AttendanceStatus.HOLIDAY,
-                    AttendanceStatus.VACATION
+                    AttendanceStatus.VACATION,
+                    AttendanceStatus.WORK_MISSION
                 )
                 val statusLabel = when {
                     showPlanned -> str(Res.string.planned_date)
@@ -104,7 +105,7 @@ internal fun TodayWeekStrip(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         val glyphColor = when (day.status) {
-                            AttendanceStatus.PRESENT -> MaterialTheme.colorScheme.primary
+                            AttendanceStatus.PRESENT, AttendanceStatus.WORK_MISSION -> MaterialTheme.colorScheme.primary
                             AttendanceStatus.LATE -> MaterialTheme.colorScheme.tertiary
                             AttendanceStatus.ABSENT -> MaterialTheme.colorScheme.error
                             else -> MaterialTheme.colorScheme.onSurfaceVariant

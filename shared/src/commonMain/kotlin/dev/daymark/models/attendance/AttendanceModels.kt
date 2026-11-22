@@ -11,8 +11,8 @@ data class DayKey(val trackerId: String, val date: LocalDate) {
 }
 
 enum class TrackerCategory { WORK, SCHOOL, COURSE }
-enum class AttendanceStatus { SCHEDULED, AWAITING_CHECK, PRESENT, LATE, ABSENT, DAY_OFF, HOLIDAY, VACATION }
-enum class AttendanceSource { NONE, AUTOMATIC_GPS, MANUAL_GPS, MANUAL_CORRECTION, MANUAL_TIME_OFF }
+enum class AttendanceStatus { SCHEDULED, AWAITING_CHECK, PRESENT, LATE, ABSENT, DAY_OFF, HOLIDAY, VACATION, WORK_MISSION }
+enum class AttendanceSource { NONE, AUTOMATIC_GPS, MANUAL_GPS, MANUAL_CORRECTION, MANUAL_TIME_OFF, MANUAL_WORK_MISSION }
 enum class CheckMode { AUTOMATIC, USER_INITIATED }
 
 data class RegisteredPlace(

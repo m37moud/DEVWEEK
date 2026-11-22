@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import dev.daymark.history.HistoryMetric
 import dev.daymark.presentation.component.lateDurationLabel
 import dev.daymark.presentation.component.metricLabel
+import dev.daymark.presentation.component.metricCount
 import dev.daymark.presentation.features.historydetail.HistoryDetailUiState
 import dev.daymark.resources.Res
 import dev.daymark.resources.history_elapsed_days
@@ -49,16 +50,10 @@ internal fun HistoryDetailHeroCard(
 ) {
     val language = LocalAppLanguage.current
     val metrics = state.metrics
-    val count = when (state.metric) {
-        HistoryMetric.ATTENDANCE -> metrics.attendance
-        HistoryMetric.LATE -> metrics.late
-        HistoryMetric.ABSENT -> metrics.absent
-        HistoryMetric.LEAVE_REST -> metrics.leaveRest
-        HistoryMetric.HOLIDAY -> metrics.holidays
-    }
+    val count = metricCount(state.metric, metrics)
 
     val (containerColor, contentColor, icon) = when (state.metric) {
-        HistoryMetric.ATTENDANCE -> Triple(
+        HistoryMetric.ATTENDANCE, HistoryMetric.WORK_MISSION -> Triple(
             MaterialTheme.colorScheme.primaryContainer,
             MaterialTheme.colorScheme.onPrimaryContainer,
             Icons.Default.Check
@@ -114,17 +109,19 @@ internal fun HistoryDetailHeroCard(
                         )
                     }
                 }
-                Surface(
-                    shape = CircleShape,
-                    color = contentColor.copy(alpha = 0.1f)
-                ) {
-                    Text(
-                        text = str(state.metric.metricLabel()),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = contentColor,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
+                if (state.metric != HistoryMetric.WORK_MISSION) {
+                    Surface(
+                        shape = CircleShape,
+                        color = contentColor.copy(alpha = 0.1f)
+                    ) {
+                        Text(
+                            text = str(state.metric.metricLabel(state.showWorkDaysLabel)),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = contentColor,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
 

@@ -100,7 +100,8 @@ class HistoryViewModel(
                     elapsed.count { it.outcome.status == AttendanceStatus.PRESENT },
                     elapsed.count { it.outcome.status == AttendanceStatus.LATE },
                     elapsed.count { it.outcome.status == AttendanceStatus.ABSENT },
-                    range.earlierVacationDates
+                    range.earlierVacationDates,
+                    range.showsWorkMissions
                 )
             }
 

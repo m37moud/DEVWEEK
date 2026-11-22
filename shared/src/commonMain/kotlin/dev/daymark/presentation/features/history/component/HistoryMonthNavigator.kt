@@ -133,7 +133,7 @@ internal fun HistoryMonthNavigator(
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
-            HistoryMetricsGrid(metrics = metrics, onMetric = onMetric)
+            HistoryMetricsGrid(metrics = metrics, onMetric = onMetric, showWorkMissions = history.showsWorkMissions)
         }
     }
 }

@@ -25,6 +25,8 @@ import dev.daymark.fixturePlace
 import dev.daymark.fixturePlan
 import dev.daymark.fixtureSchedule
 import dev.daymark.history.AttendancePeriodSettings
+import dev.daymark.history.HistoryMetric
+import dev.daymark.history.historyMetrics
 import dev.daymark.history.VacationYearBasis
 import dev.daymark.models.plan.AttendancePeriodBalanceChange
 import dev.daymark.location.LocationGateway
@@ -79,6 +81,7 @@ class TimeOffTransactionTest {
     private suspend fun withStore(
         initialNow: Instant = Instant.parse("2026-11-01T12:00:00Z"),
         setupDate: LocalDate = fixtureDate,
+        scheduledDays: Set<DayOfWeek> = weekdays,
         block: suspend (DaymarkDatabase, TestClock, TimeOffService) -> Unit
     ) {
         val folder = Files.createTempDirectory("daymark-time-off-")
@@ -92,7 +95,7 @@ class TimeOffTransactionTest {
             db.planningDao().putVersion(
                 PlanVersionEntity.fromSnapshot(
                     tracker.id, 1, setupDate, setupAt,
-                    TrackerCategory.WORK, fixtureSchedule(days = weekdays), fixturePlace(), "Work"
+                    TrackerCategory.WORK, fixtureSchedule(days = scheduledDays), fixturePlace(), "Work"
                 )
             )
             RoomAttendanceRepository(
@@ -134,6 +137,100 @@ class TimeOffTransactionTest {
         val preview = service.preview(command)
         assertNull(preview.rejection)
         assertIs<PlanMutationResult.Applied>(service.apply(command, preview.reviewToken))
+    }
+
+    @Test
+    fun work_mission_updates_the_closing_period_and_removal_restores_absence() = runTest {
+        withStore(
+            Instant.parse("2026-11-21T12:00:00Z"),
+            setupDate = date("2026-10-21"),
+            scheduledDays = weekdays + DayOfWeek.SUNDAY
+        ) { db, clock, service ->
+            val missionDate = date("2026-10-25")
+            val trackerId = requireNotNull(db.profileDao().tracker()).id
+            val key = DayKey(trackerId, missionDate)
+            val period = AttendancePeriodSettings(20).period(date("2026-11-01"))
+            assertEquals(date("2026-10-21"), period.from)
+            assertEquals(date("2026-11-20"), period.through)
+            val repository = RoomAttendanceRepository(
+                db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db), clock
+            )
+            val before = repository.observeRange(period.from, period.through).first()
+            assertEquals(AttendanceStatus.ABSENT, before.records.single { it.plan.key == key }.outcome.status)
+            val beforeMetrics = historyMetrics(before.records, before.today)
+
+            val command = TimeOffCommand.AddDates(TimeOffKind.WORK_MISSION, setOf(missionDate), "=1+2")
+            save(service, command)
+            save(service, command)
+            val after = repository.observeRange(period.from, period.through).first()
+            val metrics = historyMetrics(after.records, after.today)
+            assertEquals(beforeMetrics.attendance + 1, metrics.attendance)
+            assertEquals(beforeMetrics.absent - 1, metrics.absent)
+            assertEquals(1, metrics.workMissions)
+            assertEquals(listOf(missionDate), after.records.filter {
+                HistoryMetric.WORK_MISSION.includes(it)
+            }.map { it.plan.key.date })
+            assertEquals(12, service.observeAvailableBalance().first())
+
+            val secondDate = date("2026-11-07")
+            save(service, TimeOffCommand.AddDates(TimeOffKind.WORK_MISSION, setOf(missionDate, secondDate)))
+            val weekend = repository.observeRange(secondDate, secondDate).first().records.single()
+            assertFalse(weekend.plan.isScheduled)
+            assertEquals(AttendanceStatus.WORK_MISSION, weekend.outcome.status)
+            val missions = service.observeEntries().first()
+            assertEquals(setOf(missionDate, secondDate), missions.map { it.from }.toSet())
+            val mission = missions.single { it.from == missionDate }
+            assertEquals("=1+2", mission.note)
+            save(service, TimeOffCommand.Replace(mission.id, mission.kind, missionDate, missionDate, "زيارة عميل"))
+            save(service, TimeOffCommand.Remove(mission.id))
+            val restored = repository.observeRange(period.from, period.through).first()
+            assertEquals(AttendanceStatus.ABSENT, restored.records.single { it.plan.key == key }.outcome.status)
+        }
+    }
+
+    @Test
+    fun separate_days_are_atomic_and_overlapping_missions_preserve_confirmed_attendance() = runTest {
+        withStore { db, clock, service ->
+            val present = fixtureDate
+            val vacation = date("2026-10-28")
+            val otherVacation = date("2026-10-30")
+            val holiday = date("2026-10-29")
+            val laterHoliday = date("2026-11-03")
+            val repository = RoomAttendanceRepository(
+                db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                RoomDatabaseTransactions(db), clock
+            )
+            val key = fixturePlan().key
+            repository.correct(Correction(key, AttendanceStatus.PRESENT, LocalTime(9, 0), "Original"))
+            save(service, TimeOffCommand.AddDates(TimeOffKind.VACATION, setOf(vacation, otherVacation)))
+            save(service, TimeOffCommand.AddDates(TimeOffKind.HOLIDAY, setOf(holiday, laterHoliday)))
+            val blocked = TimeOffCommand.AddDates(TimeOffKind.WORK_MISSION, setOf(present, vacation, laterHoliday))
+            val review = service.preview(blocked)
+            assertEquals(PlanRejection.WORK_MISSION_CONFLICT, review.rejection)
+            assertEquals(
+                PlanMutationResult.Invalid(PlanRejection.WORK_MISSION_CONFLICT),
+                service.apply(blocked, review.reviewToken)
+            )
+            assertTrue(service.observeEntries().first().none { it.kind == TimeOffKind.WORK_MISSION })
+            assertEquals(10, service.observeAvailableBalance().first())
+
+            save(service, TimeOffCommand.AddDates(TimeOffKind.WORK_MISSION, setOf(present)))
+            assertEquals(AttendanceStatus.WORK_MISSION, repository.observeDay(key).first()?.status)
+            assertNull(repository.observeDay(key).first()?.confirmedAt)
+            assertEquals(AttendanceStatus.PRESENT, repository.loadDay(key)?.evidence?.status)
+            val conflictingHoliday = TimeOffCommand.Add(TimeOffKind.HOLIDAY, present, present)
+            assertEquals(PlanRejection.WORK_MISSION_CONFLICT, service.preview(conflictingHoliday).rejection)
+            save(
+                service,
+                TimeOffCommand.Remove(
+                    service.observeEntries().first().single { it.kind == TimeOffKind.WORK_MISSION }.id
+                )
+            )
+            assertEquals(AttendanceStatus.PRESENT, repository.observeDay(key).first()?.status)
+            assertEquals("Original", repository.loadDay(key)?.evidence?.note)
+            assertEquals(10, service.observeAvailableBalance().first())
+        }
     }
 
     @Test
@@ -562,7 +659,8 @@ class TimeOffTransactionTest {
             }
             val pending = async { AttendanceService(repo, gateway, clock).manualCheck() }
             started.await()
-            save(service, TimeOffCommand.Add(TimeOffKind.HOLIDAY, fixtureDate, fixtureDate))
+            save(service, TimeOffCommand.AddDates(TimeOffKind.WORK_MISSION, setOf(fixtureDate)))
+            assertIs<CheckOutcome.Rejected>(AttendanceService(repo, gateway, clock).manualCheck())
             save(service, TimeOffCommand.Remove(service.observeEntries().first().single().id))
             reply.complete(fixtureFix())
             assertIs<CheckOutcome.StateChanged>(pending.await())
@@ -633,6 +731,12 @@ class TimeOffTransactionTest {
             )
             assertEquals(TrackerCategory.WORK, history?.plan?.category)
             assertNotNull(plans.observePlan().first()?.pending)
+            clock.value = Instant.parse("2026-11-04T12:00:00Z")
+            val changedPlan = assertNotNull(plans.observePlan().first())
+            assertEquals(TrackerCategory.SCHOOL, changedPlan.current.category)
+            assertTrue(changedPlan.hasWorkDates)
+            val schoolMission = TimeOffCommand.AddDates(TimeOffKind.WORK_MISSION, setOf(date("2026-11-04")))
+            assertEquals(PlanRejection.WORK_MISSION_INELIGIBLE, service.preview(schoolMission).rejection)
         }
     }
 

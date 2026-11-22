@@ -85,7 +85,8 @@ class HistoryDetailViewModel(
     fun selectRange(from: LocalDate, through: LocalDate) {
         val current = state.value
         val startsTooEarly = current.range.firstDate?.let { from < it } == true
-        val invalid = from > through || (current.metric != HistoryMetric.LEAVE_REST && startsTooEarly)
+        val allowsEarlierStart = current.metric in setOf(HistoryMetric.LEAVE_REST, HistoryMetric.WORK_MISSION)
+        val invalid = from > through || (!allowsEarlierStart && startsTooEarly)
         state.update { it.copy(invalidRange = invalid) }
         if (invalid) return
         if (selected.value == from to through) return

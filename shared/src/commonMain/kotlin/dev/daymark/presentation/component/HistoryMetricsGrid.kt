@@ -53,7 +53,8 @@ private const val PRESSED_SCALE_RATIO = 0.97f
 fun HistoryMetricsGrid(
     metrics: HistoryMetrics,
     onMetric: (HistoryMetric) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showWorkMissions: Boolean = metrics.workMissions > 0
 ) {
     Column(
         modifier = modifier,
@@ -61,6 +62,7 @@ fun HistoryMetricsGrid(
     ) {
         HeroAttendanceCard(
             metrics = metrics,
+            showWorkDaysLabel = showWorkMissions && !metrics.hasNonWorkDays,
             onClick = { onMetric(HistoryMetric.ATTENDANCE) },
             modifier = Modifier.fillMaxWidth()
         )
@@ -102,12 +104,21 @@ fun HistoryMetricsGrid(
                 modifier = Modifier.weight(1f).fillMaxHeight()
             )
         }
+        if (showWorkMissions) {
+            MetricKpiTile(
+                metric = HistoryMetric.WORK_MISSION,
+                metrics = metrics,
+                onClick = { onMetric(HistoryMetric.WORK_MISSION) },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
 @Composable
 private fun HeroAttendanceCard(
     metrics: HistoryMetrics,
+    showWorkDaysLabel: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -157,7 +168,7 @@ private fun HeroAttendanceCard(
             ) {
                 MetricBadge(visuals = visuals)
                 Text(
-                    text = str(metric.metricLabel()),
+                    text = str(metric.metricLabel(showWorkDaysLabel)),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -317,15 +328,6 @@ private fun AnimatedMetricCount(
     }
 }
 
-private fun metricCount(metric: HistoryMetric, metrics: HistoryMetrics): Int =
-    when (metric) {
-        HistoryMetric.ATTENDANCE -> metrics.attendance
-        HistoryMetric.LATE -> metrics.late
-        HistoryMetric.ABSENT -> metrics.absent
-        HistoryMetric.LEAVE_REST -> metrics.leaveRest
-        HistoryMetric.HOLIDAY -> metrics.holidays
-    }
-
 private data class MetricVisuals(
     val glyph: String,
     val containerColor: Color,
@@ -337,6 +339,14 @@ private data class MetricVisuals(
 @Composable
 private fun metricVisuals(metric: HistoryMetric): MetricVisuals =
     when (metric) {
+        HistoryMetric.WORK_MISSION -> MetricVisuals(
+            glyph = "◆",
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            accentColor = MaterialTheme.colorScheme.primary,
+            borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+        )
+
         HistoryMetric.ATTENDANCE -> MetricVisuals(
             glyph = "✓",
             containerColor = MaterialTheme.colorScheme.primaryContainer,

@@ -30,7 +30,9 @@ import dev.daymark.models.plan.TimeOffDayChange
 import dev.daymark.models.plan.TimeOffEntry
 import dev.daymark.models.plan.TimeOffPreview
 import dev.daymark.models.plan.VacationBalanceSummary
+import dev.daymark.plan.TimeOffKind
 import dev.daymark.plan.dates
+import dev.daymark.reporting.exceedsReportTextLimit
 import dev.daymark.repository.TimeOffDataSource
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
@@ -252,51 +254,104 @@ class TimeOffService(
 
     private data class Proposal(val entries: List<TimeOffEntry>, val preview: TimeOffPreview)
 
-    private fun proposal(store: PlanningStore, command: TimeOffCommand): Proposal {
-        val before = store.entries
-        val old = when (command) {
-            is TimeOffCommand.Replace -> before.find { it.id == command.entryId }
-            is TimeOffCommand.Remove -> before.find { it.id == command.entryId }
-            else -> null
-        }
-
-        fun invalid(reason: PlanRejection) = Proposal(
-            before,
-            TimeOffPreview(
-                store.revision,
-                emptyList(),
-                emptyList(),
-                0,
-                store.balance(),
-                reason,
-                reviewDate = store.today
-            )
-        )
-        if (command !is TimeOffCommand.Add && old == null) return invalid(PlanRejection.INVALID_VALUE)
-        val from = when (command) {
-            is TimeOffCommand.Add -> command.from; is TimeOffCommand.Replace -> command.from; is TimeOffCommand.Remove -> old!!.from
-        }
-        val through = when (command) {
-            is TimeOffCommand.Add -> command.through; is TimeOffCommand.Replace -> command.through; is TimeOffCommand.Remove -> old!!.through
-        }
-        if (from > through) return invalid(PlanRejection.INVALID_RANGE)
-        val next = when (command) {
-            is TimeOffCommand.Remove -> before.filterNot { it.id == old!!.id }
-            else -> {
-                val kind = when (command) {
-                    is TimeOffCommand.Add -> command.kind; is TimeOffCommand.Replace -> command.kind
-                }
-                if (command is TimeOffCommand.Add && before.any { it.kind == kind && it.from == from && it.through == through }) before
-                else if (old?.let { it.kind == kind && it.from == from && it.through == through } == true) before
-                else before.filterNot { it.id == old?.id } + TimeOffEntry(
-                    old?.id ?: Uuid.random().toString(), kind, from, through, store.now
-                )
+    private fun proposal(store: PlanningStore, command: TimeOffCommand): Proposal =
+        when (command) {
+            is TimeOffCommand.AddDates -> addDates(store, command)
+            is TimeOffCommand.Add -> addRange(store, command)
+            is TimeOffCommand.Replace -> replaceEntry(store, command)
+            is TimeOffCommand.Remove -> {
+                val old = store.entries.find { it.id == command.entryId }
+                if (old == null) rejected(store, PlanRejection.INVALID_VALUE)
+                else reviewChange(store, store.entries - old, dates(old.from, old.through).toList())
             }
         }
-        val affected = (dates(from, through) + (old?.let { dates(it.from, it.through) }
-            ?: emptySequence())).distinct().sorted().toList()
-        return Proposal(next, timeOffPreview(store, next, affected))
+
+    private fun addRange(store: PlanningStore, command: TimeOffCommand.Add): Proposal {
+        val (kind, from, through) = command
+        if (from > through) return rejected(store, PlanRejection.INVALID_RANGE)
+        val selected = dates(from, through).toList()
+        if (kind == TimeOffKind.WORK_MISSION) {
+            return addDates(store, TimeOffCommand.AddDates(kind, selected.toSet()))
+        }
+        val conflict = validateDates(store, kind, selected)
+        if (conflict != null) return rejected(store, conflict)
+        val duplicate = store.entries.any { it.kind == kind && it.from == from && it.through == through }
+        val next = if (duplicate) store.entries else store.entries + TimeOffEntry(
+            Uuid.random().toString(), kind, from, through, store.now
+        )
+        return reviewChange(store, next, selected)
     }
+
+    private fun addDates(store: PlanningStore, command: TimeOffCommand.AddDates): Proposal {
+        val selected = command.dates.sorted()
+        if (selected.isEmpty()) return rejected(store, PlanRejection.INVALID_RANGE)
+        validateDates(store, command.kind, selected)?.let { return rejected(store, it) }
+        val note = command.note?.takeUnless(String::isBlank)
+        validateNote(command.kind, note)?.let { return rejected(store, it) }
+        val uncovered = selected.filter { date ->
+            store.entries.none { it.kind == command.kind && date in it.from..it.through }
+        }
+        val next = store.entries + uncovered.map { date ->
+            TimeOffEntry(Uuid.random().toString(), command.kind, date, date, store.now, note)
+        }
+        return reviewChange(store, next, selected)
+    }
+
+    private fun replaceEntry(store: PlanningStore, command: TimeOffCommand.Replace): Proposal {
+        val old = store.entries.find { it.id == command.entryId }
+            ?: return rejected(store, PlanRejection.INVALID_VALUE)
+        if (command.from > command.through) return rejected(store, PlanRejection.INVALID_RANGE)
+        if (!canReplace(old, command)) return rejected(store, PlanRejection.INVALID_VALUE)
+        val selected = dates(command.from, command.through).toList()
+        if (old.kind != TimeOffKind.WORK_MISSION) {
+            validateDates(store, command.kind, selected)?.let { return rejected(store, it) }
+        }
+        val note = command.note?.takeUnless(String::isBlank)
+        validateNote(command.kind, note)?.let { return rejected(store, it) }
+        val edited = old.copy(kind = command.kind, from = command.from, through = command.through, note = note)
+        val next = if (edited == old) store.entries
+        else store.entries.map { if (it.id == old.id) edited.copy(updatedAt = store.now) else it }
+        val affected = (selected.asSequence() + dates(old.from, old.through)).distinct().sorted().toList()
+        return reviewChange(store, next, affected)
+    }
+
+    private fun canReplace(old: TimeOffEntry, command: TimeOffCommand.Replace): Boolean {
+        if (old.kind == TimeOffKind.WORK_MISSION) {
+            return command.kind == old.kind && command.from == old.from && command.through == old.through
+        }
+        return command.kind != TimeOffKind.WORK_MISSION
+    }
+
+    private fun validateNote(kind: TimeOffKind, note: String?): PlanRejection? = when {
+        note != null && kind != TimeOffKind.WORK_MISSION -> PlanRejection.INVALID_VALUE
+        exceedsReportTextLimit(note) -> PlanRejection.NOTE_TOO_LONG
+        else -> null
+    }
+
+    private fun validateDates(
+        store: PlanningStore,
+        kind: TimeOffKind,
+        selected: List<LocalDate>
+    ): PlanRejection? {
+        val mission = kind == TimeOffKind.WORK_MISSION
+        if (mission && selected.any { !store.canBookWorkMission(it) }) {
+            return PlanRejection.WORK_MISSION_INELIGIBLE
+        }
+        val conflict = store.entries.any { entry ->
+            (entry.kind == TimeOffKind.WORK_MISSION) != mission && selected.any { it in entry.from..entry.through }
+        }
+        return if (conflict) PlanRejection.WORK_MISSION_CONFLICT else null
+    }
+
+    private fun rejected(store: PlanningStore, reason: PlanRejection) = Proposal(
+        store.entries,
+        invalidPreview(reason).copy(
+            expectedRevision = store.revision, availableAfter = store.balance(), reviewDate = store.today
+        )
+    )
+
+    private fun reviewChange(store: PlanningStore, entries: List<TimeOffEntry>, affected: List<LocalDate>) =
+        Proposal(entries, timeOffPreview(store, entries, affected))
 
     private fun timeOffPreview(
         store: PlanningStore,

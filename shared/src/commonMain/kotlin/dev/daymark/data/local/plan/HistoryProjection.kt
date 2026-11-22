@@ -1,5 +1,7 @@
 package dev.daymark.data.local.plan
 
+import dev.daymark.attendance.evaluateDay
+import dev.daymark.models.attendance.DayPlan
 import dev.daymark.models.attendance.HistoryRecord
 import dev.daymark.plan.TimeOffKind
 import dev.daymark.plan.dates
@@ -26,14 +28,18 @@ internal suspend fun PlanningStore.historyRecords(
     while (date <= through) {
         currentCoroutineContext().ensureActive()
         val plan = plan(date)
-        if (date in rows || plan.arrival >= start) records += HistoryRecord(
-            plan,
-            rows[date]?.evidence(),
-            outcome(date)
-        )
+        if (date in rows || plan.arrival >= start) records += historyRecord(plan)
         date = date.plus(1, DateTimeUnit.DAY)
     }
     return records
+}
+
+internal fun PlanningStore.historyRecord(plan: DayPlan): HistoryRecord {
+    val evidence = rows[plan.key.date]?.evidence()
+    val entry = dayEntry(plan)
+    val outcome = evaluateDay(plan, evidence, entry?.kind, now)
+    val missionNote = entry?.takeIf { it.kind == TimeOffKind.WORK_MISSION }?.note
+    return HistoryRecord(plan, evidence, outcome, missionNote)
 }
 
 internal fun PlanningStore.earlierVacationDates(from: LocalDate, through: LocalDate): List<LocalDate> {

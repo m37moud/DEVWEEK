@@ -106,7 +106,7 @@ internal fun TodayHeroCard(
                             AttendanceStatus.PRESENT -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
                             AttendanceStatus.LATE -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
                             AttendanceStatus.ABSENT -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-                            AttendanceStatus.DAY_OFF, AttendanceStatus.HOLIDAY, AttendanceStatus.VACATION ->
+                            AttendanceStatus.DAY_OFF, AttendanceStatus.HOLIDAY, AttendanceStatus.VACATION, AttendanceStatus.WORK_MISSION ->
                                 MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
 
                             else -> MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.onSurfaceVariant
@@ -181,7 +181,7 @@ internal fun TodayHeroCard(
                                 )
                             }
                         }
-                    } else if (state.plan != null) {
+                    } else if (state.plan != null && status != AttendanceStatus.WORK_MISSION) {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
