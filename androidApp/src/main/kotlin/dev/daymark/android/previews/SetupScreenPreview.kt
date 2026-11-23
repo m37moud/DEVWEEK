@@ -7,6 +7,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import dev.daymark.app.HostPlatform
 import dev.daymark.app.SetupStep
+import dev.daymark.history.VacationYearBasis
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.settings.AppSettings
@@ -19,7 +20,6 @@ import dev.daymark.presentation.features.setup.SetupIssue
 import dev.daymark.presentation.features.setup.SetupStepContent
 import dev.daymark.presentation.features.setup.SetupUiState
 import dev.daymark.presentation.features.setup.component.SetupActions
-import dev.daymark.history.VacationYearBasis
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.LanguagePreference
 import dev.daymark.settings.LocalAppLanguage
@@ -109,19 +109,31 @@ private fun SetupAttendancePeriodPreview() {
 @Preview(name = "Preferences narrow large text", widthDp = 320, fontScale = 2f)
 @Composable
 private fun SetupPreferencesLightPreview() {
-    SetupActionsPreview(ThemePreference.LIGHT, AppLanguage.EN, SetupDraft(step = SetupStep.PREFERENCE))
+    SetupActionsPreview(
+        theme = ThemePreference.LIGHT,
+        language = AppLanguage.EN,
+        draft = SetupDraft(step = SetupStep.PREFERENCE)
+    )
 }
 
 @Preview(name = "Preferences dark")
 @Composable
 private fun SetupPreferencesDarkPreview() {
-    SetupActionsPreview(ThemePreference.DARK, AppLanguage.EN, SetupDraft(step = SetupStep.PREFERENCE))
+    SetupActionsPreview(
+        theme = ThemePreference.DARK,
+        language = AppLanguage.EN,
+        draft = SetupDraft(step = SetupStep.PREFERENCE)
+    )
 }
 
 @Preview(name = "Preferences Arabic RTL", locale = "ar")
 @Composable
 private fun SetupPreferencesArabicPreview() {
-    SetupActionsPreview(ThemePreference.LIGHT, AppLanguage.AR, SetupDraft(step = SetupStep.PREFERENCE))
+    SetupActionsPreview(
+        theme = ThemePreference.LIGHT,
+        language = AppLanguage.AR,
+        draft = SetupDraft(step = SetupStep.PREFERENCE)
+    )
 }
 
 @Composable
@@ -172,7 +184,13 @@ private val reviewPreviewDraft = SetupDraft(
     placeName = "Office",
     place = RegisteredPlace(0.0, 0.0, 100, 1),
     schedule = WeeklySchedule(
-        days = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY),
+        days = setOf(
+            DayOfWeek.MONDAY,
+            DayOfWeek.TUESDAY,
+            DayOfWeek.WEDNESDAY,
+            DayOfWeek.THURSDAY,
+            DayOfWeek.FRIDAY
+        ),
         arrival = LocalTime(9, 0),
         overrides = mapOf(DayOfWeek.FRIDAY to LocalTime(8, 30)),
         graceMinutes = 5,
@@ -205,5 +223,10 @@ private fun SetupReviewLargeTextPreview() {
 @Preview(name = "Review retry in Arabic", locale = "ar", widthDp = 320, fontScale = 2f)
 @Composable
 private fun SetupReviewRetryPreview() {
-    SetupActionsPreview(ThemePreference.DARK, AppLanguage.AR, reviewPreviewDraft, SetupIssue.COMPLETION_FAILED)
+    SetupActionsPreview(
+        theme = ThemePreference.DARK,
+        language = AppLanguage.AR,
+        draft = reviewPreviewDraft,
+        issue = SetupIssue.COMPLETION_FAILED
+    )
 }
