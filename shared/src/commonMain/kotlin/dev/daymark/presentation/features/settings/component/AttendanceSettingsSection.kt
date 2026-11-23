@@ -1,10 +1,27 @@
 package dev.daymark.presentation.features.settings.component
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -13,9 +30,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.plan.PlanChange
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.plan.PlanReviewToken
@@ -24,24 +46,14 @@ import dev.daymark.presentation.component.ArrivalTimeDialog
 import dev.daymark.presentation.component.PlanMutationFeedback
 import dev.daymark.presentation.component.PlanPreviewDialog
 import dev.daymark.presentation.component.ZonePicker
-import dev.daymark.presentation.component.label
-import dev.daymark.presentation.component.localTimeLabel
 import dev.daymark.presentation.features.settings.AttendanceSettingsUiState
 import dev.daymark.presentation.features.settings.AttendanceSettingsViewModel
 import dev.daymark.resources.Res
-import dev.daymark.resources.arrival
-import dev.daymark.resources.cancel
 import dev.daymark.resources.load_failed
-import dev.daymark.resources.place_ready
 import dev.daymark.resources.plan_effective
 import dev.daymark.resources.plan_invalid
-import dev.daymark.resources.plan_review
-import dev.daymark.resources.radius_metres
-import dev.daymark.resources.settings_routine_and_place
-import dev.daymark.resources.settings_summary_value
 import dev.daymark.settings.DisplayFormats
 import dev.daymark.settings.LocalAppLanguage
-import dev.daymark.settings.isolated
 import dev.daymark.settings.str
 import kotlinx.datetime.DayOfWeek
 import org.koin.compose.viewmodel.koinViewModel
@@ -56,13 +68,18 @@ data class AttendanceSettingsActions(
     val resetDraft: () -> Unit
 )
 
+private enum class AttendanceEditor {
+    ROUTINE,
+    PLACE
+}
+
 @Composable
 internal fun AttendanceSettingsSection(
     attendanceSettingsViewModel: AttendanceSettingsViewModel = koinViewModel()
 ) {
     val state by attendanceSettingsViewModel.uiState.collectAsStateWithLifecycle()
     val language = LocalAppLanguage.current
-    val place = state.draft?.place
+    val place = state.draft?.place ?: state.plan?.let { it.pending?.place ?: it.current.place }
     LaunchedEffect(
         attendanceSettingsViewModel,
         place?.latitude,
@@ -70,7 +87,12 @@ internal fun AttendanceSettingsSection(
         language,
         state.placeRegistrationRevision
     ) {
-        if (place != null) attendanceSettingsViewModel.showPlaceAddress(place, language)
+        if (place != null) {
+            attendanceSettingsViewModel.showPlaceAddress(
+                place = place,
+                language = language
+            )
+        }
     }
     val actions = remember(attendanceSettingsViewModel) {
         AttendanceSettingsActions(
@@ -83,96 +105,113 @@ internal fun AttendanceSettingsSection(
             resetDraft = attendanceSettingsViewModel::resetDraft
         )
     }
-    AttendanceSettingsContent(state = state, actions = actions)
+    AttendanceSettingsContent(
+        state = state,
+        actions = actions
+    )
 }
 
 @Composable
 fun AttendanceSettingsContent(
     state: AttendanceSettingsUiState,
-    actions: AttendanceSettingsActions
+    actions: AttendanceSettingsActions,
+    modifier: Modifier = Modifier
 ) {
-    var editing by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(state.result) {
-        if (state.result == PlanMutationResult.Applied) editing = false
-    }
-
-    if (!state.ready) CircularProgressIndicator()
-    if (state.storageError) Text(
-        str(Res.string.load_failed),
-        color = MaterialTheme.colorScheme.error
-    )
-    val plan = state.plan ?: return
-    SettingsEditorCard(
-        SettingsEditorHeader(
-            Res.string.settings_routine_and_place,
-            "settings-routine-edit",
-            Res.string.cancel,
-            editing,
-            !state.busy
-        ),
-        onToggle = {
-            actions.resetDraft()
-            editing = !editing
-        }
-    ) {
-        val draft = state.draft
-        if (editing && draft != null) AttendancePlanEditor(state, draft, actions)
-        else AttendancePlanSummary(plan)
-    }
-}
-
-@Composable
-private fun AttendancePlanSummary(plan: PlanState) {
-    val saved = plan.pending ?: plan.current
-    val language = LocalAppLanguage.current
-    val weekdays = saved.schedule.days.sorted().map { str(it.label()) }.joinToString(" · ")
-    SettingsSummaryText(
-        str(
-            Res.string.settings_summary_value,
-            str(saved.category.label()),
-            weekdays
-        )
-    )
-    SettingsSummaryText(
-        str(
-            Res.string.settings_summary_value,
-            str(Res.string.arrival),
-            isolated(localTimeLabel(saved.schedule.arrival, language))
-        )
-    )
-    val radius = isolated(DisplayFormats.number(saved.place.radiusMetres, language))
-    val place = if (plan.placeName.isBlank()) str(Res.string.place_ready, radius)
-    else str(
-        Res.string.settings_summary_value,
-        isolated(plan.placeName),
-        str(Res.string.radius_metres, radius)
-    )
-    SettingsSummaryText(place)
-    AttendancePlanEffectiveDate(plan)
-}
-
-@Composable
-private fun AttendancePlanEditor(
-    state: AttendanceSettingsUiState,
-    draft: PlanChange,
-    actions: AttendanceSettingsActions
-) {
+    var activeEditor by rememberSaveable { mutableStateOf<AttendanceEditor?>(value = null) }
     var chooseZone by rememberSaveable { mutableStateOf(false) }
     var timeDay by rememberSaveable { mutableStateOf<String?>(null) }
-    AttendanceSettingsCards(
-        state = state,
-        draft = draft,
-        actions = actions,
-        pickers = AttendanceSettingsPickers(
-            pickZone = { chooseZone = true },
-            pickTime = { day -> timeDay = day }
-        )
-    )
-    AttendanceSettingsReview(state, draft, actions)
 
-    if (chooseZone) {
+    fun toggleEditor(editor: AttendanceEditor) {
+        val current = activeEditor
+        if (state.busy || (current != null && current != editor)) return
+        actions.resetDraft()
+        chooseZone = false
+        timeDay = null
+        activeEditor = if (current == editor) null else editor
+    }
+
+    LaunchedEffect(state.result) {
+        if (state.result == PlanMutationResult.Applied) {
+            activeEditor = null
+        }
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(space = 16.dp)
+    ) {
+        if (!state.ready) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+
+        AnimatedVisibility(
+            visible = state.storageError,
+            enter = fadeIn(animationSpec = tween(durationMillis = 200)) + expandVertically(),
+            exit = fadeOut(animationSpec = tween(durationMillis = 150)) + shrinkVertically()
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.errorContainer
+            ) {
+                Row(
+                    modifier = Modifier.padding(all = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(space = 10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(size = 20.dp)
+                    )
+                    Text(
+                        text = str(resource = Res.string.load_failed),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+        }
+
+        val plan = state.plan ?: return@Column
+        val draft = state.draft
+
+        AttendanceRoutineCard(
+            plan = plan,
+            draft = draft,
+            state = state,
+            actions = actions,
+            editing = activeEditor == AttendanceEditor.ROUTINE,
+            onToggleEditing = if (activeEditor == AttendanceEditor.PLACE) null else {
+                { toggleEditor(editor = AttendanceEditor.ROUTINE) }
+            },
+            onPickZone = { chooseZone = true },
+            onPickTime = { day -> timeDay = day }
+        )
+
+        RegisteredPlaceCard(
+            plan = plan,
+            draft = draft,
+            state = state,
+            actions = actions,
+            editing = activeEditor == AttendanceEditor.PLACE,
+            onToggleEditing = if (activeEditor == AttendanceEditor.ROUTINE) null else {
+                { toggleEditor(editor = AttendanceEditor.PLACE) }
+            }
+        )
+    }
+
+    if (activeEditor == AttendanceEditor.ROUTINE && chooseZone && state.draft != null) {
         ZonePicker(
-            current = draft.schedule.zoneId,
+            current = state.draft.schedule.zoneId,
             onSelect = { zone ->
                 actions.edit { it.copy(schedule = it.schedule.copy(zoneId = zone)) }
                 chooseZone = false
@@ -181,11 +220,35 @@ private fun AttendancePlanEditor(
         )
     }
 
-    timeDay?.let { day -> AttendancePlanTimePicker(draft, day, actions.edit) { timeDay = null } }
+    val currentDraft = state.draft
+    val selectedDay = timeDay
+    if (activeEditor == AttendanceEditor.ROUTINE && selectedDay != null && currentDraft != null) {
+        AttendancePlanTimePicker(
+            draft = currentDraft,
+            selection = selectedDay,
+            edit = actions.edit,
+            close = { timeDay = null }
+        )
+    }
+
+    val currentPreview = state.preview
+    if (currentPreview != null) {
+        val currentCategory = state.draft?.category
+            ?: state.plan?.pending?.category
+            ?: state.plan?.current?.category
+            ?: TrackerCategory.WORK
+        PlanPreviewDialog(
+            preview = currentPreview,
+            category = currentCategory,
+            busy = state.busy,
+            onConfirm = actions.confirm,
+            onDismiss = actions.cancelPreview
+        )
+    }
 }
 
 @Composable
-private fun AttendancePlanTimePicker(
+internal fun AttendancePlanTimePicker(
     draft: PlanChange,
     selection: String,
     edit: ((PlanChange) -> PlanChange) -> Unit,
@@ -196,8 +259,11 @@ private fun AttendancePlanTimePicker(
         initial = day?.let { draft.schedule.overrides[it] } ?: draft.schedule.arrival,
         onConfirm = { selected ->
             edit { plan ->
-                val schedule = if (day == null) plan.schedule.copy(arrival = selected)
-                else plan.schedule.copy(overrides = plan.schedule.overrides + (day to selected))
+                val schedule = if (day == null) {
+                    plan.schedule.copy(arrival = selected)
+                } else {
+                    plan.schedule.copy(overrides = plan.schedule.overrides + (day to selected))
+                }
                 plan.copy(schedule = schedule)
             }
             close()
@@ -206,111 +272,201 @@ private fun AttendancePlanTimePicker(
     )
 }
 
-private data class AttendanceSettingsPickers(
-    val pickZone: () -> Unit,
-    val pickTime: (String) -> Unit
-)
-
 @Composable
-private fun AttendanceSettingsCards(
+internal fun AttendanceEditorReviewFooter(
     state: AttendanceSettingsUiState,
     draft: PlanChange,
     actions: AttendanceSettingsActions,
-    pickers: AttendanceSettingsPickers
+    reviewTestTag: String,
+    reviewButtonText: String,
+    modifier: Modifier = Modifier
 ) {
-    PlanRoutineContent(
-        state = PlanRoutineUiState(
-            category = draft.category,
-            schedule = draft.schedule,
-            busy = state.busy
-        ),
-        actions = PlanRoutineActions(
-            changeCategory = { newCategory ->
-                actions.edit { it.copy(category = newCategory) }
-            },
-            toggleDay = { day ->
-                actions.edit {
-                    val days =
-                        if (day in it.schedule.days) it.schedule.days - day else it.schedule.days + day
-                    it.copy(
-                        schedule = it.schedule.copy(
-                            days = days,
-                            overrides = it.schedule.overrides.filterKeys { selected -> selected in days },
-                            departureOverrides = it.schedule.departureOverrides.filterKeys { selected -> selected in days }
-                        )
-                    )
-                }
-            },
-            pickArrival = { pickers.pickTime("default") },
-            changeGrace = { minutes ->
-                actions.edit {
-                    it.copy(schedule = it.schedule.copy(graceMinutes = minutes))
-                }
-            },
-            pickDayOverride = { day -> pickers.pickTime(day.name) },
-            resetDayOverride = { day ->
-                actions.edit {
-                    it.copy(schedule = it.schedule.copy(overrides = it.schedule.overrides - day))
-                }
-            },
-            pickZone = pickers.pickZone,
-            changeSchedule = { schedule -> actions.edit { it.copy(schedule = schedule) } }
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
         )
-    )
-
-    HorizontalDivider()
-    PlanPlaceEditor(
-        state = PlanPlaceUiState(
-            draft.place, state.placeAddress, state.plan?.placeName.orEmpty(),
-            state.busy, state.locationIssue
-        ),
-        actions = PlanPlaceActions(
-            changeRadius = { radius ->
-                actions.edit { it.copy(place = it.place.copy(radiusMetres = radius)) }
-            },
-            registerCurrentPlace = actions.registerCurrentPlace,
-            openLocationSettings = actions.openLocationSettings
-        )
-    )
-}
-
-@Composable
-private fun AttendanceSettingsReview(
-    state: AttendanceSettingsUiState,
-    draft: PlanChange,
-    actions: AttendanceSettingsActions
-) {
-    state.plan?.let { AttendancePlanEffectiveDate(it) }
-    if (state.invalidInput) {
-        Text(str(Res.string.plan_invalid), color = MaterialTheme.colorScheme.error)
-    }
-    PlanMutationFeedback(state.result)
-    Button(
-        onClick = { actions.preview(draft) },
-        enabled = !state.busy,
-        modifier = Modifier.fillMaxWidth().testTag("plan-review")
     ) {
-        Text(str(Res.string.plan_review))
-    }
-    state.preview?.let { preview ->
-        PlanPreviewDialog(
-            preview,
-            draft.category,
-            state.busy,
-            actions.confirm,
-            actions.cancelPreview
-        )
+        Column(
+            modifier = Modifier.padding(all = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(space = 12.dp)
+        ) {
+            state.plan?.let { AttendancePlanEffectiveDate(plan = it) }
+
+            AnimatedVisibility(
+                visible = state.invalidInput,
+                enter = fadeIn(animationSpec = tween(durationMillis = 200)) + expandVertically(),
+                exit = fadeOut(animationSpec = tween(durationMillis = 150)) + shrinkVertically()
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Row(
+                        modifier = Modifier.padding(all = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(space = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(size = 18.dp)
+                        )
+                        Text(
+                            text = str(resource = Res.string.plan_invalid),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            }
+
+            PlanMutationFeedback(mutation = state.result)
+
+            Button(
+                onClick = { actions.preview(draft) },
+                enabled = !state.busy,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(tag = reviewTestTag)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(space = 8.dp)
+                ) {
+                    if (state.busy) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(size = 18.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    }
+                    Text(text = reviewButtonText)
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun AttendancePlanEffectiveDate(plan: PlanState) {
-    plan.effectiveFrom?.let { date ->
-        SettingsSummaryText(
-            str(
-                Res.string.plan_effective,
-                DisplayFormats.date(date, LocalAppLanguage.current)
-            )
+internal fun SummaryInfoTile(
+    icon: ImageVector,
+    title: String,
+    badgeText: String,
+    modifier: Modifier = Modifier,
+    secondaryText: String? = null
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {},
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
         )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.weight(weight = 1f, fill = false),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(space = 10.dp)
+            ) {
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                    modifier = Modifier.size(size = 32.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(size = 16.dp)
+                        )
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(space = 2.dp)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (secondaryText != null) {
+                        Text(
+                            text = secondaryText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                )
+            ) {
+                Text(
+                    text = badgeText,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun AttendancePlanEffectiveDate(
+    plan: PlanState,
+    modifier: Modifier = Modifier
+) {
+    val date = plan.effectiveFrom ?: return
+    val language = LocalAppLanguage.current
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(space = 10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.size(size = 18.dp)
+            )
+            Text(
+                text = str(
+                    resource = Res.string.plan_effective,
+                    DisplayFormats.date(date = date, language = language)
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+        }
     }
 }

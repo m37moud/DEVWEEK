@@ -23,6 +23,43 @@ class PlanJourneyTest {
     val compose = createComposeRule()
 
     @Test
+    fun attendance_settings_protect_the_active_draft_and_load_the_map_only_when_editing_place() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val name = "settings-journey-${UUID.randomUUID()}.db"
+        val fixture = AttendanceTestApp(context, name)
+        var shown by mutableStateOf(value = true)
+        try {
+            runBlocking { fixture.graph.settings.update(language = LanguagePreference.EN) }
+            compose.setContent { if (shown) App(graph = fixture.graph) }
+            waitForTag("nav-settings")
+            compose.onNodeWithTag("nav-settings").performClick()
+            waitForTag("settings-routine-edit")
+
+            compose.onNodeWithContentDescription("Monday · Scheduled").assertExists()
+            compose.onNodeWithTag("setup-place-map").assertDoesNotExist()
+            compose.onNodeWithTag("settings-routine-edit").performScrollTo().performClick()
+            compose.onNodeWithTag("plan-zone").performScrollTo().performClick()
+            compose.onNodeWithTag("zone-search").performTextReplacement("Asia/Tokyo")
+            compose.onNodeWithTag("zone-choice-Asia/Tokyo").performClick()
+            compose.onNodeWithTag("settings-place-edit").assertIsNotEnabled()
+            compose.onNodeWithTag("plan-zone").assertTextContains("Asia/Tokyo", substring = true)
+            compose.onNodeWithTag("settings-routine-edit").performScrollTo().performClick()
+            compose.onNodeWithTag("plan-review").assertDoesNotExist()
+
+            compose.onNodeWithTag("settings-place-edit").performScrollTo().performClick()
+            compose.onNodeWithTag("settings-routine-edit").assertIsNotEnabled()
+            compose.onNodeWithTag("registered-place-address").assertExists()
+            compose.onNodeWithTag("settings-place-edit").performScrollTo().performClick()
+            compose.onNodeWithTag("setup-place-map").assertDoesNotExist()
+        } finally {
+            compose.runOnIdle { shown = false }
+            compose.waitForIdle()
+            fixture.db.close()
+            context.deleteDatabase(name)
+        }
+    }
+
+    @Test
     fun vacation_preview_changes_saved_attendance_and_balance_then_can_be_removed() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val name = "plan-journey-${UUID.randomUUID()}.db"
