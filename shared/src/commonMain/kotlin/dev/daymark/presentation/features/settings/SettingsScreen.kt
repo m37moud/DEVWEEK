@@ -204,16 +204,19 @@ fun SettingsContent(
 
                     if (state.resultNotificationsSupported) {
                         SettingsResultNotificationsCard(
-                            state,
-                            actions.setResultNotificationsEnabled
+                            state = state,
+                            onToggleNotifications = actions.setResultNotificationsEnabled
                         )
                     }
 
                     if (platform != HostPlatform.TEST) {
                         SettingsWidgetsCard(
-                            state,
-                            WidgetSetupActions(actions.addWidget, actions.refreshWidget),
-                            platform
+                            state = state,
+                            actions = WidgetSetupActions(
+                                add = actions.addWidget,
+                                refresh = actions.refreshWidget
+                            ),
+                            platform = platform
                         )
                     }
                     GoogleConnectionSection(

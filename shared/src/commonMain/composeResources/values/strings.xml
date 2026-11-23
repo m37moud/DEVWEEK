@@ -281,6 +281,8 @@
 
     <string name="result_notifications">Attendance result notifications</string>
     <string name="result_notifications_help">Optional, silent notices after attendance checks. Tapping opens Today without checking your location.</string>
+    <string name="result_notifications_show_help">Show notification help</string>
+    <string name="result_notifications_hide_help">Hide notification help</string>
     <string name="result_notifications_denied">Notifications are unavailable. Attendance still works. Allow notifications in system settings.</string>
     <string name="result_saved">Attendance saved on this phone</string>
     <string name="result_unconfirmed">Attendance not confirmed</string>

@@ -286,6 +286,8 @@
 
     <string name="result_notifications">إشعارات نتيجة الحضور</string>
     <string name="result_notifications_help">إشعارات اختيارية صامتة بعد فحص الحضور. يفتح النقر صفحة اليوم دون فحص موقعك.</string>
+    <string name="result_notifications_show_help">إظهار شرح الإشعارات</string>
+    <string name="result_notifications_hide_help">إخفاء شرح الإشعارات</string>
     <string name="result_notifications_denied">الإشعارات غير متاحة. يستمر الحضور بالعمل. اسمح بالإشعارات من إعدادات النظام.</string>
     <string name="result_saved">تم حفظ الحضور على هذا الهاتف</string>
     <string name="result_unconfirmed">لم يتم تأكيد الحضور</string>
