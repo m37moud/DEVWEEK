@@ -48,7 +48,7 @@ private val sampleSettingsUnset = AnnualVacationSettings(
     nextEffectiveYear = 2026,
 )
 
-@Preview(name = "Annual Vacation Card Light Summary")
+@Preview(name = "Annual Vacation Help Light Summary")
 @Composable
 private fun SettingsAnnualVacationCardLightSummaryPreview() {
     DaymarkTheme(preference = ThemePreference.LIGHT) {
@@ -63,7 +63,7 @@ private fun SettingsAnnualVacationCardLightSummaryPreview() {
     }
 }
 
-@Preview(name = "Annual Vacation Card Dark with Scheduled")
+@Preview(name = "Annual Vacation Help Dark with Scheduled")
 @Composable
 private fun SettingsAnnualVacationCardDarkScheduledPreview() {
     DaymarkTheme(preference = ThemePreference.DARK) {
@@ -94,6 +94,12 @@ private fun SettingsAnnualVacationCardUnsetPreview() {
 }
 
 @Preview(name = "Annual Vacation Editor Arabic RTL Validation Error", locale = "ar")
+@Preview(
+    name = "Annual Vacation Help Narrow Arabic RTL",
+    locale = "ar",
+    widthDp = 320,
+    fontScale = 2f
+)
 @Composable
 private fun SettingsAnnualVacationCardArabicRtlPreview() {
     WithPlatformLocale(language = AppLanguage.AR) {

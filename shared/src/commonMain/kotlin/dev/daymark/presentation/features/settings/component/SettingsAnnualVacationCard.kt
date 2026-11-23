@@ -57,6 +57,8 @@ import dev.daymark.resources.Res
 import dev.daymark.resources.annual_vacation_allowance
 import dev.daymark.resources.annual_vacation_carryover
 import dev.daymark.resources.annual_vacation_effective
+import dev.daymark.resources.annual_vacation_help_label
+import dev.daymark.resources.annual_vacation_help_message
 import dev.daymark.resources.annual_vacation_invalid
 import dev.daymark.resources.annual_vacation_scheduled
 import dev.daymark.resources.annual_vacation_settings
@@ -94,6 +96,10 @@ fun SettingsAnnualVacationCard(
                 closeLabel = Res.string.cancel,
                 editing = editing,
                 enabled = !busy,
+                help = SettingsEditorHelp(
+                    label = Res.string.annual_vacation_help_label,
+                    message = Res.string.annual_vacation_help_message,
+                ),
             ),
             onToggle = { editing = !editing },
             modifier = modifier.testTag("settings-annual-vacation"),

@@ -313,6 +313,9 @@
     <string name="apply_range">تطبيق الفترة</string>
     <string name="vacation_balance">رصيد الإجازات</string>
     <string name="annual_vacation_settings">الإجازات السنوية</string>
+    <string name="annual_vacation_help_label">حول الإجازات السنوية</string>
+    <string name="annual_vacation_help_message">يُضاف الاستحقاق السنوي في بداية سنة الإجازات التالية. لتعديل الأيام المتاحة حاليًا، افتح تبويب اليوم، ثم افتح رصيد الإجازات واضغط على تعديل الرصيد المتاح.</string>
+    <string name="close_tooltip">إغلاق</string>
     <string name="annual_vacation_allowance">رصيد الإجازات السنوية (بالأيام)</string>
     <string name="annual_vacation_carryover">ترحيل الأيام غير المستخدمة</string>
     <string name="annual_vacation_effective">تسري التغييرات في %1$s حسب المنطقة الزمنية لتتبع الحضور.</string>
