@@ -86,9 +86,16 @@ internal fun AttendancePeriodEditor(
             )
         }
         if (closingDay != null) {
-            PeriodDayButton(PeriodBoundary.START, rule.startDay, enabled) { picker = PeriodBoundary.START.name }
-            PeriodDayButton(PeriodBoundary.END, closingDay, enabled) { picker = PeriodBoundary.END.name }
-            Text(str(Res.string.attendance_period_recurring_help), style = MaterialTheme.typography.bodySmall)
+            PeriodDayButton(boundary = PeriodBoundary.START, day = rule.startDay, enabled = enabled) {
+                picker = PeriodBoundary.START.name
+            }
+            PeriodDayButton(boundary = PeriodBoundary.END, day = closingDay, enabled = enabled) {
+                picker = PeriodBoundary.END.name
+            }
+            Text(
+                text = str(resource = Res.string.attendance_period_recurring_help),
+                style = MaterialTheme.typography.bodySmall
+            )
         }
         Text(
             str(Res.string.attendance_period_example, attendancePeriodDates(example)),
@@ -119,18 +126,22 @@ internal fun AttendancePeriodEditor(
 
 @Composable
 internal fun attendancePeriodRuleLabel(closingDay: Int?): String =
-    if (closingDay == null) str(Res.string.attendance_period_calendar)
+    if (closingDay == null) str(resource = Res.string.attendance_period_calendar)
     else {
         val language = LocalAppLanguage.current
-        str(
-            Res.string.attendance_period_rule,
-            isolated(DisplayFormats.number(AttendancePeriodSettings(closingDay).startDay, language)),
-            isolated(DisplayFormats.number(closingDay, language))
-        )
+        val startDay = AttendancePeriodSettings(closingDay = closingDay).startDay
+        val start = isolated(value = DisplayFormats.number(value = startDay, language = language))
+        val end = isolated(value = DisplayFormats.number(value = closingDay, language = language))
+        str(resource = Res.string.attendance_period_rule, start, end)
     }
 
 @Composable
-private fun PeriodDayButton(boundary: PeriodBoundary, day: Int, enabled: Boolean, onClick: () -> Unit) {
+private fun PeriodDayButton(
+    boundary: PeriodBoundary,
+    day: Int,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
     val label = if (boundary == PeriodBoundary.START) Res.string.attendance_period_start_day
     else Res.string.attendance_period_end_day
     OutlinedButton(
@@ -184,11 +195,13 @@ private fun PeriodDayPicker(
             state = state,
             showModeToggle = false,
             title = {
-                val title = if (boundary == PeriodBoundary.START) Res.string.attendance_period_pick_start
-                else Res.string.attendance_period_pick_end
-                Text(str(title), modifier = Modifier.fillMaxWidth())
+                val title =
+                    if (boundary == PeriodBoundary.START) Res.string.attendance_period_pick_start
+                    else Res.string.attendance_period_pick_end
+                Text(text = str(resource = title), modifier = Modifier.fillMaxWidth())
             },
-            modifier = Modifier.verticalScroll(rememberScrollState()).testTag("attendance-period-picker")
+            modifier = Modifier.verticalScroll(state = rememberScrollState())
+                .testTag(tag = "attendance-period-picker")
         )
     }
 }

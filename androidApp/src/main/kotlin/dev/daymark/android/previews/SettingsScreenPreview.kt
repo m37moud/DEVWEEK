@@ -40,6 +40,7 @@ private fun SettingsScreenAndroidPreview() {
         SettingsContent(
             state = SettingsUiState(
                 ready = true,
+                attendanceDate = LocalDate(year = 2026, month = 11, day = 19),
                 permissionRequestFailed = true,
                 resultNotificationsSupported = true,
                 widgetStatus = dev.daymark.widgets.WidgetSetupStatus.NOT_ADDED,
@@ -72,6 +73,7 @@ private fun SettingsScreenIosDarkPreview() {
                 SettingsContent(
                     state = SettingsUiState(
                         ready = true,
+                        attendanceDate = LocalDate(year = 2026, month = 11, day = 19),
                         resultNotificationsSupported = true,
                         widgetStatus = dev.daymark.widgets.WidgetSetupStatus.ADDED,
                         settings = AppSettings(

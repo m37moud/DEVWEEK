@@ -6,6 +6,7 @@ import dev.daymark.models.plan.AttendancePeriodReview
 import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.reporting.ReportHealth
 import dev.daymark.models.settings.AppSettings
+import kotlinx.datetime.LocalDate
 
 data class SettingsUiState(
     val widgetStatus: dev.daymark.widgets.WidgetSetupStatus = dev.daymark.widgets.WidgetSetupStatus.CHECKING,
@@ -31,7 +32,8 @@ data class SettingsUiState(
     val storageError: Boolean = false,
     val annualVacation: AnnualVacationSettingsUiState = AnnualVacationSettingsUiState(),
     val periodReview: AttendancePeriodReview? = null,
-    val periodSaveResult: PlanMutationResult? = null
+    val periodSaveResult: PlanMutationResult? = null,
+    val attendanceDate: LocalDate? = null
 )
 
 data class AnnualVacationSettingsUiState(

@@ -340,7 +340,7 @@
     <string name="attendance_period_pick_end">اختر يوم النهاية</string>
     <string name="attendance_period_example">مثال · %1$s</string>
     <string name="attendance_period_recurring_help">تتتابع حدود الفترات ليُحتسب كل يوم. تنتهي الأشهر القصيرة في آخر يوم منها.</string>
-    <string name="attendance_period_rule">تبدأ في اليوم %1$s · تنتهي في اليوم %2$s</string>
+    <string name="attendance_period_rule">من %1$s · إلى %2$s</string>
     <string name="attendance_period_vacation_year">سنة الإجازة</string>
     <string name="attendance_period_vacation_work_only">ينطبق اختيار سنة الإجازة على متابعات العمل فقط.</string>
     <string name="vacation_year_calendar">السنة الميلادية (الافتراضية)</string>

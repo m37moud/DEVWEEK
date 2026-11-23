@@ -81,6 +81,7 @@ fun SettingsScreen(
     settingsViewModel: SettingsViewModel = koinViewModel(),
 ) {
     val state by settingsViewModel.uiState.collectAsStateWithLifecycle()
+    val attendanceDate by settingsViewModel.attendanceDate.collectAsStateWithLifecycle(initialValue = null)
     LifecycleStartEffect(settingsViewModel) {
         settingsViewModel.refreshPermissions()
         settingsViewModel.refreshWidgetSetup()
@@ -114,8 +115,9 @@ fun SettingsScreen(
             )
         )
     }
-    SettingsContent(state = state, platform = platform, actions = actions)
-    { AttendanceSettingsSection() }
+    SettingsContent(state = state.copy(attendanceDate = attendanceDate), platform = platform, actions = actions) {
+        AttendanceSettingsSection()
+    }
 }
 
 @Composable

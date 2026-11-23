@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextContains
@@ -14,6 +15,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -69,6 +71,7 @@ class AttendancePeriodJourneyTest {
             compose.onNodeWithTag("attendance-period-review").assertDoesNotExist()
             compose.onNodeWithTag("settings-attendance-period-edit").performScrollTo().performClick()
             waitFor("attendance-period-review")
+            assertCancelDiscardsPeriodDraft()
             val year = compose.onNodeWithTag("attendance-period-vacation-year")
             year.performScrollTo().assertIsOff()
             compose.onNodeWithText("تبدأ السنتان في", substring = true).performScrollTo().assertIsDisplayed()
@@ -103,8 +106,18 @@ class AttendancePeriodJourneyTest {
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("attendance-period-review").fetchSemanticsNodes().isEmpty()
             }
-            compose.onNodeWithText("تنتهي في اليوم", substring = true).performScrollTo()
-                .assertIsDisplayed().assertTextContains("٢٠", substring = true)
+            val rangeStart = DisplayFormats.date(
+                date = LocalDate(year = 2026, month = 10, day = 21),
+                language = AppLanguage.AR
+            )
+            val rangeEnd = DisplayFormats.date(
+                date = LocalDate(year = 2026, month = 11, day = 20),
+                language = AppLanguage.AR
+            )
+            compose.onNode(
+                matcher = hasText(text = rangeStart, substring = true) and
+                        hasText(text = rangeEnd, substring = true)
+            ).performScrollTo().assertIsDisplayed()
             compose.onNodeWithTag("settings-annual-vacation-edit").performScrollTo().performClick()
             compose.onNodeWithTag("settings-annual-vacation-allowance").performScrollTo().performTextReplacement("٢٢")
             compose.onNodeWithTag("settings-annual-vacation-save").performScrollTo().performClick()
@@ -141,6 +154,23 @@ class AttendancePeriodJourneyTest {
         compose.onNode(hasAnyAncestor(hasTestTag("attendance-period-picker")) and hasClickAction() and hasDay)
             .performScrollTo().performClick()
         compose.onNodeWithTag("attendance-period-picker-confirm").performClick()
+    }
+
+    private fun assertCancelDiscardsPeriodDraft() {
+        compose.onNodeWithTag("attendance-period-custom").performScrollTo().performClick()
+        val edit = compose.onNodeWithTag("settings-attendance-period-edit")
+        edit.performScrollTo()
+        compose.mainClock.autoAdvance = false
+        try {
+            edit.performClick()
+            compose.mainClock.advanceTimeBy(milliseconds = 32)
+            compose.onNodeWithTag("attendance-period-review").assertDoesNotExist()
+            edit.performClick()
+        } finally {
+            compose.mainClock.autoAdvance = true
+        }
+        compose.onNodeWithTag("attendance-period-review").assertIsNotEnabled()
+        compose.onNodeWithTag("attendance-period-end").assertDoesNotExist()
     }
 
     private fun assertBoundary(boundary: String, day: Int) {

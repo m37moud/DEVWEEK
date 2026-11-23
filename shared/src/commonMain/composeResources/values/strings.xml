@@ -335,7 +335,7 @@
     <string name="attendance_period_pick_end">Pick an end day</string>
     <string name="attendance_period_example">Example · %1$s</string>
     <string name="attendance_period_recurring_help">The two days follow each other so every date is counted. Short months close on their last day.</string>
-    <string name="attendance_period_rule">Starts on day %1$s · Ends on day %2$s</string>
+    <string name="attendance_period_rule">From %1$s · To %2$s</string>
     <string name="attendance_period_vacation_year">Vacation year</string>
     <string name="attendance_period_vacation_work_only">The vacation-year choice applies to Work trackers only.</string>
     <string name="vacation_year_calendar">Calendar year (default)</string>
