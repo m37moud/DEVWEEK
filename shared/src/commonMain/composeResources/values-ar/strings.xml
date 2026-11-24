@@ -201,6 +201,7 @@
     <string name="report_select">عُثر على أكثر من تقرير. اختر التقرير الذي تريد استخدامه.</string>
     <string name="report_choice">التقرير %1$s · %2$s</string>
     <string name="report_consent_cancelled">أُلغي الاتصال بـ Google. سجلاتك المحلية محفوظة.</string>
+    <string name="report_local_binding_unreadable">تعذّرت قراءة اتصال تقرير Google المحفوظ. أعِد الاتصال بحساب Google لاستئناف المزامنة.</string>
     <string name="report_connection_failed">تعذر الاتصال. سجلاتك المحلية محفوظة. حاول مجدداً عند توفر Google.</string>
     <string name="report_replacement">إنشاء تقرير جديد</string>
     <string name="delete_local_data">حذف البيانات المحلية</string>

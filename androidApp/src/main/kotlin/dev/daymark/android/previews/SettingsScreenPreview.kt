@@ -14,6 +14,8 @@ import dev.daymark.models.plan.AnnualVacationPolicy
 import dev.daymark.models.plan.AnnualVacationSettings
 import dev.daymark.models.plan.PlanChange
 import dev.daymark.models.plan.PlanState
+import dev.daymark.models.reporting.ConnectionResult
+import dev.daymark.models.reporting.ReportHealth
 import dev.daymark.models.settings.AppSettings
 import dev.daymark.presentation.features.settings.AnnualVacationSettingsUiState
 import dev.daymark.presentation.features.settings.AttendanceSettingsUiState
@@ -41,6 +43,7 @@ private fun SettingsScreenAndroidPreview() {
             state = SettingsUiState(
                 ready = true,
                 attendanceDate = LocalDate(year = 2026, month = 11, day = 19),
+                report = ReportHealth(connectionResult = ConnectionResult.LocalBindingUnreadable),
                 permissionRequestFailed = true,
                 resultNotificationsSupported = true,
                 widgetStatus = dev.daymark.widgets.WidgetSetupStatus.NOT_ADDED,
@@ -60,7 +63,7 @@ private fun SettingsScreenAndroidPreview() {
     }
 }
 
-@Preview(name = "Settings iOS dark", locale = "ar", widthDp = 320)
+@Preview(name = "Settings iOS dark", locale = "ar", widthDp = 320, fontScale = 2f)
 @Composable
 private fun SettingsScreenIosDarkPreview() {
     WithPlatformLocale(AppLanguage.AR) {
@@ -82,7 +85,7 @@ private fun SettingsScreenIosDarkPreview() {
                             theme = ThemePreference.DARK,
                             remindersEnabled = true
                         ),
-                        reportBusy = true,
+                        report = ReportHealth(connectionResult = ConnectionResult.LocalBindingUnreadable),
                         annualVacation = AnnualVacationSettingsUiState(
                             configuration = AnnualVacationSettings(
                                 active = AnnualVacationPolicy(2027, 20, true),

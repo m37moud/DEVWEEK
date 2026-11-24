@@ -17,6 +17,7 @@ import dev.daymark.models.reporting.ConnectionResult
 import dev.daymark.models.reporting.ReportHealth
 import dev.daymark.models.reporting.SyncPassResult
 import dev.daymark.models.reporting.SyncTrigger
+import dev.daymark.reporting.LocalReportBindingException
 import dev.daymark.reporting.SyncCoordinator
 import dev.daymark.reporting.observeReportConnectivity
 import dev.daymark.repository.ReportingDataSource
@@ -110,8 +111,8 @@ class ReportingRuntime(
                 )
             }.distinctUntilChangedBy { rows -> rows.map { it.projectionKey to it.revision } }
                 .onEach {
-                    if (store.activeBinding() != null) lifecycle.onLocalChange()
                     refreshHealth()
+                    if (state.value.binding != null) lifecycle.onLocalChange()
                 }.catch { error ->
                     if (error is CancellationException) throw error
                     AppLogger.e("ReportingRuntime", "Report observation failed", error)
@@ -149,6 +150,9 @@ class ReportingRuntime(
             return result
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (_: LocalReportBindingException) {
+            showUnreadableBinding()
+            return SyncPassResult.ReportUnavailable
         } catch (failure: Exception) {
             AppLogger.e("ReportingRuntime", "Report sync pass failed", failure)
             state.update { it.copy(result = SyncPassResult.Pending) }; return SyncPassResult.Pending
@@ -161,20 +165,41 @@ class ReportingRuntime(
         result: SyncPassResult = state.value.result,
         connectionResult: ConnectionResult? = state.value.connectionResult
     ) {
-        val binding = store.activeBinding()
-        val dirty = binding?.let {
-            dirtyProjectionDao.dirtyProjections(it.trackerId)
-                .count { row -> row.revision > row.acknowledgedRevision }
-        } ?: 0
+        val binding = try {
+            store.activeBinding()
+        } catch (_: LocalReportBindingException) {
+            showUnreadableBinding()
+            return
+        }
+        val pendingCount =
+            binding?.let { dirtyProjectionDao.pendingCount(trackerId = it.trackerId) } ?: 0
         val issues = binding?.let { store.projectionIssues(it) }.orEmpty()
         val last = binding?.let {
             profileDao.setting("report-last-sync:${it.trackerId}:${it.connectionGeneration}")?.value
         }
         state.update { old ->
             old.copy(
-                binding = binding, pendingCount = dirty,
-                result = if (old.binding?.connectionGeneration != binding?.connectionGeneration) SyncPassResult.Idle else result,
-                connectionResult = connectionResult, lastSync = last, issues = issues
+                binding = binding, pendingCount = pendingCount,
+                result = if (
+                    old.binding?.connectionGeneration != binding?.connectionGeneration ||
+                    old.connectionResult == ConnectionResult.LocalBindingUnreadable
+                ) SyncPassResult.Idle else result,
+                connectionResult = connectionResult.takeUnless { it == ConnectionResult.LocalBindingUnreadable },
+                lastSync = last,
+                issues = issues
+            )
+        }
+    }
+
+    private fun showUnreadableBinding() {
+        state.update {
+            it.copy(
+                binding = null,
+                pendingCount = 0,
+                lastSync = null,
+                result = SyncPassResult.ReportUnavailable,
+                connectionResult = ConnectionResult.LocalBindingUnreadable,
+                issues = emptyList()
             )
         }
     }

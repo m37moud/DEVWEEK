@@ -196,6 +196,7 @@
     <string name="report_select">More than one report was found. Choose the report to use.</string>
     <string name="report_choice">Report %1$s · %2$s</string>
     <string name="report_consent_cancelled">Google connection was cancelled. Your local records are kept.</string>
+    <string name="report_local_binding_unreadable">The saved Google report connection could not be read. Reconnect Google to restore syncing.</string>
     <string name="report_connection_failed">Could not connect. Your local records are kept. Try again when Google is available.</string>
     <string name="report_replacement">Create a new report</string>
     <string name="delete_local_data">Delete local data</string>

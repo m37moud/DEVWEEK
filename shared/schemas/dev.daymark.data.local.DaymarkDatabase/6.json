@@ -587,7 +587,7 @@
             "notNull": true
           },
           {
-            "fieldPath": "annualTabIdsJson",
+            "fieldPath": "metadataJson",
             "columnName": "annualTabIdsJson",
             "affinity": "TEXT",
             "notNull": true

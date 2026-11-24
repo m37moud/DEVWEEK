@@ -11,6 +11,7 @@ import dev.daymark.models.reporting.ReportAccessException
 import dev.daymark.models.reporting.ReportBinding
 import dev.daymark.models.reporting.ReportCreation
 import dev.daymark.models.reporting.ReportDiscovery
+import dev.daymark.reporting.LocalReportBindingException
 import dev.daymark.reporting.ReportStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
@@ -63,7 +64,13 @@ class ConnectionService(
         try {
             val tracker =
                 profileDao.tracker() ?: return@withLock ConnectionResult.Failed("no_tracker")
-            val previous = store.activeBinding()
+            val previous = if (repair) {
+                try {
+                    store.activeBinding()
+                } catch (_: LocalReportBindingException) {
+                    return@withLock ConnectionResult.LocalBindingUnreadable
+                }
+            } else null
             val generation =
                 store.beginConnection() ?: return@withLock ConnectionResult.Failed("no_tracker")
             val token = when (val result = access.accessToken(interactive = true)) {

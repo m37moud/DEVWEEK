@@ -83,6 +83,7 @@ import dev.daymark.resources.report_choice
 import dev.daymark.resources.report_connect
 import dev.daymark.resources.report_configuration_required
 import dev.daymark.resources.report_connection_failed
+import dev.daymark.resources.report_local_binding_unreadable
 import dev.daymark.resources.report_consent_cancelled
 import dev.daymark.resources.report_content_too_long
 import dev.daymark.resources.report_creation_pending
@@ -711,11 +712,18 @@ private fun ReportConnectionResultNotice(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+
+        ConnectionResult.LocalBindingUnreadable -> {
+            Text(
+                text = str(Res.string.report_local_binding_unreadable),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
         is ConnectionResult.Failed -> {
-            val errorRes = if (result.errorKey == "authorization_configuration") {
-                Res.string.report_configuration_required
-            } else {
-                Res.string.report_connection_failed
+            val errorRes = when (result.errorKey) {
+                "authorization_configuration" -> Res.string.report_configuration_required
+                else -> Res.string.report_connection_failed
             }
             Text(
                 text = str(errorRes),

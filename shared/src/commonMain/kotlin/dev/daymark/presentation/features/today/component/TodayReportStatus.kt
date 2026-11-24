@@ -19,9 +19,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import dev.daymark.models.reporting.ConnectionResult
 import dev.daymark.models.reporting.ReportHealth
 import dev.daymark.models.reporting.SyncPassResult
 import dev.daymark.resources.Res
+import dev.daymark.resources.report_local_binding_unreadable
 import dev.daymark.resources.report_observed_sync
 import dev.daymark.resources.report_ready
 import dev.daymark.resources.today_report_attention
@@ -46,6 +48,8 @@ internal fun TodayReportStatus(
     val isPending = report.pendingCount > 0 || report.busy || report.result == SyncPassResult.Pending
 
     val reportCopy = when {
+        report.connectionResult == ConnectionResult.LocalBindingUnreadable ->
+            str(Res.string.report_local_binding_unreadable)
         report.binding == null -> str(Res.string.today_report_local)
         needsAttention -> str(Res.string.today_report_attention)
         isPending -> str(

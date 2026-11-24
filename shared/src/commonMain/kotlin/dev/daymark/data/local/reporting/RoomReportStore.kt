@@ -3,6 +3,7 @@ package dev.daymark.data.local.reporting
 import dev.daymark.data.local.DatabaseTransactions
 import dev.daymark.data.local.ReportBatchEntity
 import dev.daymark.data.local.ReportBindingEntity
+import dev.daymark.data.local.DirtyProjectionEntity
 import dev.daymark.data.local.SettingEntity
 import dev.daymark.data.local.dao.AttendanceDao
 import dev.daymark.data.local.dao.DirtyProjectionDao
@@ -11,6 +12,7 @@ import dev.daymark.data.local.dao.ReportDao
 import dev.daymark.data.local.markDirty
 import dev.daymark.data.local.plan.PlanningSnapshotReader
 import dev.daymark.data.local.plan.balanceYear
+import dev.daymark.logging.AppLogger
 import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.data.local.plan.historyRecord
@@ -23,6 +25,7 @@ import dev.daymark.models.reporting.ReportBinding
 import dev.daymark.models.reporting.ReportProjection
 import dev.daymark.models.reporting.storageKey
 import dev.daymark.reporting.sameCells
+import dev.daymark.reporting.LocalReportBindingException
 import dev.daymark.reporting.ReportIssue
 import dev.daymark.reporting.ReportStore
 import dev.daymark.reporting.RetryState
@@ -31,6 +34,7 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -57,14 +61,27 @@ class RoomReportStore(
     private suspend fun current(): ReportBinding? {
         val tracker = profileDao.tracker() ?: return null
         val row = reportDao.binding(tracker.id) ?: return null
-        val binding =
-            runCatching { json.decodeFromString<ReportBinding>(row.annualTabIdsJson) }.getOrNull()
-                ?: return null
-        return binding.takeIf {
-            it.trackerId == tracker.id && it.connectionGeneration == profileDao.setting(
-                generationKey(tracker.id)
-            )?.value
+        if (row.connectionGeneration != profileDao.setting(key = generationKey(id = tracker.id))?.value) return null
+        val metadata = try {
+            json.decodeFromString<ReportBindingMetadata>(string = row.metadataJson)
+        } catch (failure: IllegalArgumentException) {
+            AppLogger.e(
+                tag = "RoomReportStore",
+                message = "Stored report binding unreadable",
+                throwable = failure
+            )
+            throw LocalReportBindingException()
         }
+        return ReportBinding(
+            trackerId = row.trackerId,
+            connectionGeneration = row.connectionGeneration,
+            accountReference = row.accountReference,
+            spreadsheetId = row.spreadsheetId,
+            schemaVersion = row.schemaVersion,
+            annualTabIds = metadata.annualTabIds,
+            managedTabIds = metadata.managedTabIds,
+            repairRequested = metadata.repairRequested
+        )
     }
 
     override suspend fun activeBinding() = transactions.withReadTransaction { current() }
@@ -91,13 +108,19 @@ class RoomReportStore(
     }
 
     private suspend fun putBinding(binding: ReportBinding) = reportDao.putBinding(
-        ReportBindingEntity(
-            binding.trackerId,
-            binding.connectionGeneration,
-            binding.accountReference,
-            binding.spreadsheetId,
-            binding.schemaVersion,
-            json.encodeToString(binding)
+        binding = ReportBindingEntity(
+            trackerId = binding.trackerId,
+            connectionGeneration = binding.connectionGeneration,
+            accountReference = binding.accountReference,
+            spreadsheetId = binding.spreadsheetId,
+            schemaVersion = binding.schemaVersion,
+            metadataJson = json.encodeToString(
+                value = ReportBindingMetadata(
+                    annualTabIds = binding.annualTabIds,
+                    managedTabIds = binding.managedTabIds,
+                    repairRequested = binding.repairRequested
+                )
+            )
         )
     )
 
@@ -121,14 +144,20 @@ class RoomReportStore(
     private suspend fun ensureProjections(binding: ReportBinding) {
         ensureVacationBalancePeriod(binding.trackerId)
         val keys =
-            listOf("OVERVIEW", "TIME_OFF", ProjectionKey.AttendancePeriods.storageKey()) + attendanceDao.days(binding.trackerId)
-                .map { "DAY:${it.date}" }
-        keys.forEach {
-            if (dirtyProjectionDao.dirtyProjection(
-                    binding.trackerId,
-                    it
-                ) == null
-            ) dirtyProjectionDao.markDirty(binding.trackerId, it)
+            listOf(
+                "OVERVIEW",
+                "TIME_OFF",
+                ProjectionKey.AttendancePeriods.storageKey()
+            ) + attendanceDao.dates(trackerId = binding.trackerId).map { "DAY:$it" }
+        val existingKeys = dirtyProjectionDao.projectionKeys(trackerId = binding.trackerId).toSet()
+        for (key in keys) {
+            if (key !in existingKeys) dirtyProjectionDao.putDirtyProjection(
+                projection = DirtyProjectionEntity(
+                    trackerId = binding.trackerId,
+                    projectionKey = key,
+                    revision = 1
+                )
+            )
         }
     }
 
@@ -218,21 +247,32 @@ class RoomReportStore(
             }.distinct()
         }
 
-    private suspend fun acknowledgedRows(
-        binding: ReportBinding,
-        projection: ReportProjection
+    private suspend fun acknowledgedBatches(binding: ReportBinding): List<ReportBatch> =
+        reportDao.acknowledgedBatches(
+            trackerId = binding.trackerId,
+            generation = binding.connectionGeneration
+        ).map { json.decodeFromString<ReportBatch>(string = it.payloadJson) }
+
+    private fun currentAcknowledgements(
+        batches: List<ReportBatch>,
+        dirty: Map<String, DirtyProjectionEntity>
+    ): Map<ProjectionKey, List<ReportProjection>> = batches.asSequence()
+        .flatMap { it.projections.asSequence() }
+        .filter { projection -> dirty[projection.key.storageKey()]?.revision == projection.revision }
+        .groupBy { it.key }
+
+    private fun acknowledgedRows(
+        projection: ReportProjection,
+        acknowledged: List<ReportProjection>
     ): Set<String> {
-        val acknowledged = reportDao.batches(binding.trackerId)
-            .filter { it.connectionGeneration == binding.connectionGeneration && it.status == "ACKNOWLEDGED" }
-            .flatMap { json.decodeFromString<ReportBatch>(it.payloadJson).projections }
-            .filter { it.key == projection.key && it.revision == projection.revision }
-            .flatMap { it.ranges.flatMap(::individualRows) }
-        if (projection.key != ProjectionKey.AttendancePeriods) return acknowledged.map { it.a1 }.toSet()
+        val rows =
+            acknowledged.asSequence().flatMap { it.ranges.asSequence().flatMap(::individualRows) }
+        if (projection.key != ProjectionKey.AttendancePeriods) return rows.map { it.a1 }.toSet()
 
         // A deadline or midnight can change calculated totals while a batch is in flight.
         val expected = projection.ranges.flatMap(::individualRows).associateBy { it.a1 }
-        return acknowledged.filter { row ->
-            expected[row.a1]?.let { sameCells(it.cells, row.cells) } == true
+        return rows.filter { row ->
+            expected[row.a1]?.let { sameCells(expected = it.cells, actual = row.cells) } == true
         }.map { it.a1 }.toSet()
     }
 
@@ -241,15 +281,21 @@ class RoomReportStore(
             require(maxRows in 1..500)
             if (current() != binding) return@withWriteTransaction null
             ensureProjections(binding)
-            val dirty = dirtyProjectionDao.dirtyProjections(binding.trackerId)
-                .associateBy { it.projectionKey }
+            val dirty = pendingProjections(trackerId = binding.trackerId)
+            if (dirty.isEmpty()) return@withWriteTransaction null
+            val acknowledged = currentAcknowledgements(
+                batches = acknowledgedBatches(binding = binding),
+                dirty = dirty
+            )
             val selected = mutableListOf<ReportProjection>()
             var rows = 0
             var bytes = 0
             for (projection in projections(binding)) {
-                val state = dirty[projection.key.storageKey()] ?: continue
-                if (state.revision <= state.acknowledgedRevision) continue
-                val covered = acknowledgedRows(binding, projection)
+                if (projection.key.storageKey() !in dirty) continue
+                val covered = acknowledgedRows(
+                    projection = projection,
+                    acknowledged = acknowledged[projection.key].orEmpty()
+                )
                 val ranges = mutableListOf<RawRange>()
                 for (row in projection.ranges.flatMap(::individualRows)) {
                     if (row.a1 in covered || reportIssue(projection.key, row) != null) continue
@@ -281,82 +327,123 @@ class RoomReportStore(
         }
     }
 
-    override suspend fun journalBeforeDispatch(batch: ReportBatch) = transactions.withWriteTransaction {
-        check(current() == batch.binding) { "stale_binding" }
-        check(
-            reportDao.batches(batch.binding.trackerId)
-                .none { it.batchIdentity == batch.batchIdentity }) { "duplicate_batch" }
-        // Reserve old table capacity before a possibly ambiguous write so later deletion clears every published row.
-        reservePublishedCapacity(batch, ProjectionKey.TimeOff)
-        reservePublishedCapacity(batch, ProjectionKey.AttendancePeriods)
+    override suspend fun journalBeforeDispatch(batch: ReportBatch) =
+        transactions.withWriteTransaction {
+            check(current() == batch.binding) { "stale_binding" }
+            // Reserve old table capacity before a possibly ambiguous write so later deletion clears every published row.
+            reservePublishedCapacity(batch, ProjectionKey.TimeOff)
+            reservePublishedCapacity(batch, ProjectionKey.AttendancePeriods)
+            reportDao.insertBatch(
+                batch = ReportBatchEntity(
+                    batchIdentity = batch.batchIdentity,
+                    trackerId = batch.binding.trackerId,
+                    connectionGeneration = batch.binding.connectionGeneration,
+                    payloadJson = json.encodeToString(value = batch),
+                    status = "PREPARED",
+                    updatedAt = clock.now().toString()
+                )
+            )
+        }
+
+    private suspend fun matchingJournal(batch: ReportBatch): ReportBatchEntity? =
+        reportDao.batch(identity = batch.batchIdentity)?.takeIf { row ->
+            row.trackerId == batch.binding.trackerId &&
+                    row.connectionGeneration == batch.binding.connectionGeneration &&
+                    row.payloadJson == json.encodeToString(value = batch)
+        }
+
+    private suspend fun setJournalStatus(journal: ReportBatchEntity, status: String) {
         reportDao.putBatch(
-            ReportBatchEntity(
-                batch.batchIdentity,
-                batch.binding.trackerId,
-                batch.binding.connectionGeneration,
-                json.encodeToString(batch),
-                "PREPARED",
-                clock.now().toString()
+            batch = journal.copy(
+                status = status,
+                updatedAt = clock.now().toString()
             )
         )
     }
 
-    private suspend fun status(batch: ReportBatch, value: String) {
-        val row =
-            reportDao.batches(batch.binding.trackerId)
-                .find { it.batchIdentity == batch.batchIdentity }
-                ?: return
-        if (row.connectionGeneration != batch.binding.connectionGeneration || row.payloadJson != json.encodeToString(
-                batch
-            )
-        ) return
-        if (row.status == "ACKNOWLEDGED") return
-        reportDao.putBatch(row.copy(status = value, updatedAt = clock.now().toString()))
-    }
-
     override suspend fun markDispatched(batch: ReportBatch) = transactions.withWriteTransaction {
-        check(current() == batch.binding) { "stale_binding" }; status(batch, "DISPATCHED")
+        check(current() == batch.binding) { "stale_binding" }
+        val journal = checkNotNull(matchingJournal(batch = batch)) { "missing_journal" }
+        check(journal.status == "PREPARED") { "invalid_dispatch_state" }
+        setJournalStatus(journal = journal, status = "DISPATCHED")
     }
 
-    override suspend fun markAmbiguous(batch: ReportBatch) =
-        transactions.withWriteTransaction { status(batch, "AMBIGUOUS") }
+    override suspend fun markAmbiguous(batch: ReportBatch) = transactions.withWriteTransaction {
+        matchingJournal(batch = batch)?.takeIf { it.status != "ACKNOWLEDGED" }?.let {
+            setJournalStatus(journal = it, status = "AMBIGUOUS")
+        }
+        Unit
+    }
 
     override suspend fun acknowledge(batch: ReportBatch) = transactions.withWriteTransaction {
-        if (current() != batch.binding) return@withWriteTransaction
-        val journal =
-            reportDao.batches(batch.binding.trackerId)
-                .find { it.batchIdentity == batch.batchIdentity }
-                ?: return@withWriteTransaction
-        if (journal.status != "DISPATCHED") return@withWriteTransaction
-        status(batch, "ACKNOWLEDGED")
-        for (projection in projections(batch.binding)) {
-            val dirty = dirtyProjectionDao.dirtyProjection(
-                batch.binding.trackerId,
-                projection.key.storageKey()
-            )
-                ?: continue
-            val covered = acknowledgedRows(batch.binding, projection)
-            if (projection.ranges.flatMap(::individualRows).all { it.a1 in covered })
-                dirtyProjectionDao.putDirtyProjection(dirty.copy(acknowledgedRevision = projection.revision))
-        }
+        val binding = batch.binding
+        if (current() != binding) return@withWriteTransaction
+        val journal = matchingJournal(batch = batch)?.takeIf { it.status == "DISPATCHED" }
+            ?: return@withWriteTransaction
+        setJournalStatus(journal = journal, status = "ACKNOWLEDGED")
+        acknowledgeCoveredProjections(binding = binding)
     }
 
-    override suspend fun markDirty(keys: Set<ProjectionKey>) = transactions.withWriteTransaction {
-        val tracker = profileDao.tracker() ?: return@withWriteTransaction
-        keys.forEach { key ->
-            if (key !is ProjectionKey.Day || key.trackerId == tracker.id) {
-                val old = dirtyProjectionDao.dirtyProjection(tracker.id, key.storageKey())
-                if (old == null) dirtyProjectionDao.markDirty(
-                    tracker.id,
-                    key.storageKey()
-                ) else dirtyProjectionDao.putDirtyProjection(old.copy(acknowledgedRevision = 0))
+    private suspend fun acknowledgeCoveredProjections(binding: ReportBinding) {
+        val pending = pendingProjections(trackerId = binding.trackerId).toMutableMap()
+        val batches = acknowledgedBatches(binding = binding)
+        val acknowledged = currentAcknowledgements(batches = batches, dirty = pending)
+        for (projection in projections(binding = binding)) {
+            val key = projection.key.storageKey()
+            val state = pending[key] ?: continue
+            val covered = acknowledgedRows(
+                projection = projection,
+                acknowledged = acknowledged[projection.key].orEmpty()
+            )
+            if (projection.ranges.flatMap(::individualRows).all { it.a1 in covered }) {
+                dirtyProjectionDao.putDirtyProjection(
+                    projection = state.copy(acknowledgedRevision = projection.revision)
+                )
+                pending.remove(key)
             }
         }
-        reportDao.batches(tracker.id).filter { it.status == "ACKNOWLEDGED" }.forEach { row ->
-            if (json.decodeFromString<ReportBatch>(row.payloadJson).projections.any { it.key in keys }) reportDao.deleteBatch(
-                row.batchIdentity
-            )
+        deleteCompletedAcknowledgements(batches = batches, pending = pending)
+    }
+
+    private suspend fun pendingProjections(trackerId: String): Map<String, DirtyProjectionEntity> =
+        dirtyProjectionDao.pendingProjections(trackerId = trackerId)
+            .associateBy { it.projectionKey }
+
+    private suspend fun deleteCompletedAcknowledgements(
+        batches: List<ReportBatch>,
+        pending: Map<String, DirtyProjectionEntity>
+    ) {
+        // The journal is needed for partial coverage. Later verification reads clean rows from the report.
+        val completed = batches.filter { batch ->
+            batch.projections.none { pending[it.key.storageKey()]?.revision == it.revision }
         }
+        for (batch in completed) reportDao.deleteBatch(identity = batch.batchIdentity)
+    }
+
+    override suspend fun markDirty(binding: ReportBinding, keys: Set<ProjectionKey>): Boolean =
+        transactions.withWriteTransaction {
+            if (current() != binding) return@withWriteTransaction false
+            val repairKeys = keys.filterTo(mutableSetOf()) {
+                it !is ProjectionKey.Day || it.trackerId == binding.trackerId
+            }
+            if (repairKeys.isNotEmpty()) resetAcknowledgements(binding = binding, keys = repairKeys)
+            true
+        }
+
+    private suspend fun resetAcknowledgements(binding: ReportBinding, keys: Set<ProjectionKey>) {
+        for (key in keys) {
+            val storageKey = key.storageKey()
+            val old =
+                dirtyProjectionDao.dirtyProjection(trackerId = binding.trackerId, key = storageKey)
+            if (old == null) dirtyProjectionDao.markDirty(
+                trackerId = binding.trackerId,
+                key = storageKey
+            )
+            else dirtyProjectionDao.putDirtyProjection(projection = old.copy(acknowledgedRevision = 0))
+        }
+        acknowledgedBatches(binding = binding)
+            .filter { batch -> batch.projections.any { it.key in keys } }
+            .forEach { reportDao.deleteBatch(identity = it.batchIdentity) }
     }
 
     override suspend fun saveRetry(
@@ -390,6 +477,13 @@ class RoomReportStore(
             )
         }
 }
+
+@Serializable
+private data class ReportBindingMetadata(
+    val annualTabIds: Map<Int, Int>,
+    val managedTabIds: Map<String, Int> = emptyMap(),
+    val repairRequested: Boolean = false
+)
 
 internal data class ReportRange(
     val title: String,

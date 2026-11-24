@@ -1,26 +1,33 @@
 package dev.daymark.android.previews
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.LayoutDirection
 import dev.daymark.history.AttendancePeriodSettings
 import dev.daymark.history.HistoryMetrics
 import dev.daymark.models.TodayDashboard
 import dev.daymark.models.WeekDaySummary
 import dev.daymark.models.attendance.AttendanceSource
 import dev.daymark.models.attendance.AttendanceStatus
-import dev.daymark.models.attendance.CheckRejection
 import dev.daymark.models.attendance.DayKey
 import dev.daymark.models.attendance.DayOutcome
 import dev.daymark.models.attendance.DayPlan
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.attendance.TrackerCategory
+import dev.daymark.models.reporting.ConnectionResult
 import dev.daymark.models.reporting.ReportHealth
+import dev.daymark.models.reporting.SyncPassResult
 import dev.daymark.models.plan.VacationBalanceSummary
 import dev.daymark.presentation.features.today.TodayVacationBalanceUiState
 import dev.daymark.presentation.features.today.TodayActions
 import dev.daymark.presentation.features.today.TodayContent
 import dev.daymark.presentation.features.today.TodayUiState
+import dev.daymark.settings.AppLanguage
+import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.ThemePreference
+import dev.daymark.settings.WithPlatformLocale
 import dev.daymark.ui.theme.DaymarkTheme
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
@@ -153,23 +160,46 @@ private fun TodayScreenCorrectedDarkPreview() {
     }
 }
 
-@Preview
+@Preview(name = "Today local report error")
 @Composable
 private fun TodayScreenErrorPreview() {
-    val actions = TodayActions({}, {}, { _, _ -> }, { _, _ -> })
-    val sampleDate = LocalDate(2026, 10, 27)
-    DaymarkTheme(ThemePreference.LIGHT) {
-        TodayContent(
-            state = TodayUiState(
-                ready = true,
-                active = true,
-                date = sampleDate,
-                error = CheckRejection.LOCATION_DENIED,
-                dashboard = TodayDashboard(ready = true)
-            ),
-            displayName = "Alex",
-            onHistory = {},
-            actions = actions
-        )
+    DaymarkTheme(preference = ThemePreference.LIGHT) {
+        TodayScreenErrorSample()
     }
+}
+
+@Preview(name = "Today local report error in Arabic", locale = "ar", widthDp = 320, fontScale = 2f)
+@Composable
+private fun TodayScreenErrorArabicPreview() {
+    WithPlatformLocale(language = AppLanguage.AR) {
+        CompositionLocalProvider(
+            LocalAppLanguage provides AppLanguage.AR,
+            LocalLayoutDirection provides LayoutDirection.Rtl
+        ) {
+            DaymarkTheme(preference = ThemePreference.DARK) {
+                TodayScreenErrorSample()
+            }
+        }
+    }
+}
+
+@Composable
+private fun TodayScreenErrorSample() {
+    val actions = TodayActions({}, {}, { _, _ -> }, { _, _ -> })
+    val sampleDate = LocalDate(year = 2026, month = 10, day = 27)
+    TodayContent(
+        state = TodayUiState(
+            ready = true,
+            active = true,
+            date = sampleDate,
+            dashboard = TodayDashboard(ready = true),
+            report = ReportHealth(
+                result = SyncPassResult.ReportUnavailable,
+                connectionResult = ConnectionResult.LocalBindingUnreadable
+            )
+        ),
+        displayName = "Alex",
+        onHistory = {},
+        actions = actions
+    )
 }

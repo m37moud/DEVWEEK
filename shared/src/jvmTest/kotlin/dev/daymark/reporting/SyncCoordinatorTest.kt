@@ -457,7 +457,10 @@ class SyncCoordinatorTest {
                 retry = SyncRetryPolicy { kotlin.time.Duration.ZERO })
             repeat(6) { attempt ->
                 server.reject = true
-                store.markDirty(setOf(ProjectionKey.Overview))
+                store.markDirty(
+                    binding = store.activeBinding()!!,
+                    keys = setOf(ProjectionKey.Overview)
+                )
                 assertEquals(
                     SyncPassResult.Pending,
                     sync.runPass(if (attempt == 0) SyncTrigger.LAUNCH else SyncTrigger.LOCAL_CHANGE)

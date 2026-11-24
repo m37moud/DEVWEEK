@@ -21,6 +21,8 @@ import dev.daymark.models.reporting.storageKey
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -28,7 +30,7 @@ import kotlinx.coroutines.runBlocking
 
 class ReportJournalTest {
     @Test
-    fun dispatched_batch_survives_reopen_and_obsolete_ack_cannot_clean_new_generation() =
+    fun dispatched_batch_survives_reopen_and_obsolete_callbacks_cannot_change_new_generation(): Unit =
         runBlocking {
             val folder = Files.createTempDirectory("daymark-journal-")
             val file = folder.resolve("test.db").toString()
@@ -84,11 +86,40 @@ class ReportJournalTest {
                 )
                 store.bind(b)
                 store.acknowledge(batch)
+                val currentBatch = store.buildBatch(binding = b, maxRows = 100)!!
+                store.journalBeforeDispatch(batch = currentBatch)
+                store.markDispatched(batch = currentBatch)
+                store.acknowledge(batch = currentBatch)
+                val acknowledged = db.dirtyProjectionDao().dirtyProjections(trackerId = tracker)
+                assertTrue(acknowledged.all { it.revision == it.acknowledgedRevision })
+                assertEquals(
+                    batch.batchIdentity,
+                    db.reportDao().batches(trackerId = tracker).single().batchIdentity
+                )
+                assertFalse(store.markDirty(binding = a, keys = setOf(ProjectionKey.Overview)))
+                assertEquals(
+                    acknowledged,
+                    db.dirtyProjectionDao().dirtyProjections(trackerId = tracker)
+                )
                 assertEquals(b, store.activeBinding())
-                assertNotNull(store.buildBatch(b, 100))
+                assertNull(store.buildBatch(binding = b, maxRows = 100))
                 store.invalidateBinding()
                 store.bind(b) // Stale interactive callback must not restore a disconnected connection.
                 assertNull(store.activeBinding())
+
+                val legacyBinding = b.copy(connectionGeneration = store.beginConnection()!!)
+                val legacyRow = dev.daymark.data.local.ReportBindingEntity(
+                    trackerId = tracker,
+                    connectionGeneration = legacyBinding.connectionGeneration,
+                    accountReference = legacyBinding.accountReference,
+                    spreadsheetId = legacyBinding.spreadsheetId,
+                    schemaVersion = legacyBinding.schemaVersion,
+                    metadataJson = kotlinx.serialization.json.Json.encodeToString(value = legacyBinding)
+                )
+                db.reportDao().putBinding(binding = legacyRow)
+                assertEquals(legacyBinding, store.activeBinding())
+                db.reportDao().putBinding(binding = legacyRow.copy(metadataJson = "{"))
+                assertFailsWith<LocalReportBindingException> { store.activeBinding() }
             } finally {
                 db.close(); folder.toFile().deleteRecursively()
             }

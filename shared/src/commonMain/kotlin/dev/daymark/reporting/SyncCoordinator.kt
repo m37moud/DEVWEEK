@@ -138,7 +138,9 @@ class SyncCoordinator(
                         }
                         if (!sameCells(row.cells, actual)) needsRepair += key
                     }
-                    store.markDirty(needsRepair)
+                    if (!store.markDirty(binding = binding, keys = needsRepair)) {
+                        return@withLock SyncPassResult.StaleBinding
+                    }
                     work.next += chunk.size
                     requests++
                 }

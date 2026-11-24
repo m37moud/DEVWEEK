@@ -1,5 +1,6 @@
 package dev.daymark.data.local
 
+import androidx.room3.ColumnInfo
 import androidx.room3.Entity
 import androidx.room3.ForeignKey
 import androidx.room3.Index
@@ -21,7 +22,7 @@ data class ReportBindingEntity(
     val accountReference: String,
     val spreadsheetId: String,
     val schemaVersion: Int,
-    val annualTabIdsJson: String
+    @ColumnInfo(name = "annualTabIdsJson") val metadataJson: String
 ) {
     override fun toString() =
         "ReportBindingEntity(generation=$connectionGeneration, account=<redacted>)"
