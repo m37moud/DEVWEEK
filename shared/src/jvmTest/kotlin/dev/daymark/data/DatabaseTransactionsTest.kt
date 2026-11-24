@@ -4,6 +4,7 @@ import dev.daymark.data.local.DaymarkDatabase
 import dev.daymark.data.local.DirtyProjectionEntity
 import dev.daymark.data.local.RoomDatabaseTransactions
 import dev.daymark.data.local.SettingEntity
+import dev.daymark.data.local.TrackerEntity
 import dev.daymark.data.local.openJvmDatabase
 import java.nio.file.Files
 import kotlin.test.Test
@@ -86,6 +87,16 @@ class DatabaseTransactionsTest {
         val folder = Files.createTempDirectory("daymark-transactions-")
         val db = openJvmDatabase(folder.resolve("test.db").toString())
         try {
+            db.profileDao().insertTracker(
+                tracker = TrackerEntity(
+                    id = "tracker",
+                    displayName = "Test tracker",
+                    createdAt = "2026-10-27T08:00:00Z",
+                    trackingStartsAt = "2026-10-27T09:00:00Z",
+                    openingBalance = 0,
+                    automaticEnabled = false
+                )
+            )
             block(db)
         } finally {
             db.close()

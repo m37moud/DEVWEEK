@@ -95,6 +95,8 @@ class MigrationSafetyTest {
                     Json.parseToJsonElement(Files.readString(schemaPath)).jsonObject.getValue("database").jsonObject
                 // Explicitly synthetic prior-schema fixture; no older shipped application/version is claimed.
                 BundledSQLiteDriver().open(path).use { connection ->
+                    connection.execSQL("DROP TRIGGER tracker_singleton_insert")
+                    connection.execSQL("DROP TRIGGER tracker_singleton_update")
                     connection.execSQL("ALTER TABLE trackers DROP COLUMN changeRevision")
                     connection.execSQL("ALTER TABLE balance_adjustments DROP COLUMN note")
                     connection.execSQL("ALTER TABLE balance_adjustments DROP COLUMN balanceYear")
@@ -121,7 +123,7 @@ class MigrationSafetyTest {
                     db.planningDao().balanceAdjustments(tracker).single().delta
                 )
                 db.close()
-                BundledSQLiteDriver().open(path).use { it.execSQL("PRAGMA user_version=6") }
+                BundledSQLiteDriver().open(path).use { it.execSQL("PRAGMA user_version=7") }
                 val attempted = openJvmDatabase(path)
                 try {
                     assertFailsWith<Exception> { attempted.profileDao().tracker() }
@@ -129,7 +131,7 @@ class MigrationSafetyTest {
                     attempted.close()
                 }
                 // Restore only the synthetic version marker after the refusal; the current schema/data were never changed.
-                BundledSQLiteDriver().open(path).use { it.execSQL("PRAGMA user_version=5") }
+                BundledSQLiteDriver().open(path).use { it.execSQL("PRAGMA user_version=6") }
                 db = openJvmDatabase(path)
                 assertEquals(records, db.attendanceDao().days(tracker)); assertEquals(
                     leave,

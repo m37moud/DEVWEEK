@@ -1,6 +1,8 @@
 package dev.daymark.data.local
 
 import androidx.room3.Entity
+import androidx.room3.ForeignKey
+import androidx.room3.Index
 import dev.daymark.models.attendance.AttendanceEvidence
 import dev.daymark.models.attendance.AttendanceSource
 import dev.daymark.models.attendance.AttendanceStatus
@@ -11,7 +13,21 @@ import dev.daymark.models.attendance.TrackerCategory
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 
-@Entity(tableName = "attendance", primaryKeys = ["trackerId", "date"])
+@Entity(
+    tableName = "attendance",
+    primaryKeys = ["trackerId", "date"],
+    indices = [
+        Index(value = ["trackerId", "cachedStatus"]),
+        Index(value = ["trackerId", "automaticState"]),
+    ],
+    foreignKeys = [
+        ForeignKey(
+            entity = TrackerEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["trackerId"]
+        )
+    ]
+)
 data class AttendanceEntity(
     val trackerId: String,
     val date: String,

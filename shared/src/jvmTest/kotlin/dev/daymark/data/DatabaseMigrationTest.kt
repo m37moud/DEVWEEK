@@ -1,6 +1,7 @@
 package dev.daymark.data
 
 import androidx.room3.useReaderConnection
+import androidx.sqlite.SQLiteException
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import dev.daymark.data.local.AnnualVacationPolicyEntity
@@ -10,6 +11,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -29,6 +31,9 @@ class DatabaseMigrationTest {
 
     @Test
     fun schema_two_upgrades_without_losing_tracker_or_adjustment_history() = verifyMigration(2)
+
+    @Test
+    fun schema_five_upgrades_without_losing_tracker_or_adjustment_history() = verifyMigration(5)
 
     private fun verifyMigration(version: Int) = runTest {
         val schemaPath = listOf(
@@ -83,12 +88,23 @@ class DatabaseMigrationTest {
                         statement.getInt(0)
                     }
                 }
-                assertEquals(5, migratedVersion)
+                assertEquals(6, migratedVersion)
                 val policy = AnnualVacationPolicyEntity(tracker.id, 2027, 14, false)
                 val updatedPolicy = policy.copy(annualAllowanceDays = 16, carryOverUnusedDays = true)
                 db.planningDao().putAnnualVacationPolicy(policy)
                 db.planningDao().putAnnualVacationPolicy(updatedPolicy)
                 assertEquals(listOf(updatedPolicy), db.planningDao().annualVacationPolicies(tracker.id))
+                assertFailsWith<SQLiteException> {
+                    db.profileDao()
+                        .insertTracker(tracker = tracker.copy(id = "other", singleton = 1))
+                }
+                assertFailsWith<SQLiteException> {
+                    db.profileDao().putTracker(tracker = tracker.copy(singleton = 1))
+                }
+                assertFailsWith<SQLiteException> {
+                    db.planningDao()
+                        .putAnnualVacationPolicy(policy = policy.copy(trackerId = "missing"))
+                }
             } finally {
                 db.close()
             }

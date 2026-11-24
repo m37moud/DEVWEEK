@@ -2,10 +2,10 @@ package dev.daymark.widgets
 
 import dev.daymark.data.local.RoomDatabaseTransactions
 
-import androidx.room3.executeSQL
-import androidx.room3.useWriterConnection
+import androidx.room3.withWriteTransaction
 import dev.daymark.attendance.TestClock
 import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.data.local.deleteAllLocalRows
 import dev.daymark.data.local.openJvmDatabase
 import dev.daymark.data.local.settings.SettingsRepository
 import dev.daymark.data.seedDatabase
@@ -96,7 +96,7 @@ class WidgetPublisherTest {
                 publisher.refresh()
                 assertEquals("en", decodeWidgetSnapshot(sink.json!!)!!.effectiveLocale)
                 assertEquals("Present", decodeWidgetSnapshot(sink.json!!)!!.displayStatus)
-                db.useWriterConnection { it.executeSQL("DELETE FROM trackers") }
+                db.withWriteTransaction { db.localDataDeletionDao().deleteAllLocalRows() }
                 publisher.refresh()
                 assertNull(sink.json)
                 assertEquals(1, sink.clears)

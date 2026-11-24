@@ -1,13 +1,24 @@
 package dev.daymark.data.local
 
 import androidx.room3.Entity
+import androidx.room3.ForeignKey
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.plan.WeeklySchedule
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 
-@Entity(tableName = "plan_versions", primaryKeys = ["trackerId", "version"])
+@Entity(
+    tableName = "plan_versions",
+    primaryKeys = ["trackerId", "version"],
+    foreignKeys = [
+        ForeignKey(
+            entity = TrackerEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["trackerId"]
+        )
+    ]
+)
 data class PlanVersionEntity(
     val trackerId: String,
     val version: Long,
