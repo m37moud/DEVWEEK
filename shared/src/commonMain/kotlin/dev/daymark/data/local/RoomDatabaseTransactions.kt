@@ -4,6 +4,9 @@ import androidx.room3.withReadTransaction
 import androidx.room3.withWriteTransaction
 
 class RoomDatabaseTransactions(private val database: DaymarkDatabase) : DatabaseTransactions {
+    override fun observeChanges(vararg tables: String) =
+        database.invalidationTracker.createFlow(tables = tables)
+
     override suspend fun <T> withReadTransaction(block: suspend () -> T): T =
         database.withReadTransaction { block() }
 

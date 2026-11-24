@@ -38,6 +38,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -168,6 +169,47 @@ class AttendanceTransactionTest {
                 1,
                 db.attendanceDao().countDay(fixturePlan().key.trackerId, fixtureDate.toString())
             )
+        }
+    }
+
+    @Test
+    fun reconciliation_catches_up_after_restart_and_reevaluates_after_clock_rollback() = runTest {
+        withDatabase { db, _ ->
+            val clock = TestClock(at("09:02:00"))
+            val key = fixturePlan().key
+            val transactions = RoomDatabaseTransactions(database = db)
+            fun newRepository() = RoomAttendanceRepository(
+                profileDao = db.profileDao(),
+                attendanceDao = db.attendanceDao(),
+                planningDao = db.planningDao(),
+                dirtyProjectionDao = db.dirtyProjectionDao(),
+                transactions = transactions,
+                clock = clock
+            )
+
+            val initial = newRepository()
+            initial.reconcile(now = clock.now())
+            assertIs<ClaimResult.Claimed>(
+                initial.claimAutomatic(
+                    key = key,
+                    attemptId = "attempt",
+                    now = clock.now()
+                )
+            )
+            clock.value += 40.days
+            val restarted = newRepository()
+            restarted.reconcile(now = clock.now())
+
+            val saved = db.attendanceDao().days(trackerId = key.trackerId)
+            assertEquals(41, saved.size)
+            assertEquals(AttendanceStatus.ABSENT.name, saved.first().cachedStatus)
+            assertEquals(AutomaticState.INTERRUPTED.name, saved.first().automaticState)
+            clock.value = at("09:02:00")
+            restarted.reconcile(now = clock.now())
+            val recalculated = db.attendanceDao().days(trackerId = key.trackerId)
+            assertEquals(saved.map { it.date }, recalculated.map { it.date })
+            assertEquals(AttendanceStatus.AWAITING_CHECK.name, recalculated.first().cachedStatus)
+            assertEquals(AutomaticState.INTERRUPTED.name, recalculated.first().automaticState)
         }
     }
 

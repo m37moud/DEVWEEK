@@ -18,7 +18,9 @@ import dev.daymark.data.local.dao.PlanningDao
 import dev.daymark.data.local.dao.ProfileDao
 import dev.daymark.data.local.markAttendanceSummariesDirty
 import dev.daymark.data.local.markDirty
+import dev.daymark.data.local.plan.PlanningSnapshotReader
 import dev.daymark.data.local.plan.projectedPlan
+import dev.daymark.logging.AppLogger
 import dev.daymark.models.attendance.AttendanceSource
 import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.models.attendance.AutomaticState
@@ -86,18 +88,20 @@ class RoomAttendanceRepository(
 
     override fun observeRange(from: LocalDate, through: LocalDate) =
         HistoryRangeReader(
-            profileDao,
-            attendanceDao,
-            planningDao,
-            transactions,
-            clock
-        ).observe(from, through)
+            snapshots = PlanningSnapshotReader(
+                profileDao = profileDao,
+                attendanceDao = attendanceDao,
+                planningDao = planningDao
+            ),
+            transactions = transactions,
+            clock = clock
+        ).observe(from = from, through = through)
 
     override fun observeMonth(year: Int, month: Int): Flow<HistoryMonth> {
         val label = LocalDate(year, month, 1)
         return profileDao.observeTracker().flatMapLatest { tracker ->
             if (tracker == null) flowOf(HistoryMonth(emptyList(), 0, 0, 0))
-            else attendanceDao.observeDays(tracker.id).flatMapLatest {
+            else transactions.observeChanges("attendance", "time_off", "settings").flatMapLatest {
                 flow {
                     while (true) {
                         val now = clock.now()
@@ -105,12 +109,14 @@ class RoomAttendanceRepository(
                             val entries = planningDao.timeOff(tracker.id)
                             val period = attendancePeriodSettings(profileDao.setting(ATTENDANCE_PERIOD_KEY)?.value)
                                 .period(label)
-                            val records = attendanceDao.days(tracker.id).filter {
-                                LocalDate.parse(it.date) in period.from..period.through
-                            }.map { row ->
+                            val records = attendanceDao.daysBetween(
+                                trackerId = tracker.id,
+                                from = period.from.toString(),
+                                through = period.through.toString()
+                            ).map { row ->
                                 val day = stored(row, entries)
                                 HistoryRecord(day.plan, day.evidence, day.outcome(now))
-                            }.sortedBy { it.plan.key.date }
+                            }
                             HistoryMonth(
                                 records,
                                 records.count { it.outcome.status == AttendanceStatus.PRESENT },
@@ -149,42 +155,119 @@ class RoomAttendanceRepository(
     }
 
     override suspend fun reconcile(now: Instant) = transactions.withWriteTransaction {
-        val context = context(now) ?: return@withWriteTransaction
-        val entries = planningDao.timeOff(context.tracker.id)
-        val rows = attendanceDao.days(context.tracker.id).associateBy { it.date }.toMutableMap()
-        val start = Instant.parse(context.tracker.trackingStartsAt)
-        var date =
-            start.toLocalDateTime(TimeZone.of(context.versions.first().schedule().zoneId)).date
+        val context = context(now = now) ?: return@withWriteTransaction
+        val trackerId = context.tracker.id
         val today = now.toLocalDateTime(TimeZone.of(context.active.schedule().zoneId)).date
-        val clockKey = "planning-clock:${context.tracker.id}"
-        val clockValue = "$today:${context.active.version}"
-        if (profileDao.setting(clockKey)?.value != clockValue) {
-            profileDao.putSetting(SettingEntity(clockKey, clockValue))
-            profileDao.advanceRevision(context.tracker.id)
-            dirtyProjectionDao.markAttendanceSummariesDirty(context.tracker.id)
+        val cursorKey = "attendance-reconciled:$trackerId"
+        val cursor = profileDao.setting(key = cursorKey)?.value?.let(::readReconciliationCursor)
+        markPlanningBoundary(
+            trackerId = trackerId,
+            today = today,
+            planVersion = context.active.version
+        )
+        val start = Instant.parse(input = context.tracker.trackingStartsAt)
+        val firstDate =
+            start.toLocalDateTime(TimeZone.of(context.versions.first().schedule().zoneId)).date
+        // A clock rollback can make a formerly overdue row eligible again, including outside today's zone.
+        val forward = cursor?.takeIf { now >= it.evaluatedAt && today >= it.date }
+        if (cursor != null && forward == null) AppLogger.d(
+            tag = "RoomAttendanceRepository",
+            message = "Rechecking attendance after clock rollback"
+        )
+        val dates = maxOf(firstDate, forward?.date ?: firstDate)..today
+        val rows =
+            if (forward == null) attendanceDao.days(trackerId = trackerId).associateBy { it.date }
+            else reconciliationRows(trackerId = trackerId, dates = dates)
+        val entries = planningDao.timeOff(trackerId = trackerId)
+        refreshSavedDays(rows = rows.values, entries = entries, now = now)
+        fillUnmaterializedDays(
+            context = context,
+            window = ReconciliationWindow(dates = dates, trackingStartsAt = start, now = now),
+            savedDates = rows.keys,
+            entries = entries
+        )
+        val next = ReconciliationCursor(date = today, evaluatedAt = now)
+        if (next != cursor) profileDao.putSetting(
+            setting = SettingEntity(
+                key = cursorKey,
+                value = "$today|$now"
+            )
+        )
+    }
+
+    private suspend fun markPlanningBoundary(
+        trackerId: String,
+        today: LocalDate,
+        planVersion: Long
+    ) {
+        val key = "planning-clock:$trackerId"
+        val revision = "$today:$planVersion"
+        if (profileDao.setting(key = key)?.value == revision) return
+        profileDao.putSetting(setting = SettingEntity(key = key, value = revision))
+        profileDao.advanceRevision(trackerId = trackerId)
+        dirtyProjectionDao.markAttendanceSummariesDirty(trackerId = trackerId)
+    }
+
+    private suspend fun reconciliationRows(
+        trackerId: String,
+        dates: ClosedRange<LocalDate>
+    ): Map<String, AttendanceEntity> {
+        val recent = attendanceDao.daysBetween(
+            trackerId = trackerId,
+            from = dates.start.toString(),
+            through = dates.endInclusive.toString()
+        )
+        return (recent + attendanceDao.awaitingOutcome(trackerId = trackerId) +
+                attendanceDao.claimedDays(trackerId = trackerId)).associateBy { it.date }
+    }
+
+    private suspend fun refreshSavedDays(
+        rows: Collection<AttendanceEntity>,
+        entries: List<TimeOffEntity>,
+        now: Instant
+    ) {
+        for (row in rows) {
+            val interrupted = row.automaticState == AutomaticState.CLAIMED.name &&
+                    (row.automaticOwnerSession != sessionId || row.automaticClaimedAt?.let {
+                        now - Instant.parse(input = it) >= 30.seconds
+                    } == true)
+            val refreshed =
+                if (interrupted) row.copy(automaticState = AutomaticState.INTERRUPTED.name) else row
+            persist(before = row, after = refreshed, entries = entries, now = now)
         }
-        val inserted = mutableSetOf<String>()
-        while (date <= today) {
-            if (date.toString() !in rows) {
-                val projected = project(context, DayKey(context.tracker.id, date), now)
-                if (projected != null && Instant.parse(projected.arrival) >= start) {
-                    rows[projected.date] = projected; inserted += projected.date
+    }
+
+    private suspend fun fillUnmaterializedDays(
+        context: Context,
+        window: ReconciliationWindow,
+        savedDates: Set<String>,
+        entries: List<TimeOffEntity>
+    ) {
+        var date = window.dates.start
+        while (date <= window.dates.endInclusive) {
+            if (date.toString() !in savedDates) {
+                val key = DayKey(trackerId = context.tracker.id, date = date)
+                val row = project(context = context, key = key, now = window.now)
+                if (row != null && Instant.parse(input = row.arrival) >= window.trackingStartsAt) {
+                    persist(before = null, after = row, entries = entries, now = window.now)
                 }
             }
             date = date.plus(1, DateTimeUnit.DAY)
         }
-        for (row in rows.values) {
-            val interrupted = row.automaticState == AutomaticState.CLAIMED.name &&
-                    (row.automaticOwnerSession != sessionId || row.automaticClaimedAt?.let {
-                        now - Instant.parse(
-                            it
-                        ) >= 30.seconds
-                    } == true)
-            val changed =
-                if (interrupted) row.copy(automaticState = AutomaticState.INTERRUPTED.name) else row
-            persist(if (row.date in inserted) null else row, changed, entries, now)
-        }
     }
+
+    private data class ReconciliationWindow(
+        val dates: ClosedRange<LocalDate>,
+        val trackingStartsAt: Instant,
+        val now: Instant
+    )
+
+    private data class ReconciliationCursor(val date: LocalDate, val evaluatedAt: Instant)
+
+    private fun readReconciliationCursor(stored: String) = ReconciliationCursor(
+        date = LocalDate.parse(input = stored.substringBefore('|')),
+        evaluatedAt = Instant.parse(input = stored.substringAfter('|'))
+    )
 
     override suspend fun claimAutomatic(key: DayKey, attemptId: String, now: Instant): ClaimResult =
         transactions.withWriteTransaction {

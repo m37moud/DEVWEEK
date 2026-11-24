@@ -15,21 +15,36 @@ class PlanningSnapshotReader(
     private val attendanceDao: AttendanceDao,
     private val planningDao: PlanningDao
 ) {
-    internal suspend fun load(now: Instant): PlanningStore? {
+    internal suspend fun load(
+        now: Instant,
+        attendanceDates: ClosedRange<LocalDate>? = null
+    ): PlanningStore? {
         val tracker = profileDao.tracker() ?: return null
         val versions = planningDao.versions(tracker.id)
         if (versions.isEmpty()) return null
+        val attendance = if (attendanceDates == null) attendanceDao.days(trackerId = tracker.id)
+        else attendanceDao.daysBetween(
+            trackerId = tracker.id,
+            from = attendanceDates.start.toString(),
+            through = attendanceDates.endInclusive.toString()
+        )
         return PlanningStore(
-            tracker,
-            versions,
-            attendanceDao.days(tracker.id).associateBy { LocalDate.parse(it.date) },
-            planningDao.timeOff(tracker.id).map { it.entry() },
-            planningDao.balanceAdjustments(tracker.id),
-            now,
-            planningDao.annualVacationPolicies(tracker.id).map { policy ->
-                AnnualVacationPolicy(policy.effectiveYear, policy.annualAllowanceDays, policy.carryOverUnusedDays)
+            tracker = tracker,
+            versions = versions,
+            rows = attendance.associateBy { LocalDate.parse(input = it.date) },
+            entries = planningDao.timeOff(trackerId = tracker.id).map { it.entry() },
+            adjustments = planningDao.balanceAdjustments(trackerId = tracker.id),
+            now = now,
+            policies = planningDao.annualVacationPolicies(trackerId = tracker.id).map { policy ->
+                AnnualVacationPolicy(
+                    effectiveYear = policy.effectiveYear,
+                    annualAllowanceDays = policy.annualAllowanceDays,
+                    carryOverUnusedDays = policy.carryOverUnusedDays
+                )
             },
-            attendancePeriodSettings(profileDao.setting(ATTENDANCE_PERIOD_KEY)?.value)
+            periodSettings = attendancePeriodSettings(
+                stored = profileDao.setting(key = ATTENDANCE_PERIOD_KEY)?.value
+            )
         )
     }
 }

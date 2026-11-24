@@ -17,8 +17,21 @@ interface AttendanceDao {
     @Query("SELECT * FROM attendance WHERE trackerId = :trackerId ORDER BY date")
     suspend fun days(trackerId: String): List<AttendanceEntity>
 
-    @Query("SELECT * FROM attendance WHERE trackerId = :trackerId ORDER BY date")
-    fun observeDays(trackerId: String): Flow<List<AttendanceEntity>>
+    @Query("SELECT * FROM attendance WHERE trackerId = :trackerId AND date BETWEEN :from AND :through ORDER BY date")
+    suspend fun daysBetween(
+        trackerId: String,
+        from: String,
+        through: String
+    ): List<AttendanceEntity>
+
+    @Query("SELECT * FROM attendance WHERE trackerId = :trackerId AND cachedStatus IN ('SCHEDULED', 'AWAITING_CHECK')")
+    suspend fun awaitingOutcome(trackerId: String): List<AttendanceEntity>
+
+    @Query("SELECT * FROM attendance WHERE trackerId = :trackerId AND automaticState = 'CLAIMED'")
+    suspend fun claimedDays(trackerId: String): List<AttendanceEntity>
+
+    @Query("SELECT date FROM attendance WHERE trackerId = :trackerId ORDER BY date")
+    suspend fun dates(trackerId: String): List<String>
 
     @Query("SELECT COUNT(*) FROM attendance WHERE trackerId = :trackerId AND date = :date")
     suspend fun countDay(trackerId: String, date: String): Int
