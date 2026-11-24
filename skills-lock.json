@@ -1,11 +1,12 @@
 {
-  "version": 1,
+  "version": 2,
   "skills": {
     "clean-code-guard": {
       "source": "amElnagdy/guard-skills",
       "sourceType": "github",
       "skillPath": "skills/clean-code-guard/SKILL.md",
-      "computedHash": "a037fd57c8fa0b7bd84cb274b2ea816e16622edb0245a5c2c6f23d8244eeb634"
+      "computedHash": "58f8108455d339ae171e9417bb0fa35c567598392ed91c2e4d4a3cbadbffc181",
+      "commit": "ffa26036b7b5e77b20b5d679304a703b6fd1a43d"
     }
   }
 }

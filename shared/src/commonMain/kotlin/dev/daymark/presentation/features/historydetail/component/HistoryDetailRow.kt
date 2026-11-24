@@ -2,7 +2,7 @@ package dev.daymark.presentation.features.historydetail.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
@@ -14,9 +14,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.history.HistoryMetric
 import dev.daymark.history.lateDuration
+import dev.daymark.models.attendance.AttendanceStatus
 import dev.daymark.models.attendance.HistoryRecord
 import dev.daymark.presentation.component.lateDurationLabel
 import dev.daymark.presentation.features.history.component.HistoryRecordCard
@@ -40,35 +40,34 @@ internal fun HistoryDetailRow(
     val isLate = state.metric == HistoryMetric.LATE
 
     Column(
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(space = 6.dp),
         modifier = modifier.fillMaxWidth()
     ) {
-        Row(
+        FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(space = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(space = 4.dp),
+            itemVerticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = DisplayFormats.date(date, language),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+            Text(
+                text = DisplayFormats.date(date = date, language = language),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (!isMission) {
+                val arrivalTime = DisplayFormats.time(
+                    at = record.plan.arrival,
+                    zoneId = record.plan.zoneId,
+                    language = language
                 )
-                if (!isMission) {
-                    Text("•", color = MaterialTheme.colorScheme.outlineVariant)
-                    val arrivalTime = DisplayFormats.time(record.plan.arrival, record.plan.zoneId, language)
-                    Text(
-                        text = str(Res.string.history_scheduled_arrival, arrivalTime),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = str(Res.string.history_scheduled_arrival, arrivalTime),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             if (isLate) {
                 Surface(
@@ -76,7 +75,7 @@ internal fun HistoryDetailRow(
                     color = MaterialTheme.colorScheme.tertiaryContainer
                 ) {
                     Text(
-                        text = lateDurationLabel(record.lateDuration()),
+                        text = lateDurationLabel(duration = record.lateDuration()),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onTertiaryContainer,

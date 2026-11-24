@@ -1,8 +1,11 @@
 package dev.daymark.android.previews
 
+import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.LayoutDirection
 import dev.daymark.history.HistoryMetric
 import dev.daymark.history.HistoryRange
 import dev.daymark.models.attendance.HistoryRecord
@@ -12,6 +15,7 @@ import dev.daymark.presentation.features.historydetail.HistoryDetailUiState
 import dev.daymark.settings.AppLanguage
 import dev.daymark.settings.LocalAppLanguage
 import dev.daymark.settings.ThemePreference
+import dev.daymark.settings.WithPlatformLocale
 import dev.daymark.ui.theme.DaymarkTheme
 import kotlinx.datetime.LocalDate
 import kotlin.time.Instant
@@ -70,25 +74,52 @@ private fun HistoryHolidayDetailPreview() {
     }
 }
 
-@Preview
+@Preview(name = "Late history dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun HistoryLateDetailDarkPreview() {
-    val from = LocalDate(2026, 11, 1)
-    DaymarkTheme(ThemePreference.DARK) {
+private fun HistoryLateDetailPreview() {
+    val from = LocalDate(year = 2026, month = 11, day = 1)
+    DaymarkTheme(preference = ThemePreference.SYSTEM) {
         HistoryDetailContent(
             state = HistoryDetailUiState(
                 metric = HistoryMetric.LATE,
                 from = from,
-                through = LocalDate(2026, 11, 30),
+                through = LocalDate(year = 2026, month = 11, day = 30),
                 range = HistoryRange(
                     records = listOf(previewLateRecord()),
                     firstDate = from,
-                    today = LocalDate(2026, 11, 15)
+                    today = LocalDate(year = 2026, month = 11, day = 15)
                 ),
                 ready = true
             ),
-            actions = HistoryDetailActions({}, { _, _ -> }, {}, {}, {})
+            actions = HistoryDetailActions(
+                back = {},
+                selectRange = { _, _ -> },
+                correct = {},
+                timeOff = {},
+                beginCorrection = {}
+            )
         )
+    }
+}
+
+@Preview(name = "Late history Arabic", locale = "ar", widthDp = 360, heightDp = 900)
+@Preview(
+    name = "Late history Arabic narrow large text",
+    locale = "ar",
+    widthDp = 320,
+    heightDp = 1100,
+    fontScale = 2f,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Composable
+private fun HistoryLateDetailArabicPreview() {
+    WithPlatformLocale(language = AppLanguage.AR) {
+        CompositionLocalProvider(
+            LocalAppLanguage provides AppLanguage.AR,
+            LocalLayoutDirection provides LayoutDirection.Rtl
+        ) {
+            HistoryLateDetailPreview()
+        }
     }
 }
 
