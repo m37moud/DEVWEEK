@@ -35,7 +35,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
+import dev.daymark.app.HostPlatform
 import dev.daymark.app.SetupStep
+import dev.daymark.app.setupSteps
 import dev.daymark.app.reducedMotionEnabled
 import dev.daymark.resources.Res
 import dev.daymark.resources.onboarding_step
@@ -81,12 +83,13 @@ internal fun OnboardingStep(
 }
 
 @Composable
-internal fun OnboardingProgress(step: SetupStep) {
+internal fun OnboardingProgress(step: SetupStep, platform: HostPlatform) {
     if (step == SetupStep.WELCOME) return
     val reduced = rememberOnboardingReducedMotion()
     val language = LocalAppLanguage.current
-    val totalSteps = SetupStep.entries.size - 1
-    val currentStepNumber = step.ordinal
+    val steps = setupSteps(platform = platform)
+    val totalSteps = steps.size - 1
+    val currentStepNumber = steps.indexOf(step)
     val stepLabel = str(
         Res.string.onboarding_step,
         DisplayFormats.number(currentStepNumber, language),

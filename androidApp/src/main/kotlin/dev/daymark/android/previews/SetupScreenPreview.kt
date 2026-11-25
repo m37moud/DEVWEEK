@@ -8,6 +8,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import dev.daymark.app.HostPlatform
 import dev.daymark.app.SetupStep
 import dev.daymark.history.VacationYearBasis
+import dev.daymark.location.LocationCapabilities
+import dev.daymark.notifications.ResultNotificationStatus
 import dev.daymark.models.attendance.RegisteredPlace
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.settings.AppSettings
@@ -141,12 +143,17 @@ private fun SetupActionsPreview(
     theme: ThemePreference,
     language: AppLanguage,
     draft: SetupDraft,
-    issue: SetupIssue? = null
+    issue: SetupIssue? = null,
+    notificationsAllowed: Boolean = true
 ) {
     val state = SetupUiState(
         ready = true, preferencesReady = true, draftSaved = true,
         draft = draft,
         issue = issue,
+        automationCapabilities = LocationCapabilities(
+            foregroundGranted = true, backgroundGranted = true, preciseGranted = true, servicesEnabled = true
+        ),
+        resultNotificationStatus = ResultNotificationStatus(appAllowed = notificationsAllowed),
         preferences = AppSettings(
             language = if (language == AppLanguage.AR) LanguagePreference.AR else LanguagePreference.EN,
             theme = theme
@@ -199,7 +206,10 @@ private val reviewPreviewDraft = SetupDraft(
         departureOverrides = mapOf(DayOfWeek.THURSDAY to LocalTime(16, 0))
     ),
     openingBalanceText = "15",
-    step = SetupStep.REVIEW
+    step = SetupStep.REVIEW,
+    automaticEnabled = true,
+    automaticAttemptLimit = 2,
+    resultNotificationsEnabled = true
 )
 
 @Preview(name = "Review light")
@@ -228,5 +238,27 @@ private fun SetupReviewRetryPreview() {
         language = AppLanguage.AR,
         draft = reviewPreviewDraft,
         issue = SetupIssue.COMPLETION_FAILED
+    )
+}
+
+
+@Preview(name = "Automatic attendance setup light")
+@Composable
+private fun SetupAutomationLightPreview() {
+    SetupActionsPreview(
+        theme = ThemePreference.LIGHT,
+        language = AppLanguage.EN,
+        draft = reviewPreviewDraft.copy(step = SetupStep.AUTOMATION, resultNotificationsEnabled = false)
+    )
+}
+
+@Preview(name = "Automatic attendance setup dark Arabic RTL", locale = "ar", widthDp = 320, fontScale = 2f)
+@Composable
+private fun SetupAutomationBlockedPreview() {
+    SetupActionsPreview(
+        theme = ThemePreference.DARK,
+        language = AppLanguage.AR,
+        draft = reviewPreviewDraft.copy(step = SetupStep.AUTOMATION),
+        notificationsAllowed = false
     )
 }

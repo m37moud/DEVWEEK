@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +51,17 @@ import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Bell
 import dev.daymark.app.reducedMotionEnabled
 import dev.daymark.presentation.features.settings.SettingsUiState
+import dev.daymark.notifications.ResultNotificationChannel
+import dev.daymark.notifications.ResultNotificationStatus
+import dev.daymark.presentation.component.AttendanceOption
+import dev.daymark.presentation.component.AttendanceOptionState
+import dev.daymark.resources.result_failure_channel_blocked
+import dev.daymark.resources.result_failure_channel_enable
+import dev.daymark.resources.result_failure_sound
+import dev.daymark.resources.result_failure_sound_system_off
+import dev.daymark.resources.result_notifications_android_help
+import dev.daymark.resources.result_notifications_system_settings
+import dev.daymark.resources.result_success_channel_blocked
 import dev.daymark.resources.Res
 import dev.daymark.resources.result_notifications
 import dev.daymark.resources.result_notifications_denied
@@ -60,6 +72,12 @@ import dev.daymark.resources.settings_done
 import dev.daymark.resources.settings_off
 import dev.daymark.resources.settings_on
 import dev.daymark.settings.str
+
+data class ResultNotificationActions(
+    val setSound: (Boolean) -> Unit = {},
+    val enableFailureChannel: () -> Unit = {},
+    val openSettings: (ResultNotificationChannel?) -> Unit = {}
+)
 
 enum class ResultNotificationsEditorState {
     SUMMARY,
@@ -78,7 +96,8 @@ fun SettingsResultNotificationsCard(
     state: SettingsUiState,
     onToggleNotifications: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
-    initialEditorState: ResultNotificationsEditorState = ResultNotificationsEditorState.SUMMARY
+    initialEditorState: ResultNotificationsEditorState = ResultNotificationsEditorState.SUMMARY,
+    androidActions: ResultNotificationActions = ResultNotificationActions()
 ) {
     val notificationsEnabled = state.settings.resultNotificationsEnabled
     var editing by rememberSaveable {
@@ -116,20 +135,30 @@ fun SettingsResultNotificationsCard(
             label = "result-notifications-mode-transition"
         ) { isEditing ->
             if (isEditing) {
-                ResultNotificationControlCard(
-                    state = NotificationControlState(
-                        checked = notificationsEnabled,
-                        enabled = editing && !state.busy,
-                        isInfoExpanded = isInfoExpanded
-                    ),
-                    onToggle = { enabled ->
-                        if (editing) onToggleNotifications(enabled)
-                    },
-                    onToggleInfo = {
-                        if (editing) isInfoExpanded = !isInfoExpanded
-                    },
-                    reducedMotion = reducedMotion
-                )
+                val android = state.androidResultStatus
+                if (android != null) {
+                    AndroidResultEditor(
+                        state = state.copy(busy = state.busy || !editing),
+                        status = android,
+                        actions = androidActions,
+                        onToggle = onToggleNotifications
+                    )
+                } else {
+                    ResultNotificationControlCard(
+                        state = NotificationControlState(
+                            checked = notificationsEnabled,
+                            enabled = editing && !state.busy,
+                            isInfoExpanded = isInfoExpanded
+                        ),
+                        onToggle = { enabled ->
+                            if (editing) onToggleNotifications(enabled)
+                        },
+                        onToggleInfo = {
+                            if (editing) isInfoExpanded = !isInfoExpanded
+                        },
+                        reducedMotion = reducedMotion
+                    )
+                }
             } else {
                 ResultNotificationSummary(
                     checked = notificationsEnabled,
@@ -138,10 +167,93 @@ fun SettingsResultNotificationsCard(
             }
         }
 
-        ResultNotificationPermissionBanner(
-            visible = state.resultNotificationPermissionDenied,
-            reducedMotion = reducedMotion
+        val android = state.androidResultStatus
+        if (android == null) {
+            ResultNotificationPermissionBanner(
+                visible = state.resultNotificationPermissionDenied,
+                reducedMotion = reducedMotion
+            )
+        } else if (notificationsEnabled) {
+            AndroidResultSettingsLinks(status = android, enabled = !state.busy, actions = androidActions)
+        }
+    }
+}
+
+@Composable
+private fun AndroidResultEditor(
+    state: SettingsUiState,
+    status: ResultNotificationStatus,
+    actions: ResultNotificationActions,
+    onToggle: (Boolean) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        AttendanceOption(
+            state = AttendanceOptionState(
+                label = str(Res.string.result_notifications),
+                selected = state.settings.resultNotificationsEnabled,
+                description = str(Res.string.result_notifications_android_help),
+                enabled = !state.busy
+            ),
+            onChange = onToggle
         )
+        if (state.settings.resultNotificationsEnabled && status.appAllowed) {
+            AndroidFailureControls(state = state, status = status, actions = actions)
+        }
+    }
+}
+
+@Composable
+private fun AndroidFailureControls(
+    state: SettingsUiState,
+    status: ResultNotificationStatus,
+    actions: ResultNotificationActions
+) {
+    if (status.legacyChannelOnly) {
+        TextButton(
+            onClick = actions.enableFailureChannel,
+            enabled = !state.busy && !status.successBlocked
+        ) {
+            Text(text = str(Res.string.result_failure_channel_enable))
+        }
+    } else {
+        AttendanceOption(
+            state = AttendanceOptionState(
+                label = str(Res.string.result_failure_sound),
+                selected = state.settings.resultFailureSoundEnabled,
+                enabled = !state.busy
+            ),
+            onChange = actions.setSound
+        )
+    }
+}
+
+@Composable
+private fun AndroidResultSettingsLinks(
+    status: ResultNotificationStatus,
+    enabled: Boolean,
+    actions: ResultNotificationActions
+) {
+    if (!status.appAllowed) {
+        ResultSettingsLink(str(Res.string.result_notifications_denied), enabled) { actions.openSettings(null) }
+        return
+    }
+    if (status.successBlocked) {
+        ResultSettingsLink(str(Res.string.result_success_channel_blocked), enabled) {
+            actions.openSettings(ResultNotificationChannel.SUCCESS)
+        }
+    }
+    if (status.failureBlocked || status.failureChannelSilent) {
+        val message = if (status.failureBlocked) Res.string.result_failure_channel_blocked
+        else Res.string.result_failure_sound_system_off
+        ResultSettingsLink(str(message), enabled) { actions.openSettings(ResultNotificationChannel.FAILURE) }
+    }
+}
+
+@Composable
+private fun ResultSettingsLink(message: String, enabled: Boolean, openSettings: () -> Unit) {
+    Text(text = message, style = MaterialTheme.typography.bodySmall)
+    TextButton(onClick = openSettings, enabled = enabled) {
+        Text(text = str(Res.string.result_notifications_system_settings))
     }
 }
 

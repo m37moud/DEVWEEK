@@ -1,5 +1,6 @@
 package dev.daymark.data.local
 
+import androidx.room3.ColumnInfo
 import androidx.room3.Entity
 import androidx.room3.ForeignKey
 import androidx.room3.Index
@@ -58,6 +59,12 @@ data class AttendanceEntity(
     val cachedSource: String = "NONE",
     val cachedConfirmedAt: String? = null,
     val departure: String? = null,
+    @ColumnInfo(defaultValue = "0") val automaticAttempts: Int = 0,
+    @ColumnInfo(defaultValue = "1") val automaticAttemptLimit: Int = 1,
+    @ColumnInfo(defaultValue = "0") val automaticGeneration: Long = 0,
+    @ColumnInfo(defaultValue = "0") val automaticSeriesEditRevision: Long = 0,
+    val automaticRetryAt: String? = null,
+    @ColumnInfo(defaultValue = "0") val automaticResultPending: Boolean = false,
 ) {
     fun plan() = DayPlan(
         DayKey(trackerId, LocalDate.parse(date)),

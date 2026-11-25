@@ -7,12 +7,14 @@ import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.reporting.ReportHealth
 import dev.daymark.models.settings.AppSettings
 import kotlinx.datetime.LocalDate
+import dev.daymark.notifications.ResultNotificationStatus
 
 data class SettingsUiState(
     val widgetStatus: dev.daymark.widgets.WidgetSetupStatus = dev.daymark.widgets.WidgetSetupStatus.CHECKING,
     val widgetCanPin: Boolean = false,
     val widgetPinPending: Boolean = false,
     val resultNotificationsSupported: Boolean = false,
+    val androidResultStatus: ResultNotificationStatus? = null,
     val resultNotificationPermissionDenied: Boolean = false,
     val settings: AppSettings = AppSettings(),
     val ready: Boolean = false,

@@ -86,7 +86,9 @@ class SettingsAnnualVacationTest {
             theme: ThemePreference?,
             displayName: String?,
             remindersEnabled: Boolean?,
-            resultNotificationsEnabled: Boolean?
+            resultNotificationsEnabled: Boolean?,
+            resultFailureSoundEnabled: Boolean?,
+            automaticAttemptLimit: Int?
         ) = Unit
 
         override suspend fun setAutomation(expectedTrackerId: String, enabled: Boolean) = Unit

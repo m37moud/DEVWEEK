@@ -53,6 +53,7 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Clock
 import dev.daymark.app.HostPlatform
+import dev.daymark.presentation.component.AutomaticAttemptPicker
 import dev.daymark.app.reducedMotionEnabled
 import dev.daymark.location.LocationCapabilities
 import dev.daymark.presentation.features.settings.SettingsActions
@@ -317,6 +318,13 @@ private fun TrackingControls(
                     onToggleAutomation = actions.setAutomation,
                     reducedMotion = reducedMotion
                 )
+                if (state.automaticEnabled) {
+                    AutomaticAttemptPicker(
+                        limit = state.settings.automaticAttemptLimit,
+                        enabled = !state.busy,
+                        onSelect = actions.setAutomaticAttemptLimit
+                    )
+                }
             }
             HostPlatform.IOS -> {
                 IosRemindersSection(

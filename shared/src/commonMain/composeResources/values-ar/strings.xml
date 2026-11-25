@@ -160,7 +160,7 @@
     <string name="profile_name">الاسم المعروض</string>
     <string name="invalid_name">أدخل اسمًا.</string>
     <string name="automation">التحقق التلقائي من الحضور</string>
-    <string name="automation_help">محاولة واحدة عند وقت الحضور. قد يؤخرها أندرويد أو يمنعها. يلزم السماح بالموقع الدقيق في المقدمة والخلفية. يُسجّل اليوم غيابًا إذا لم يُؤكّد بعد فترة السماح. يمكنك تسجيل الحضور يدويًا باستخدام الموقع حتى الموعد النهائي للمغادرة، إن حددته. بعد ذلك، استخدم تصحيح الحضور.</string>
+    <string name="automation_help">يحاول Daymark التحقق عند وقت الحضور. قد يؤخرها أندرويد أو يمنعها. يلزم السماح بالموقع الدقيق في المقدمة والخلفية. يُسجّل اليوم غيابًا إذا لم يُؤكّد بعد فترة السماح. يمكنك تسجيل الحضور يدويًا باستخدام الموقع حتى الموعد النهائي للمغادرة، إن حددته. بعد ذلك، استخدم تصحيح الحضور.</string>
     <string name="automation_on">مفعّل</string>
     <string name="automation_off">غير مفعّل</string>
     <string name="automation_denied">يبقى التحقق التلقائي متوقفًا حتى تتوفر أذونات الموقع وخدماته. يمكنك تسجيل الحضور يدويًا.</string>
@@ -363,4 +363,21 @@
     <string name="settings_annual_vacation_unset">لم يُحدّد رصيد سنوي</string>
     <string name="settings_summary_value">%1$s · %2$s</string>
     <string name="settings_reminders_on">التذكيرات مفعّلة</string>
+    <string name="onboarding_automation">التسجيل التلقائي والإشعارات</string>
+    <string name="onboarding_automation_selected">تم اختيار التسجيل التلقائي</string>
+    <string name="onboarding_automation_skipped">التسجيل التلقائي متوقف</string>
+    <string name="result_manual_action">سجّل حضورك يدويًا</string>
+    <string name="result_notifications_android_help">اعرف ما إذا كان التسجيل التلقائي قد حفظ حضورك. عند الفشل، يمكنك فتح «اليوم» من الإشعار والمحاولة يدويًا.</string>
+    <string name="result_failure_sound">صوت إشعارات الفشل</string>
+    <string name="result_failure_sound_system_off">إشعارات الفشل صامتة في إعدادات Android.</string>
+    <string name="result_failure_channel_enable">تفعيل تنبيهات الفشل</string>
+    <string name="result_success_channel_blocked">إشعارات النجاح محظورة في إعدادات Android.</string>
+    <string name="result_failure_channel_blocked">إشعارات الفشل محظورة في إعدادات Android.</string>
+    <string name="result_notifications_system_settings">إعدادات الإشعارات</string>
+    <string name="result_notifications_requested">تم اختيار إشعارات النتائج</string>
+    <string name="result_notifications_skipped">إشعارات النتائج متوقفة</string>
+    <string name="onboarding_automation_help">يحاول Daymark التحقق عند وقت الحضور. قد يؤخّر Android المحاولة. يلزم إذن الموقع الدقيق وفي الخلفية.</string>
+    <string name="automatic_attempt_limit">إجمالي المحاولات اليومية</string>
+    <string name="automatic_attempt_help">تُستخدم المحاولات الإضافية عند تعذّر التحقق من الموقع مؤقتًا وضمن فترة السماح.</string>
+    <string name="automatic_attempt_review">إجمالي المحاولات اليومية: %1$s</string>
 </resources>

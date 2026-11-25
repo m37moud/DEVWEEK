@@ -153,7 +153,7 @@
     <string name="profile_name">Display name</string>
     <string name="invalid_name">Enter a name.</string>
     <string name="automation">Automatic attendance check</string>
-    <string name="automation_help">One best-effort check at arrival. Android may delay or block it. Precise foreground and background location are required. An unconfirmed day becomes Absent after the grace period. You can check in manually by GPS through the departure cutoff, if set. After the cutoff, use an attendance correction.</string>
+    <string name="automation_help">Daymark tries to check attendance at arrival. Android may delay or block the check. Precise foreground and background location are required. An unconfirmed day becomes Absent after the grace period. You can check in manually by GPS through the departure cutoff, if set. After the cutoff, use an attendance correction.</string>
     <string name="automation_on">Automatic check enabled</string>
     <string name="automation_off">Automatic check disabled</string>
     <string name="automation_denied">Automatic checking stays off until the required location permissions and services are available. Manual attendance is still available.</string>
@@ -358,4 +358,21 @@
     <string name="settings_annual_vacation_unset">No annual allowance configured</string>
     <string name="settings_summary_value">%1$s · %2$s</string>
     <string name="settings_reminders_on">Reminders are on</string>
+    <string name="onboarding_automation">Automatic check and notifications</string>
+    <string name="onboarding_automation_selected">Automatic check requested</string>
+    <string name="onboarding_automation_skipped">Automatic check off</string>
+    <string name="result_manual_action">Check in manually</string>
+    <string name="result_notifications_android_help">See whether the automatic check saved your attendance. A failure notification can take you to Today to try manually.</string>
+    <string name="result_failure_sound">Sound for failure notifications</string>
+    <string name="result_failure_sound_system_off">Failure notifications are silent in Android settings.</string>
+    <string name="result_failure_channel_enable">Enable failure alerts</string>
+    <string name="result_success_channel_blocked">Success notifications are blocked in Android settings.</string>
+    <string name="result_failure_channel_blocked">Failure notifications are blocked in Android settings.</string>
+    <string name="result_notifications_system_settings">Notification settings</string>
+    <string name="result_notifications_requested">Result notifications requested</string>
+    <string name="result_notifications_skipped">Result notifications off</string>
+    <string name="onboarding_automation_help">Daymark tries to check attendance at arrival. Android may delay it. Precise location and background access are required.</string>
+    <string name="automatic_attempt_limit">Total daily attempts</string>
+    <string name="automatic_attempt_help">Extra attempts are only used for temporary location failures within the grace period.</string>
+    <string name="automatic_attempt_review">Total daily attempts: %1$s</string>
 </resources>

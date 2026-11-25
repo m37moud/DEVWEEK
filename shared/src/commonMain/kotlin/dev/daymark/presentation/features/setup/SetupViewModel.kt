@@ -3,7 +3,13 @@ package dev.daymark.presentation.features.setup
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.daymark.app.SetupDraftLoad
+import dev.daymark.app.HostPlatform
 import dev.daymark.app.SetupStep
+import dev.daymark.app.hostPlatform
+import dev.daymark.app.setupSteps
+import dev.daymark.location.canRunAutomaticCheck
+import dev.daymark.location.requestAutomation
+import dev.daymark.notifications.AttendanceResultNotifier
 import dev.daymark.app.invalidStep
 import dev.daymark.app.openingBalanceDays
 import dev.daymark.app.restoredStep
@@ -46,13 +52,17 @@ import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 
+// clean-code exception: setup owns permission and draft sequencing. Revisit if onboarding moves permission UI into its own ViewModel.
 class SetupViewModel(
     private val repository: Repository,
     private val location: LocationGateway,
     private val permissions: LocationPermissionPort,
     private val clock: Clock,
-    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    private val resultNotifications: AttendanceResultNotifier? = null,
+    private val platform: HostPlatform = hostPlatform()
 ) : ViewModel(scope) {
+    private val steps = setupSteps(platform = platform)
     private val state = MutableStateFlow(SetupUiState())
     val uiState = state.asStateFlow()
 
@@ -74,6 +84,13 @@ class SetupViewModel(
 
     init {
         retryLoad()
+        if (platform == HostPlatform.ANDROID) resultNotifications?.androidControls?.let { controls ->
+            viewModelScope.launch {
+                controls.status.collect { status ->
+                    state.update { it.copy(resultNotificationStatus = status) }
+                }
+            }
+        }
         viewModelScope.launch {
             for (write in writes) {
                 if (write.revision == revision) persist(write)
@@ -134,7 +151,7 @@ class SetupViewModel(
                 }
                 val saved = (loaded as? SetupDraftLoad.Loaded)?.draft ?: SetupDraft()
                 val draft = saved.copy(
-                    step = saved.restoredStep(clock.now()),
+                    step = saved.restoredStep(now = clock.now()).takeIf { it in steps } ?: SetupStep.REVIEW,
                     category = saved.category ?: TrackerCategory.WORK,
                     schedule = saved.schedule ?: WeeklySchedule(
                         setOf(
@@ -267,19 +284,19 @@ class SetupViewModel(
             return
         }
         val destination = if (state.value.reviewEditing) invalid ?: SetupStep.REVIEW
-        else SetupStep.entries.getOrNull(current.step.ordinal + 1) ?: return
+        else steps.getOrNull(steps.indexOf(current.step) + 1) ?: return
         navigate(destination)
     }
 
     fun back() {
         if (!canEdit() || state.value.draft.step == SetupStep.WELCOME) return
         state.update { it.copy(reviewEditing = false) }
-        navigate(SetupStep.entries[state.value.draft.step.ordinal - 1])
+        navigate(step = steps[steps.indexOf(state.value.draft.step) - 1])
     }
 
     fun edit(step: SetupStep) {
         if (!canEdit() || state.value.draft.step != SetupStep.REVIEW) return
-        if (step !in listOf(SetupStep.ATTENDANCE_PERIOD, SetupStep.PROFILE, SetupStep.PLACE, SetupStep.SCHEDULE)) return
+        if (step !in steps || step in setOf(SetupStep.WELCOME, SetupStep.PREFERENCE, SetupStep.REVIEW)) return
         state.update { it.copy(reviewEditing = true) }
         navigate(step)
     }
@@ -318,6 +335,45 @@ class SetupViewModel(
                 state.update { it.copy(busy = false, issue = SetupIssue.LOCAL_SAVE_FAILED) }
             }
         }
+    }
+
+    fun refreshAttendanceOptions() {
+        if (platform != HostPlatform.ANDROID) return
+        val capability = permissions.current()
+        state.update { it.copy(automationCapabilities = capability) }
+    }
+
+    fun setAutomaticCheck(enabled: Boolean) {
+        if (!canEdit() || state.value.draft.step != SetupStep.AUTOMATION) return
+        updateDraft(draft = state.value.draft.copy(automaticEnabled = enabled))
+        if (enabled) requestAttendanceOption { permissions.requestAutomation() }
+    }
+
+    fun setResultNotifications(enabled: Boolean) {
+        if (!canEdit() || state.value.draft.step != SetupStep.AUTOMATION) return
+        updateDraft(draft = state.value.draft.copy(resultNotificationsEnabled = enabled))
+        if (enabled) requestAttendanceOption { resultNotifications?.awaitPermission() }
+    }
+
+    private fun requestAttendanceOption(request: suspend () -> Unit) {
+        state.update { it.copy(requestingAttendanceOption = true) }
+        AppLogger.d("SetupViewModel", "Requesting attendance option permission")
+        viewModelScope.launch {
+            try {
+                request()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: IllegalStateException) {
+                AppLogger.e("SetupViewModel", "Attendance option permission request failed", failure)
+            } finally {
+                refreshAttendanceOptions()
+                state.update { it.copy(requestingAttendanceOption = false) }
+            }
+        }
+    }
+
+    fun openResultNotificationSettings() {
+        resultNotifications?.androidControls?.openAppSettings()
     }
 
     fun openLocationSettings() = permissions.openSystemSettings()
@@ -442,7 +498,11 @@ class SetupViewModel(
         schedule = requireNotNull(schedule),
         openingBalance = requireNotNull(openingBalanceDays()),
         attendanceClosingDay = attendanceClosingDay,
-        vacationYearBasis = vacationYearBasis
+        vacationYearBasis = vacationYearBasis,
+        automaticEnabled = platform == HostPlatform.ANDROID && automaticEnabled &&
+            permissions.current().canRunAutomaticCheck,
+        resultNotificationsEnabled = if (platform == HostPlatform.ANDROID) resultNotificationsEnabled else null,
+        automaticAttemptLimit = automaticAttemptLimit.takeIf { platform == HostPlatform.ANDROID }
     )
 
     private suspend fun completeSetup(command: SetupCommand) {

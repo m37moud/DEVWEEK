@@ -1,6 +1,8 @@
 package dev.daymark.presentation.features.setup
 
 import dev.daymark.app.SetupStep
+import dev.daymark.location.LocationCapabilities
+import dev.daymark.notifications.ResultNotificationStatus
 import dev.daymark.models.setup.SetupDraft
 import dev.daymark.models.settings.AppSettings
 import dev.daymark.presentation.component.PlaceAddressUiState
@@ -20,7 +22,10 @@ data class SetupUiState(
     val preferences: AppSettings = AppSettings(),
     val preferencesReady: Boolean = false,
     val preferencesSaving: Boolean = false,
-    val preferencesError: Boolean = false
+    val preferencesError: Boolean = false,
+    val automationCapabilities: LocationCapabilities? = null,
+    val resultNotificationStatus: ResultNotificationStatus? = null,
+    val requestingAttendanceOption: Boolean = false
 ) {
-    val interactionBusy: Boolean get() = busy || preferencesSaving || !preferencesReady
+    val interactionBusy: Boolean get() = busy || preferencesSaving || !preferencesReady || requestingAttendanceOption
 }

@@ -82,7 +82,7 @@ private fun sharedServicesModule() = module {
     }
 
     single<Clock> { Clock.System }
-    single<AttendanceRepository> {
+    single {
         RoomAttendanceRepository(
             get(),
             get(),
@@ -92,6 +92,7 @@ private fun sharedServicesModule() = module {
             get()
         )
     }
+    single<AttendanceRepository> { get<RoomAttendanceRepository>() }
     single<AttendanceResultPort> { UnsupportedAttendanceResultPort }
     single {
         AttendanceResultNotifier(get<SettingsDataSource>(), get()) {
@@ -105,7 +106,10 @@ private fun sharedServicesModule() = module {
             get(),
             get(),
             get(),
-            onCheckCompleted = get<AttendanceResultNotifier>()::completed
+            onCheckCompleted = { key, mode, outcome ->
+                if (mode == dev.daymark.models.attendance.CheckMode.USER_INITIATED)
+                    get<AttendanceResultNotifier>().completed(key = key, mode = mode, outcome = outcome)
+            }
         )
     }
     single { TimeOffService(get(), get(), get(), get(), get(), get(), get(), get()) }

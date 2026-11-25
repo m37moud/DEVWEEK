@@ -1,1 +1,3 @@
-<resources><string name="app_name">Daymark</string></resources>
+<resources><string name="app_name">Daymark</string>    <string name="attendance_results_channel">نتائج الحضور</string>
+    <string name="attendance_failures_channel">إخفاقات التسجيل التلقائي</string>
+</resources>

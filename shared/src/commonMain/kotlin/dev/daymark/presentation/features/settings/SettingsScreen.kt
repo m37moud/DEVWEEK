@@ -44,7 +44,9 @@ import dev.daymark.presentation.features.settings.component.SettingsAnnualVacati
 import dev.daymark.presentation.features.settings.component.SettingsAttendancePeriodCard
 import dev.daymark.presentation.features.settings.component.SettingsPreferencesSection
 import dev.daymark.presentation.features.settings.component.SettingsProfileCard
+import dev.daymark.notifications.ResultNotificationChannel
 import dev.daymark.presentation.features.settings.component.SettingsResultNotificationsCard
+import dev.daymark.presentation.features.settings.component.ResultNotificationActions
 import dev.daymark.presentation.features.settings.component.SettingsTrackingCard
 import dev.daymark.presentation.features.settings.component.SettingsWidgetsCard
 import dev.daymark.presentation.features.settings.component.WidgetSetupActions
@@ -72,7 +74,11 @@ data class SettingsActions(
     val reports: ReportActions,
     val previewPeriod: (AttendancePeriodSettings) -> Unit,
     val confirmPeriodChange: () -> Unit,
-    val dismissPeriodReview: () -> Unit
+    val dismissPeriodReview: () -> Unit,
+    val setAutomaticAttemptLimit: (Int) -> Unit = {},
+    val setResultFailureSound: (Boolean) -> Unit = {},
+    val enableResultFailureChannel: () -> Unit = {},
+    val openResultNotificationSettings: (ResultNotificationChannel?) -> Unit = {}
 )
 
 @Composable
@@ -103,6 +109,10 @@ fun SettingsScreen(
             previewPeriod = settingsViewModel::previewPeriod,
             confirmPeriodChange = settingsViewModel::confirmPeriodChange,
             dismissPeriodReview = settingsViewModel::dismissPeriodReview,
+            setAutomaticAttemptLimit = settingsViewModel::setAutomaticAttemptLimit,
+            setResultFailureSound = settingsViewModel::setResultFailureSound,
+            enableResultFailureChannel = settingsViewModel::enableResultFailureChannel,
+            openResultNotificationSettings = settingsViewModel::openResultNotificationSettings,
             reports = ReportActions(
                 connectReport = settingsViewModel::connectReport,
                 reconnectReport = settingsViewModel::reconnectReport,
@@ -193,6 +203,7 @@ fun SettingsContent(
                     SettingsProfileCard(state = state, onSave = actions.setDisplayName)
                     SettingsPreferencesSection(state = state, actions = actions)
                     SettingsTrackingCard(platform = platform, state = state, actions = actions)
+                    if (platform == HostPlatform.ANDROID) ResultNotifications(state = state, actions = actions)
                     attendanceContent()
                     SettingsAttendancePeriodCard(state = state, actions = actions)
 
@@ -202,12 +213,7 @@ fun SettingsContent(
                         onSave = actions.saveAnnualVacationPolicy
                     )
 
-                    if (state.resultNotificationsSupported) {
-                        SettingsResultNotificationsCard(
-                            state = state,
-                            onToggleNotifications = actions.setResultNotificationsEnabled
-                        )
-                    }
+                    if (platform != HostPlatform.ANDROID) ResultNotifications(state = state, actions = actions)
 
                     if (platform != HostPlatform.TEST) {
                         SettingsWidgetsCard(
@@ -227,4 +233,19 @@ fun SettingsContent(
             }
         }
     }
+}
+
+
+@Composable
+private fun ResultNotifications(state: SettingsUiState, actions: SettingsActions) {
+    if (!state.resultNotificationsSupported) return
+    SettingsResultNotificationsCard(
+        state = state,
+        onToggleNotifications = actions.setResultNotificationsEnabled,
+        androidActions = ResultNotificationActions(
+            setSound = actions.setResultFailureSound,
+            enableFailureChannel = actions.enableResultFailureChannel,
+            openSettings = actions.openResultNotificationSettings
+        )
+    )
 }

@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
@@ -48,6 +49,7 @@ import dev.daymark.presentation.features.setup.component.OnboardingProgress
 import dev.daymark.presentation.features.setup.component.OnboardingStep
 import dev.daymark.presentation.features.setup.component.OpeningBalance
 import dev.daymark.presentation.features.setup.component.SetupActions
+import dev.daymark.presentation.features.setup.component.SetupAutomation
 import dev.daymark.presentation.features.setup.component.SetupPlace
 import dev.daymark.presentation.features.setup.component.SetupProfile
 import dev.daymark.presentation.features.setup.component.SetupRecovery
@@ -57,6 +59,7 @@ import dev.daymark.presentation.features.setup.component.SetupStepActions
 import dev.daymark.presentation.features.setup.component.SetupWelcome
 import dev.daymark.resources.Res
 import dev.daymark.resources.attendance_period
+import dev.daymark.resources.onboarding_automation
 import dev.daymark.resources.onboarding_place
 import dev.daymark.resources.onboarding_preferences
 import dev.daymark.resources.onboarding_profile
@@ -85,6 +88,10 @@ fun SetupScreen(
     appLanguage: AppLanguage = LocalAppLanguage.current
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LifecycleResumeEffect(viewModel) {
+        viewModel.refreshAttendanceOptions()
+        onPauseOrDispose {}
+    }
     val place = state.draft.place
     LaunchedEffect(
         viewModel,
@@ -107,7 +114,10 @@ fun SetupScreen(
         },
         openSettings = viewModel::openLocationSettings,
         setLanguage = viewModel::setLanguage,
-        setTheme = viewModel::setTheme
+        setTheme = viewModel::setTheme,
+        setAutomaticCheck = viewModel::setAutomaticCheck,
+        setResultNotifications = viewModel::setResultNotifications,
+        openNotificationSettings = viewModel::openResultNotificationSettings
     )
     val controls = OnboardingActions(
         advance = { keyboard?.hide(); viewModel.advance() },
@@ -126,7 +136,7 @@ fun SetupScreen(
         isBackEnabled = state.draft.step != SetupStep.WELCOME && !state.interactionBusy && !state.completed,
         onBackCompleted = viewModel::back
     )
-    OnboardingLayout(state = state, actions = controls) {
+    OnboardingLayout(state = state, actions = controls, platform = platform) {
         if (state.ready) {
             OnboardingStep(state.draft.step) { step ->
                 OnboardingHeading(step)
@@ -148,6 +158,7 @@ fun SetupScreen(
 fun OnboardingLayout(
     state: SetupUiState,
     actions: OnboardingActions,
+    platform: HostPlatform = HostPlatform.ANDROID,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(
@@ -168,7 +179,7 @@ fun OnboardingLayout(
             if (!state.ready) {
                 SetupRecovery(state, actions)
             } else {
-                OnboardingProgress(state.draft.step)
+                OnboardingProgress(step = state.draft.step, platform = platform)
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -272,6 +283,7 @@ fun SetupStepContent(
             }
         }
 
+        SetupStep.AUTOMATION -> SetupAutomation(state = state, actions = actions)
         SetupStep.REVIEW -> SetupReview(state = state, platform = platform, onEdit = onEdit)
     }
 }
@@ -283,5 +295,6 @@ internal fun SetupStep.title() = when (this) {
     SetupStep.ATTENDANCE_PERIOD -> Res.string.attendance_period
     SetupStep.PLACE -> Res.string.onboarding_place
     SetupStep.SCHEDULE -> Res.string.schedule
+    SetupStep.AUTOMATION -> Res.string.onboarding_automation
     SetupStep.REVIEW -> Res.string.onboarding_review
 }

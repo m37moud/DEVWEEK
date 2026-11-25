@@ -79,7 +79,9 @@ class SettingsReportActionsTest {
                     theme: ThemePreference?,
                     displayName: String?,
                     remindersEnabled: Boolean?,
-                    resultNotificationsEnabled: Boolean?
+                    resultNotificationsEnabled: Boolean?,
+                    resultFailureSoundEnabled: Boolean?,
+                    automaticAttemptLimit: Int?
                 ) = error("Unexpected settings write")
 
                 override suspend fun setAutomation(expectedTrackerId: String, enabled: Boolean) =

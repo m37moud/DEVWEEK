@@ -168,7 +168,9 @@ class SettingsPermissionFailureTest {
         override suspend fun trackerIdentity() = "tracker"
         override suspend fun update(
             language: LanguagePreference?, theme: ThemePreference?, displayName: String?,
-            remindersEnabled: Boolean?, resultNotificationsEnabled: Boolean?
+            remindersEnabled: Boolean?, resultNotificationsEnabled: Boolean?,
+            resultFailureSoundEnabled: Boolean?,
+            automaticAttemptLimit: Int?
         ) {
             writes++
         }

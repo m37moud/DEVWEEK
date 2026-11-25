@@ -30,6 +30,9 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import dev.daymark.location.canRunAutomaticCheck
+import dev.daymark.location.requestAutomation
+import dev.daymark.notifications.ResultNotificationChannel
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -51,6 +54,11 @@ class SettingsViewModel(
 
     init {
         observeAnnualVacationSettings()
+        resultNotifications?.androidControls?.let { controls ->
+            viewModelScope.launch {
+                controls.status.collect { status -> state.update { it.copy(androidResultStatus = status) } }
+            }
+        }
         viewModelScope.launch {
             combine(
                 repository.reporting.health,
@@ -243,37 +251,42 @@ class SettingsViewModel(
     fun setResultNotificationsEnabled(enabled: Boolean) = save {
         val notifications = resultNotifications ?: return@save
         if (enabled) {
-            val allowed = requestPermission {
-                suspendCancellableCoroutine<Boolean> { continuation ->
-                    notifications.requestPermission { granted ->
-                        if (continuation.isActive) continuation.resume(granted)
-                    }
-                }
-            } ?: return@save
+            val allowed = requestPermission(notifications::awaitPermission) ?: return@save
             state.update { it.copy(resultNotificationPermissionDenied = !allowed) }
-            if (!allowed) return@save
+            if (!allowed && notifications.androidControls == null) return@save
         }
         notifications.setEnabled(enabled)
         AppLogger.i("SettingsViewModel", "Result notification preference saved")
     }
 
+    fun setResultFailureSound(enabled: Boolean) = save {
+        repository.settings.update(resultFailureSoundEnabled = enabled)
+    }
+
+    fun enableResultFailureChannel() = save {
+        resultNotifications?.androidControls?.enableFailureChannel()
+    }
+
+    fun openResultNotificationSettings(channel: ResultNotificationChannel?) {
+        val controls = resultNotifications?.androidControls ?: return
+        if (channel == null) controls.openAppSettings() else controls.openChannelSettings(channel = channel)
+    }
+
     fun setRemindersEnabled(enabled: Boolean) =
         save { repository.settings.update(remindersEnabled = enabled) }
+
+    fun setAutomaticAttemptLimit(limit: Int) = save {
+        repository.settings.update(automaticAttemptLimit = limit)
+        AppLogger.i("SettingsViewModel", "Automatic attempt limit saved")
+    }
 
     fun setAutomation(enabled: Boolean) = save {
         val expectedTracker = repository.settings.trackerIdentity() ?: return@save
         AppLogger.d(TAG ?: "SettingsViewModel", "Setting automation to $enabled")
         if (enabled) {
-            val capability = requestPermission {
-                var capability = permissions.current()
-                if (!capability.foregroundGranted || !capability.preciseGranted) capability =
-                    permissions.requestForeground()
-                if (capability.foregroundGranted && capability.preciseGranted && !capability.backgroundGranted) capability =
-                    permissions.requestBackground()
-                capability
-            } ?: return@save
+            val capability = requestPermission(permissions::requestAutomation) ?: return@save
             state.update { it.copy(capabilities = capability) }
-            if (!capability.foregroundGranted || !capability.preciseGranted || !capability.backgroundGranted || !capability.servicesEnabled) {
+            if (!capability.canRunAutomaticCheck) {
                 state.update {
                     it.copy(
                         capabilities = capability,

@@ -72,7 +72,7 @@ class HistoryViewModelTest {
             override suspend fun claimAutomatic(
                 key: DayKey,
                 attemptId: String,
-                now: Instant
+                now: Instant, ordinal: Int
             ): ClaimResult = error("Unused")
 
             override suspend fun completeCheck(request: CheckCommit): CheckOutcome = error("Unused")

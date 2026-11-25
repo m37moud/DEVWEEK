@@ -68,7 +68,7 @@ class AttendanceServiceTest {
         override suspend fun claimAutomatic(
             key: DayKey,
             attemptId: String,
-            now: Instant
+            now: Instant, ordinal: Int
         ): ClaimResult {
             val current = day ?: return ClaimResult.Ineligible
             if (current.plan.key != key || !current.plan.isScheduled || current.off != null || now < current.plan.arrival || now > current.plan.deadline)

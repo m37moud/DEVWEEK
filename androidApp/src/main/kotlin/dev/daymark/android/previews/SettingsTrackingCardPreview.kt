@@ -76,6 +76,7 @@ private fun SettingsTrackingCardAndroidLightSummaryPreview() {
                 automaticEnabled = true,
                 capabilities = enabledLocationCapabilities,
                 settings = AppSettings(
+                    automaticAttemptLimit = 2,
                     displayName = "Alex Lee",
                     language = LanguagePreference.EN,
                     theme = ThemePreference.LIGHT
@@ -184,6 +185,7 @@ private fun SettingsTrackingCardNarrowLargeFontPreview() {
                 automaticEnabled = true,
                 capabilities = enabledLocationCapabilities,
                 settings = AppSettings(
+                    automaticAttemptLimit = 3,
                     displayName = "Alex Lee",
                     language = LanguagePreference.EN,
                     theme = ThemePreference.LIGHT

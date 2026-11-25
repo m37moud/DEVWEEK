@@ -25,7 +25,10 @@ import kotlin.time.Clock
 
 internal fun viewModelModule() = module {
     viewModel { AppViewModel(get()) }
-    viewModel { SetupViewModel(get(), get(), get(), get()) }
+    viewModel { SetupViewModel(
+        repository = get(), location = get(), permissions = get(), clock = get(),
+        resultNotifications = get()
+    ) }
     viewModel { TodayViewModel(get(), get(), get(), initiallyActive = false) }
     viewModel { PlanViewModel(get(), get()) }
     viewModel { AttendanceSettingsViewModel(get(), get(), get(), get()) }

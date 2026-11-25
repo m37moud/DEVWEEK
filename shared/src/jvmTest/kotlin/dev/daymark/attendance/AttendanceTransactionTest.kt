@@ -18,6 +18,8 @@ import dev.daymark.fixtureFix
 import dev.daymark.fixturePlace
 import dev.daymark.fixturePlan
 import dev.daymark.fixtureSchedule
+import dev.daymark.data.local.settings.SettingsRepository
+import dev.daymark.location.LocationFailure
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationResult
 import dev.daymark.models.attendance.AttendanceSource
@@ -59,6 +61,124 @@ class AttendanceTransactionTest {
             seedDatabase(db); block(db, path)
         } finally {
             db.close(); folder.toFile().deleteRecursively()
+        }
+    }
+
+    @Test
+    fun approved_retry_survives_repository_restart_and_reserves_one_final_notice() = runTest {
+        withDatabase { db, _ ->
+            val clock = TestClock(at("09:00:00"))
+            val transactions = RoomDatabaseTransactions(db)
+            val settings = SettingsRepository(db.profileDao(), db.dirtyProjectionDao(), transactions)
+            settings.update(automaticAttemptLimit = 2)
+            val key = fixturePlan().key
+            var requests = 0
+            val gateway = object : LocationGateway {
+                override suspend fun requestFix(budget: Duration): LocationResult {
+                    requests++
+                    if (requests == 1) {
+                        clock.value = at("09:00:30")
+                        return LocationResult.Failure(LocationFailure.TIMEOUT)
+                    }
+                    return fixtureFix(capturedAt = clock.now())
+                }
+            }
+            fun repository() = RoomAttendanceRepository(
+                db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(), transactions, clock
+            )
+            val original = repository()
+            val first = AttendanceService(original, gateway, clock)
+            assertEquals(CheckRejection.LOCATION_TIMEOUT, first.runAutomatic(key).reason)
+            val queued = original.recoverAutomatic(clock.now(), locationEnabled = true)
+            assertEquals(at("09:01:30"), queued.next?.eligibleAt)
+            assertEquals(2, queued.next?.attemptOrdinal)
+            assertNull(queued.delivery)
+            settings.update(automaticAttemptLimit = 1)
+
+            val restarted = repository()
+            val worker = AttendanceService(restarted, gateway, clock)
+            clock.value = at("09:01:29.999")
+            assertIs<CheckOutcome.Busy>(worker.runAutomatic(key = key, ordinal = 2))
+            clock.value = at("09:01:30")
+            assertIs<CheckOutcome.Busy>(worker.runAutomatic(key = key, ordinal = 1))
+            assertIs<CheckOutcome.Recorded>(worker.runAutomatic(key = key, ordinal = 2))
+            assertIs<CheckOutcome.Busy>(worker.runAutomatic(key = key, ordinal = 2))
+            assertEquals(2, requests)
+            val terminal = restarted.recoverAutomatic(clock.now(), locationEnabled = true)
+            assertIs<CheckOutcome.Recorded>(terminal.delivery?.outcome)
+            assertNull(terminal.next)
+            assertNull(restarted.recoverAutomatic(clock.now(), locationEnabled = true).delivery)
+        }
+    }
+
+    @Test
+    fun retry_that_cannot_fit_ends_with_the_last_saved_failure() = runTest {
+        withDatabase { db, _ ->
+            val clock = TestClock(at("09:03:00"))
+            val transactions = RoomDatabaseTransactions(db)
+            SettingsRepository(db.profileDao(), db.dirtyProjectionDao(), transactions).update(automaticAttemptLimit = 3)
+            val repository = RoomAttendanceRepository(
+                db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(), transactions, clock
+            )
+            val key = fixturePlan().key
+            var requests = 0
+            val gateway = object : LocationGateway {
+                override suspend fun requestFix(budget: Duration): LocationResult {
+                    requests++
+                    clock.value = at("09:03:30")
+                    return LocationResult.Failure(LocationFailure.TIMEOUT)
+                }
+            }
+            val service = AttendanceService(repository, gateway, clock)
+            service.runAutomatic(key)
+            clock.value = at("09:04:30.001")
+            assertIs<CheckOutcome.Busy>(service.runAutomatic(key = key, ordinal = 2))
+            val terminal = repository.recoverAutomatic(clock.now(), locationEnabled = true)
+            assertNull(terminal.next)
+            assertEquals(CheckRejection.LOCATION_TIMEOUT, terminal.delivery?.outcome?.reason)
+            assertNull(repository.recoverAutomatic(clock.now(), locationEnabled = true).delivery)
+            assertEquals(1, requests)
+        }
+    }
+
+    @Test
+    fun manual_success_correction_and_automation_off_cancel_waiting_retries() = runTest {
+        for (stop in listOf("manual", "correction", "disabled")) {
+            withDatabase { db, _ ->
+                val clock = TestClock(at("09:00:15"))
+                val transactions = RoomDatabaseTransactions(db)
+                val settings = SettingsRepository(db.profileDao(), db.dirtyProjectionDao(), transactions)
+                settings.update(automaticAttemptLimit = 2)
+                val repository = RoomAttendanceRepository(
+                    db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(), transactions, clock
+                )
+                val key = fixturePlan().key
+                var requests = 0
+                val gateway = object : LocationGateway {
+                    override suspend fun requestFix(budget: Duration): LocationResult {
+                        requests++
+                        if (requests == 1) return LocationResult.Failure(LocationFailure.TIMEOUT)
+                        check(stop == "manual")
+                        return fixtureFix(capturedAt = clock.now())
+                    }
+                }
+                val service = AttendanceService(repository, gateway, clock)
+                service.runAutomatic(key)
+                when (stop) {
+                    "manual" -> assertIs<CheckOutcome.Recorded>(service.manualCheck())
+                    "correction" -> repository.correct(Correction(key, AttendanceStatus.ABSENT, null, null))
+                    else -> {
+                        settings.setAutomation(expectedTrackerId = key.trackerId, enabled = false)
+                        settings.setAutomation(expectedTrackerId = key.trackerId, enabled = true)
+                    }
+                }
+                clock.value = at("09:01:15")
+                val recovery = repository.recoverAutomatic(clock.now(), locationEnabled = true)
+                assertNull(recovery.next)
+                assertNull(recovery.delivery)
+                assertIs<CheckOutcome.Busy>(service.runAutomatic(key = key, ordinal = 2))
+                assertEquals(if (stop == "manual") 2 else 1, requests)
+            }
         }
     }
 

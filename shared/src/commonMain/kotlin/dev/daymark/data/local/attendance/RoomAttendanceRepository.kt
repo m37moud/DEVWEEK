@@ -2,7 +2,15 @@
 
 package dev.daymark.data.local.attendance
 
+import androidx.sqlite.SQLiteException
 import dev.daymark.attendance.AttendanceRepository
+import dev.daymark.attendance.automaticRetryAt
+import dev.daymark.attendance.automaticSessionLimit
+import dev.daymark.data.local.settings.UI_SETTINGS_KEY
+import dev.daymark.data.local.settings.automaticGeneration
+import dev.daymark.data.local.settings.decodeAppSettings
+import dev.daymark.models.attendance.AutomaticDelivery
+import dev.daymark.plan.ScheduledCheck
 import dev.daymark.data.local.settings.ATTENDANCE_PERIOD_KEY
 import dev.daymark.data.local.settings.attendancePeriodSettings
 import dev.daymark.attendance.outcome
@@ -43,7 +51,6 @@ import dev.daymark.plan.resolveLocalArrival
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.nanoseconds
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.delay
@@ -228,9 +235,7 @@ class RoomAttendanceRepository(
     ) {
         for (row in rows) {
             val interrupted = row.automaticState == AutomaticState.CLAIMED.name &&
-                    (row.automaticOwnerSession != sessionId || row.automaticClaimedAt?.let {
-                        now - Instant.parse(input = it) >= 30.seconds
-                    } == true)
+                    row.automaticOwnerSession != sessionId
             val refreshed =
                 if (interrupted) row.copy(automaticState = AutomaticState.INTERRUPTED.name) else row
             persist(before = row, after = refreshed, entries = entries, now = now)
@@ -269,7 +274,7 @@ class RoomAttendanceRepository(
         evaluatedAt = Instant.parse(input = stored.substringAfter('|'))
     )
 
-    override suspend fun claimAutomatic(key: DayKey, attemptId: String, now: Instant): ClaimResult =
+    override suspend fun claimAutomatic(key: DayKey, attemptId: String, now: Instant, ordinal: Int): ClaimResult =
         transactions.withWriteTransaction {
             require(attemptId.isNotBlank())
             val actualNow = clock.now()
@@ -283,15 +288,25 @@ class RoomAttendanceRepository(
             val zone = TimeZone.of(day.plan.zoneId)
             if (actualNow.toLocalDateTime(zone).date != key.date || now.toLocalDateTime(zone).date != key.date)
                 return@withWriteTransaction ClaimResult.Ineligible
-            if (day.automaticState != AutomaticState.UNCLAIMED) return@withWriteTransaction ClaimResult.AlreadyConsumed
+            val generation = profileDao.automaticGeneration()
+            if (!canClaimOrdinal(row = row, ordinal = ordinal, generation = generation, now = actualNow))
+                return@withWriteTransaction ClaimResult.AlreadyConsumed
             if (!day.plan.isScheduled || day.off != null || day.evidence != null || day.plan.arrival < Instant.parse(
                     context.tracker.trackingStartsAt
                 ) ||
                 now < day.plan.arrival || now > day.plan.deadline || actualNow < day.plan.arrival || actualNow > day.plan.deadline
             )
                 return@withWriteTransaction ClaimResult.Ineligible
+            val limit = if (ordinal == 1) {
+                decodeAppSettings(profileDao.setting(key = UI_SETTINGS_KEY)?.value).automaticAttemptLimit
+            } else row.automaticAttemptLimit
             val claimed = persist(
                 before, row.copy(
+                    automaticAttempts = ordinal,
+                    automaticAttemptLimit = limit,
+                    automaticGeneration = generation,
+                    automaticSeriesEditRevision = row.userEditRevision,
+                    automaticRetryAt = null,
                     automaticState = AutomaticState.CLAIMED.name,
                     automaticAttemptId = attemptId,
                     automaticOwnerSession = sessionId,
@@ -300,6 +315,110 @@ class RoomAttendanceRepository(
             )
             ClaimResult.Claimed(stored(claimed, entries), attemptId)
         }
+
+    private fun canClaimOrdinal(row: AttendanceEntity, ordinal: Int, generation: Long, now: Instant): Boolean {
+        if (ordinal == 1) return row.automaticState == AutomaticState.UNCLAIMED.name
+        val retryAt = row.automaticRetryAt?.let(Instant::parse) ?: return false
+        return row.automaticState == AutomaticState.WAITING_RETRY.name &&
+            ordinal == row.automaticAttempts + 1 && ordinal <= row.automaticAttemptLimit &&
+            row.automaticGeneration == generation && row.automaticSeriesEditRevision == row.userEditRevision &&
+            now >= retryAt && Instant.parse(row.deadline) - now >= automaticSessionLimit
+    }
+
+    override suspend fun abandonAutomatic(key: DayKey, attemptId: String) {
+        try {
+            transactions.withWriteTransaction {
+                val row = attendanceDao.day(trackerId = key.trackerId, date = key.date.toString())
+                    ?: return@withWriteTransaction
+                if (row.automaticState == AutomaticState.CLAIMED.name && ownsAutomaticClaim(row, attemptId)) {
+                    attendanceDao.putDay(day = row.copy(automaticState = AutomaticState.INTERRUPTED.name))
+                }
+            }
+        } catch (failure: SQLiteException) {
+            AppLogger.e(tag = "RoomAttendanceRepository", message = "Could not persist interrupted claim", throwable = failure)
+        }
+    }
+
+    // A second reader can mark the claim interrupted while the original owner still has its result.
+    private fun ownsAutomaticClaim(row: AttendanceEntity, attemptId: String?): Boolean =
+        row.automaticAttemptId == attemptId && row.automaticOwnerSession == sessionId &&
+            row.automaticState in setOf(AutomaticState.CLAIMED.name, AutomaticState.INTERRUPTED.name)
+
+    private fun finishAutomatic(row: AttendanceEntity, reason: CheckRejection?, now: Instant): AttendanceEntity {
+        val retryAt = reason?.takeIf { row.automaticAttempts < row.automaticAttemptLimit }?.let {
+            automaticRetryAt(
+                reason = it,
+                finishedAt = now, deadline = Instant.parse(row.deadline)
+            )
+        }
+        val finalReason = if (reason == CheckRejection.AFTER_AUTOMATIC_WINDOW && row.automaticAttempts > 1) {
+            row.automaticRejection?.let(CheckRejection::valueOf) ?: reason
+        } else reason
+        return row.copy(
+            automaticState = if (retryAt == null) AutomaticState.FINISHED.name else AutomaticState.WAITING_RETRY.name,
+            automaticRetryAt = retryAt?.toString(),
+            automaticRejection = finalReason?.name,
+            automaticResultPending = retryAt == null && finalReason !in setOf(
+                CheckRejection.STATE_CHANGED, CheckRejection.CANCELLED, CheckRejection.AFTER_AUTOMATIC_WINDOW
+            )
+        )
+    }
+
+    data class AutomaticRecovery(val next: ScheduledCheck? = null, val delivery: AutomaticDelivery? = null)
+
+    suspend fun recoverAutomatic(now: Instant, locationEnabled: Boolean): AutomaticRecovery =
+        transactions.withWriteTransaction {
+            val context = context(now = now) ?: return@withWriteTransaction AutomaticRecovery()
+            val tracker = context.tracker
+            val generation = profileDao.automaticGeneration()
+            val entries = planningDao.timeOff(trackerId = tracker.id)
+            var recovery = AutomaticRecovery()
+            for (row in attendanceDao.automaticRecoveryRows(trackerId = tracker.id)) {
+                val day = stored(row = row, entries = entries)
+                val plan = day.plan
+                val current = plan.key.date == now.toLocalDateTime(TimeZone.of(plan.zoneId)).date &&
+                    tracker.automaticEnabled && row.automaticGeneration == generation &&
+                    row.automaticSeriesEditRevision == row.userEditRevision && day.off == null && plan.isScheduled
+                if (row.automaticState == AutomaticState.WAITING_RETRY.name) {
+                    val retryAt = requireNotNull(row.automaticRetryAt).let(Instant::parse)
+                    val eligible = current && day.evidence == null
+                    if (eligible && locationEnabled && plan.deadline - maxOf(now, retryAt) >= automaticSessionLimit) {
+                        recovery = recovery.copy(next = ScheduledCheck(
+                            key = plan.key, arrival = plan.arrival, deadline = plan.deadline,
+                            attemptOrdinal = row.automaticAttempts + 1, eligibleAt = retryAt
+                        ))
+                        continue
+                    }
+                    val terminal = row.cancelWaitingAutomatic().copy(
+                        automaticRejection = if (eligible && !locationEnabled) CheckRejection.LOCATION_DISABLED.name
+                            else row.automaticRejection
+                    )
+                    attendanceDao.putDay(day = terminal)
+                    if (eligible) recovery = recovery.copy(delivery = terminal.delivery(day.outcome(now)))
+                } else {
+                    attendanceDao.putDay(day = row.copy(automaticResultPending = false))
+                    if (current) recovery = recovery.copy(delivery = row.delivery(day.outcome(now)))
+                }
+            }
+            recovery
+        }
+
+    private fun AttendanceEntity.cancelWaitingAutomatic(): AttendanceEntity =
+        if (automaticState == AutomaticState.WAITING_RETRY.name) copy(
+            automaticState = AutomaticState.FINISHED.name,
+            automaticRetryAt = null,
+            automaticResultPending = false
+        ) else this
+
+    private fun AttendanceEntity.delivery(outcome: DayOutcome): AutomaticDelivery? {
+        val rejection = automaticRejection?.let(CheckRejection::valueOf)
+        val result = if (rejection != null) CheckOutcome.Rejected(currentDay = outcome, reason = rejection)
+        else if (outcome.source == AttendanceSource.AUTOMATIC_GPS) CheckOutcome.Recorded(currentDay = outcome)
+        else return null
+        if (rejection != null && (outcome.source != AttendanceSource.NONE ||
+                outcome.status !in setOf(AttendanceStatus.AWAITING_CHECK, AttendanceStatus.ABSENT))) return null
+        return AutomaticDelivery(key = DayKey(trackerId, LocalDate.parse(date)), outcome = result)
+    }
 
     override suspend fun completeCheck(request: CheckCommit): CheckOutcome =
         transactions.withWriteTransaction {
@@ -320,21 +439,17 @@ class RoomAttendanceRepository(
             val entries = planningDao.timeOff(request.key.trackerId)
             val day = stored(row, entries)
             val current = day.outcome(now)
-            val autoMatches =
-                request.mode != CheckMode.AUTOMATIC || (row.automaticAttemptId == request.attemptId &&
-                        row.automaticState in listOf(
-                    AutomaticState.CLAIMED.name,
-                    AutomaticState.INTERRUPTED.name
-                ))
-            if (!autoMatches) return@withWriteTransaction CheckOutcome.StateChanged(current)
-            fun finished(reason: CheckRejection?) = if (request.mode == CheckMode.AUTOMATIC)
-                row.copy(
-                    automaticState = AutomaticState.FINISHED.name,
-                    automaticRejection = reason?.name
-                ) else row
+            val automatic = request.mode == CheckMode.AUTOMATIC
+            if (automatic && !ownsAutomaticClaim(row = row, attemptId = request.attemptId)) {
+                return@withWriteTransaction CheckOutcome.StateChanged(current)
+            }
+            fun finished(reason: CheckRejection?) = if (automatic) {
+                finishAutomatic(row = row, reason = reason, now = now)
+            } else row
             if (request.key.date != now.toLocalDateTime(TimeZone.of(day.plan.zoneId)).date ||
                 day.plan.scheduleVersion != request.expectedScheduleVersion || day.plan.place.version != request.expectedPlaceVersion ||
                 day.userEditRevision != request.expectedUserEditRevision || day.off != null || !day.plan.isScheduled ||
+                (automatic && (!context.tracker.automaticEnabled || row.automaticGeneration != profileDao.automaticGeneration())) ||
                 day.evidence?.source == AttendanceSource.MANUAL_CORRECTION
             ) {
                 if (before != null) persist(
@@ -369,13 +484,13 @@ class RoomAttendanceRepository(
                 return@withWriteTransaction CheckOutcome.Rejected(current, invalid)
             }
             if (day.evidence?.confirmedAt?.let { it <= verdict.confirmedAt } == true) {
-                persist(before, finished(null), entries, now)
+                persist(before, finished(CheckRejection.STATE_CHANGED), entries, now)
                 return@withWriteTransaction CheckOutcome.AlreadyRecorded(current)
             }
             val source =
                 if (request.mode == CheckMode.AUTOMATIC) AttendanceSource.AUTOMATIC_GPS else AttendanceSource.MANUAL_GPS
             val saved = persist(
-                before, finished(null).copy(
+                before, (if (automatic) finished(null) else row.cancelWaitingAutomatic()).copy(
                     evidenceStatus = verdict.status.name,
                     evidenceSource = source.name,
                     confirmedAt = verdict.confirmedAt.toString(),
@@ -417,7 +532,7 @@ class RoomAttendanceRepository(
                 day.plan.zoneId
             )
             val saved = persist(
-                before, row.copy(
+                before, row.cancelWaitingAutomatic().copy(
                     evidenceStatus = command.status.name,
                     evidenceSource = AttendanceSource.MANUAL_CORRECTION.name,
                     confirmedAt = confirmed?.toString(),

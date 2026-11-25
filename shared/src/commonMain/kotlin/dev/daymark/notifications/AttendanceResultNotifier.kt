@@ -9,6 +9,8 @@ import dev.daymark.settings.LanguagePreference
 import dev.daymark.settings.applyAppLocale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.jetbrains.compose.resources.getString
@@ -22,7 +24,14 @@ class AttendanceResultNotifier(
 ) {
     private val mutex = Mutex()
     val supported get() = port.mode != null
+    val androidControls get() = port as? AndroidResultNotificationControls
     fun requestPermission(completion: (Boolean) -> Unit) = port.requestPermission(completion)
+
+    suspend fun awaitPermission(): Boolean = suspendCancellableCoroutine { continuation ->
+        requestPermission { granted ->
+            if (continuation.isActive) continuation.resume(granted)
+        }
+    }
 
     suspend fun setEnabled(enabled: Boolean) = mutex.withLock {
         settings.update(resultNotificationsEnabled = enabled)
@@ -36,30 +45,34 @@ class AttendanceResultNotifier(
             if (!preferences.resultNotificationsEnabled || settings.trackerIdentity() != key.trackerId) return@withLock
             val current = currentDay() ?: return@withLock
             if (current.first != key) return@withLock
-            if (outcome.reason == CheckRejection.LOCAL_SAVE_FAILED) {
-                if (!shouldNotify(
-                        CheckOutcome.Rejected(
-                            current.second,
-                            CheckRejection.LOCAL_SAVE_FAILED
-                        )
-                    )
-                ) return@withLock
-            } else if (current.second != outcome.currentDay) return@withLock
+            if (!stillRelevant(outcome = outcome, live = current.second)) return@withLock
             when (preferences.language) {
                 LanguagePreference.EN -> applyAppLocale(AppLanguage.EN)
                 LanguagePreference.AR -> applyAppLocale(AppLanguage.AR)
                 LanguagePreference.SYSTEM -> Unit
             }
             val saved = outcome is CheckOutcome.Recorded
-            port.post(
-                "daymark.result:${key.trackerId}:${key.date}",
-                text(if (saved) Res.string.result_saved else Res.string.result_unconfirmed),
-                text(
-                    if (saved) {
-                        if (outcome.currentDay.status == AttendanceStatus.LATE) Res.string.result_late else Res.string.result_present
-                    } else failureCopy(outcome.reason)
-                )
+            val identifier = "daymark.result:${key.trackerId}:${key.date}"
+            val title = text(if (saved) Res.string.result_saved else Res.string.result_unconfirmed)
+            val body = text(
+                if (saved) {
+                    if (outcome.currentDay.status == AttendanceStatus.LATE) Res.string.result_late else Res.string.result_present
+                } else failureCopy(outcome.reason)
             )
+            val android = androidControls
+            if (android == null) {
+                port.post(identifier = identifier, title = title, body = body)
+            } else {
+                android.post(
+                    notification = AutomaticResultNotification(
+                        identifier = identifier,
+                        title = title,
+                        body = body,
+                        manualCheckLabel = if (saved) null else text(Res.string.result_manual_action),
+                        failureSoundEnabled = preferences.resultFailureSoundEnabled
+                    )
+                )
+            }
             AppLogger.i("AttendanceResultNotifier", "Result notification submitted")
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -67,6 +80,18 @@ class AttendanceResultNotifier(
             // Notification failures must never turn an acknowledged attendance write into a GPS retry.
             AppLogger.e("AttendanceResultNotifier", "Result notification failed", failure)
         }
+    }
+
+    private fun stillRelevant(outcome: CheckOutcome, live: DayOutcome): Boolean {
+        if (outcome.reason == CheckRejection.LOCAL_SAVE_FAILED) {
+            return shouldNotify(outcome = CheckOutcome.Rejected(live, CheckRejection.LOCAL_SAVE_FAILED))
+        }
+        if (live == outcome.currentDay) return true
+        // A failure can be saved just before the deadline and published just after it.
+        return androidControls != null && outcome is CheckOutcome.Rejected &&
+            outcome.currentDay?.status == AttendanceStatus.AWAITING_CHECK &&
+            live.status == AttendanceStatus.ABSENT &&
+            shouldNotify(outcome = CheckOutcome.Rejected(live, outcome.reason))
     }
 
     internal fun shouldNotify(outcome: CheckOutcome): Boolean = when (outcome) {

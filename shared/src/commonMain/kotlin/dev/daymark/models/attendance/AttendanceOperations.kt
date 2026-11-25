@@ -24,7 +24,7 @@ data class HistoryMonth(
     val showsWorkMissions: Boolean = false
 )
 
-enum class AutomaticState { UNCLAIMED, CLAIMED, FINISHED, INTERRUPTED }
+enum class AutomaticState { UNCLAIMED, CLAIMED, WAITING_RETRY, FINISHED, INTERRUPTED }
 data class StoredDay(
     val plan: DayPlan, val evidence: AttendanceEvidence?, val off: TimeOffKind?,
     val automaticState: AutomaticState, val revision: Long, val userEditRevision: Long = 0
@@ -35,6 +35,8 @@ sealed interface ClaimResult {
     data object AlreadyConsumed : ClaimResult
     data object Ineligible : ClaimResult
 }
+
+data class AutomaticDelivery(val key: DayKey, val outcome: CheckOutcome)
 
 data class Correction(
     val key: DayKey,

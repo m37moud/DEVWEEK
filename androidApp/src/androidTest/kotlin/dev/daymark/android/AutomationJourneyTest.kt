@@ -17,6 +17,7 @@ import dev.daymark.data.local.TrackerEntity
 import dev.daymark.data.local.attendance.RoomAttendanceRepository
 import dev.daymark.data.local.openAndroidDatabase
 import dev.daymark.data.local.plan.RoomPlanReader
+import dev.daymark.data.local.settings.SettingsRepository
 import dev.daymark.location.*
 import dev.daymark.location.LocationFailure
 import dev.daymark.location.LocationGateway
@@ -80,9 +81,11 @@ class AutomationJourneyTest {
             block(db, key)
         } finally { db.close(); context.deleteDatabase(name) }
     }
-    private fun worker(key: DayKey, job: AndroidAttendanceJob): AttendanceWorker =
+    private fun worker(key: DayKey, job: AndroidAttendanceJob, ordinal: Int = 1): AttendanceWorker =
         TestListenableWorkerBuilder<AttendanceWorker>(context)
-            .setInputData(workDataOf("trackerId" to key.trackerId, "date" to key.date.toString()))
+            .setInputData(workDataOf(
+                "trackerId" to key.trackerId, "date" to key.date.toString(), "attemptOrdinal" to ordinal
+            ))
             .setWorkerFactory(object : WorkerFactory() {
                 override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters): ListenableWorker =
                     AttendanceWorker(appContext, workerParameters, job)
@@ -108,7 +111,7 @@ class AutomationJourneyTest {
                         RoomDatabaseTransactions(db),
                         clock
                     ), gateway, clock
-                ), { true }, {},
+                ), { LocationCapabilities(true, true, true, true) }, {},
                 {
                     next = nextAttendance(
                         clock.now(),
@@ -164,7 +167,7 @@ class AutomationJourneyTest {
                     calls++; error("Denied GPS")
                 }
             }
-            val job = AndroidAttendanceJob(AttendanceService(repo, gateway, clock), { false }, {
+            val job = AndroidAttendanceJob(AttendanceService(repo, gateway, clock), { LocationCapabilities(false, false, false, true) }, {
                 db.profileDao().putTracker(
                     requireNotNull(
                         db.profileDao().tracker()
@@ -177,6 +180,50 @@ class AutomationJourneyTest {
             assertEquals(0, calls)
         }
     }
+    @Test fun each_opt_in_limit_runs_every_slot_once_and_only_delivers_the_terminal_failure() = runBlocking {
+        for (limit in 1..3) withDatabase { db, key ->
+            val transactions = RoomDatabaseTransactions(db)
+            SettingsRepository(db.profileDao(), db.dirtyProjectionDao(), transactions)
+                .update(automaticAttemptLimit = limit)
+            val clock = MutableClock(arrival)
+            val repo = RoomAttendanceRepository(
+                db.profileDao(), db.attendanceDao(), db.planningDao(), db.dirtyProjectionDao(),
+                transactions, clock
+            )
+            var requests = 0
+            var deliveries = 0
+            var next: ScheduledCheck? = null
+            val gateway = object : LocationGateway {
+                override suspend fun requestFix(budget: Duration): LocationResult {
+                    requests++
+                    return LocationResult.Failure(LocationFailure.TIMEOUT)
+                }
+            }
+            val job = AndroidAttendanceJob(
+                attendance = AttendanceService(repo, gateway, clock),
+                capabilities = { LocationCapabilities(true, true, true, true) },
+                disableAutomation = { error("Permission is granted") },
+                recoverSchedule = {
+                    val state = repo.recoverAutomatic(now = clock.now(), locationEnabled = true)
+                    next = state.next
+                    if (state.delivery != null) deliveries++
+                }
+            )
+            for (ordinal in 1..limit) {
+                assertEquals(ListenableWorker.Result.success(), worker(key, job, ordinal).doWork())
+                assertEquals(ListenableWorker.Result.success(), worker(key, job, ordinal).doWork())
+                assertEquals(ordinal, requests)
+                assertEquals(if (ordinal == limit) 1 else 0, deliveries)
+                if (ordinal < limit) {
+                    val retry = requireNotNull(next)
+                    assertEquals(ordinal + 1, retry.attemptOrdinal)
+                    clock.value = retry.eligibleAt
+                }
+            }
+            assertNull(next)
+        }
+    }
+
     @Test fun repeated_recovery_has_one_pending_date_and_no_network_constraint() = runBlocking {
         val manager = WorkManager.getInstance(context)
         val clock = MutableClock(arrival)

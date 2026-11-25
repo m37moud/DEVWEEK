@@ -17,6 +17,7 @@ import dev.daymark.models.plan.PlanState
 import dev.daymark.models.reporting.ConnectionResult
 import dev.daymark.models.reporting.ReportHealth
 import dev.daymark.models.settings.AppSettings
+import dev.daymark.notifications.ResultNotificationStatus
 import dev.daymark.presentation.features.settings.AnnualVacationSettingsUiState
 import dev.daymark.presentation.features.settings.AttendanceSettingsUiState
 import dev.daymark.presentation.features.settings.component.AttendanceSettingsActions
@@ -46,6 +47,7 @@ private fun SettingsScreenAndroidPreview() {
                 report = ReportHealth(connectionResult = ConnectionResult.LocalBindingUnreadable),
                 permissionRequestFailed = true,
                 resultNotificationsSupported = true,
+    androidResultStatus = ResultNotificationStatus(appAllowed = true),
                 widgetStatus = dev.daymark.widgets.WidgetSetupStatus.NOT_ADDED,
                 widgetCanPin = true,
                 settings = AppSettings(displayName = "Alex Lee", attendancePeriod = AttendancePeriodSettings(20)),
@@ -78,6 +80,7 @@ private fun SettingsScreenIosDarkPreview() {
                         ready = true,
                         attendanceDate = LocalDate(year = 2026, month = 11, day = 19),
                         resultNotificationsSupported = true,
+    androidResultStatus = ResultNotificationStatus(appAllowed = true),
                         widgetStatus = dev.daymark.widgets.WidgetSetupStatus.ADDED,
                         settings = AppSettings(
                             displayName = "أحمد / Alex",

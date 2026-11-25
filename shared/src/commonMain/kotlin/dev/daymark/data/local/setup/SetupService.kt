@@ -1,6 +1,8 @@
 package dev.daymark.data.local.setup
 
 import androidx.sqlite.SQLiteException
+import dev.daymark.attendance.DEFAULT_AUTOMATIC_ATTEMPT_LIMIT
+import dev.daymark.attendance.automaticAttemptLimits
 import dev.daymark.app.SetupDraftLoad
 import dev.daymark.app.SetupStep
 import dev.daymark.app.firstSetupArrival
@@ -36,9 +38,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
@@ -98,6 +102,7 @@ class SetupService(
 
     override suspend fun complete(command: SetupCommand): SetupResult {
         if (command.displayName.isBlank() || dev.daymark.reporting.exceedsReportTextLimit(command.displayName) || command.placeName.isBlank() || command.openingBalance < 0) return SetupResult.Invalid
+        if (command.automaticAttemptLimit != null && command.automaticAttemptLimit !in automaticAttemptLimits) return SetupResult.Invalid
         val closingDay = command.attendanceClosingDay
         if (closingDay != null && closingDay !in 1..31) return SetupResult.Invalid
         val now = clock.now()
@@ -115,7 +120,7 @@ class SetupService(
                         now.toString(),
                         first.toString(),
                         if (command.category == TrackerCategory.WORK) command.openingBalance else 0,
-                        automaticEnabled = false
+                        automaticEnabled = command.automaticEnabled
                     )
                 )
                 planningDao.putVersion(
@@ -124,7 +129,11 @@ class SetupService(
                         command.place.copy(version = 1), command.placeName
                     )
                 )
-                settings.update(displayName = command.displayName)
+                settings.update(
+                    displayName = command.displayName,
+                    resultNotificationsEnabled = command.resultNotificationsEnabled,
+                    automaticAttemptLimit = command.automaticAttemptLimit
+                )
                 saveAttendancePeriod(command)
                 profileDao.deleteSetting("setup-draft")
                 profileDao.deleteSetting("setup-session")
@@ -164,6 +173,9 @@ private fun readDraft(text: String): SetupDraftLoad = try {
 
 private fun encodeDraft(draft: SetupDraft): String = buildJsonObject {
     put("step", draft.step.name)
+    put("automaticEnabled", draft.automaticEnabled)
+    put("automaticAttemptLimit", draft.automaticAttemptLimit)
+    put("resultNotificationsEnabled", draft.resultNotificationsEnabled)
     draft.attendanceClosingDay?.let { put("attendanceClosingDay", it) }
     put("vacationYearBasis", draft.vacationYearBasis.name)
     put("displayName", draft.displayName); put(
@@ -206,6 +218,10 @@ private fun decodeDraft(text: String): SetupDraft {
         },
         vacationYearBasis = VacationYearBasis.entries.firstOrNull {
             it.name == json["vacationYearBasis"]?.jsonPrimitive?.content
-        } ?: VacationYearBasis.CALENDAR
+        } ?: VacationYearBasis.CALENDAR,
+        automaticEnabled = json["automaticEnabled"]?.jsonPrimitive?.booleanOrNull ?: false,
+        automaticAttemptLimit = json["automaticAttemptLimit"]?.jsonPrimitive?.intOrNull
+            ?.takeIf { it in automaticAttemptLimits } ?: DEFAULT_AUTOMATIC_ATTEMPT_LIMIT,
+        resultNotificationsEnabled = json["resultNotificationsEnabled"]?.jsonPrimitive?.booleanOrNull ?: false
     )
 }

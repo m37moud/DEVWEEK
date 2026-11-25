@@ -4,6 +4,7 @@ import androidx.room3.useReaderConnection
 import androidx.sqlite.SQLiteException
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
+import dev.daymark.data.local.createTrackerSingletonTriggers
 import dev.daymark.data.local.AnnualVacationPolicyEntity
 import dev.daymark.data.local.openJvmDatabase
 import dev.daymark.fixturePlan
@@ -34,6 +35,9 @@ class DatabaseMigrationTest {
 
     @Test
     fun schema_five_upgrades_without_losing_tracker_or_adjustment_history() = verifyMigration(5)
+
+    @Test
+    fun schema_six_keeps_consumed_claims_and_preserves_their_evidence() = verifyMigration(6)
 
     private fun verifyMigration(version: Int) = runTest {
         val schemaPath = listOf(
@@ -68,6 +72,19 @@ class DatabaseMigrationTest {
                 val id = fixturePlan().key.trackerId
                 connection.execSQL("INSERT INTO trackers(id, displayName, createdAt, trackingStartsAt, openingBalance, automaticEnabled, singleton) VALUES('$id', 'Legacy person', '2026-10-27T08:00:00Z', '2026-10-27T09:00:00Z', 12, 1, 0)")
                 connection.execSQL("INSERT INTO balance_adjustments(id, trackerId, delta, createdAt) VALUES('legacy-adjustment', '$id', -2, '2026-10-27T08:00:00Z')")
+                if (version == 6) {
+                    connection.createTrackerSingletonTriggers()
+                    connection.execSQL(
+                        """INSERT INTO attendance(trackerId, date, category, arrival, deadline, zoneId, scheduleVersion,
+                            placeLatitude, placeLongitude, placeRadiusMetres, placeVersion, isScheduled, updatedAt,
+                            automaticState, automaticAttemptId, revision, userEditRevision, cachedStatus, cachedSource,
+                            evidenceStatus, evidenceSource, confirmedAt, evidenceUpdatedAt)
+                            VALUES('$id', '2026-10-27', 'WORK', '2026-10-27T09:00:00Z', '2026-10-27T09:05:00Z',
+                            'UTC', 1, 0.0, 0.0, 100, 1, 1, '2026-10-27T09:00:00Z', 'FINISHED', 'legacy', 4, 0,
+                            'PRESENT', 'AUTOMATIC_GPS', 'PRESENT', 'AUTOMATIC_GPS',
+                            '2026-10-27T09:00:00Z', '2026-10-27T09:00:00Z')"""
+                    )
+                }
                 connection.execSQL("PRAGMA user_version = $version")
             }
             val db = openJvmDatabase(path.toString())
@@ -88,7 +105,16 @@ class DatabaseMigrationTest {
                         statement.getInt(0)
                     }
                 }
-                assertEquals(6, migratedVersion)
+                assertEquals(7, migratedVersion)
+                if (version == 6) {
+                    val legacy = db.attendanceDao().day(tracker.id, "2026-10-27")!!
+                    assertEquals(1, legacy.automaticAttempts)
+                    assertEquals(1, legacy.automaticAttemptLimit)
+                    assertEquals("legacy", legacy.automaticAttemptId)
+                    assertEquals("PRESENT", legacy.evidenceStatus)
+                    kotlin.test.assertFalse(legacy.automaticResultPending)
+                    assertNull(legacy.automaticRetryAt)
+                }
                 val policy = AnnualVacationPolicyEntity(tracker.id, 2027, 14, false)
                 val updatedPolicy = policy.copy(annualAllowanceDays = 16, carryOverUnusedDays = true)
                 db.planningDao().putAnnualVacationPolicy(policy)

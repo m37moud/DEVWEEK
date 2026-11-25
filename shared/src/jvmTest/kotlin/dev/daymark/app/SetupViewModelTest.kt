@@ -37,6 +37,67 @@ import kotlinx.coroutines.test.runTest
 
 class SetupViewModelTest {
     @Test
+    fun android_automation_options_survive_navigation_and_complete_independently() = runTest {
+        val folder = Files.createTempDirectory("daymark-setup-attendance-options-")
+        val db = openJvmDatabase(folder.resolve("app.db").toString())
+        val transactions = RoomDatabaseTransactions(db)
+        val settings = SettingsRepository(db.profileDao(), db.dirtyProjectionDao(), transactions)
+        val clock = TestClock()
+        val setup = SetupService(db.profileDao(), db.planningDao(), db.dirtyProjectionDao(), transactions, clock, settings)
+        val repository = dev.daymark.testRepository(setupSource = setup, settingsSource = settings)
+        val permissions = object : LocationPermissionPort {
+            override fun current() = LocationCapabilities(true, false, true, true)
+            override suspend fun requestForeground() = current()
+            override suspend fun requestBackground() = current()
+            override fun openSystemSettings() = Unit
+        }
+        val location = object : LocationGateway {
+            override suspend fun requestFix(budget: Duration): LocationResult = error("No GPS expected")
+        }
+        try {
+            setup.saveDraft(
+                draft = SetupDraft(
+                    displayName = "Test",
+                    category = TrackerCategory.WORK,
+                    placeName = "Test place",
+                    place = fixturePlace(),
+                    schedule = fixtureSchedule(),
+                    step = SetupStep.SCHEDULE
+                ),
+                session = setup.startDraftSession()
+            )
+            val vm = SetupViewModel(repository, location, permissions, clock, backgroundScope, platform = HostPlatform.ANDROID)
+            vm.uiState.first { it.ready && it.preferencesReady && it.draftSaved }
+            vm.advance()
+            vm.uiState.first { it.draft.step == SetupStep.AUTOMATION && !it.interactionBusy }
+            vm.setAutomaticCheck(true)
+            vm.uiState.first { it.draftSaved && !it.interactionBusy }
+            vm.updateDraft(vm.uiState.value.draft.copy(automaticAttemptLimit = 3))
+            vm.uiState.first { it.draftSaved && it.draft.automaticAttemptLimit == 3 }
+            vm.setResultNotifications(true)
+            vm.uiState.first { it.draftSaved && !it.interactionBusy }
+            vm.advance()
+            vm.uiState.first { it.draft.step == SetupStep.REVIEW && !it.interactionBusy }
+            vm.edit(SetupStep.AUTOMATION)
+            val editing = vm.uiState.first { it.draft.step == SetupStep.AUTOMATION && !it.interactionBusy }
+            assertTrue(editing.draft.automaticEnabled)
+            assertEquals(3, editing.draft.automaticAttemptLimit)
+            assertEquals(true, editing.draft.resultNotificationsEnabled)
+            vm.advance()
+            vm.uiState.first { it.draft.step == SetupStep.REVIEW && !it.interactionBusy }
+            vm.submit()
+            vm.uiState.first { it.completed }
+            assertFalse(requireNotNull(db.profileDao().tracker()).automaticEnabled)
+            val saved = settings.observe().first()
+            assertTrue(saved.resultNotificationsEnabled)
+            assertEquals(3, saved.automaticAttemptLimit)
+        } finally {
+            db.close()
+            folder.toFile().deleteRecursively()
+        }
+    }
+
+    @Test
     fun preferences_save_immediately_block_navigation_and_retry_without_losing_the_step() =
         runTest {
             val folder = Files.createTempDirectory("daymark-setup-preferences-")
@@ -52,7 +113,9 @@ class SetupViewModelTest {
                 override suspend fun update(
                     language: LanguagePreference?, theme: ThemePreference?,
                     displayName: String?, remindersEnabled: Boolean?,
-                    resultNotificationsEnabled: Boolean?
+                    resultNotificationsEnabled: Boolean?,
+                    resultFailureSoundEnabled: Boolean?,
+                    automaticAttemptLimit: Int?
                 ) {
                     releaseWrite.await()
                     if (failWrite) throw SettingsStorageException(IllegalStateException("Test storage failure"))

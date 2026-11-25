@@ -29,7 +29,7 @@ class HistoryDetailViewModelTest {
             override fun observeDay(key: DayKey) = error("Unused")
             override suspend fun loadCurrentDay(now: Instant) = error("Unused")
             override suspend fun loadDay(key: DayKey) = error("Unused")
-            override suspend fun claimAutomatic(key: DayKey, attemptId: String, now: Instant) =
+            override suspend fun claimAutomatic(key: DayKey, attemptId: String, now: Instant, ordinal: Int) =
                 error("Unused")
 
             override suspend fun completeCheck(request: CheckCommit) = error("Unused")

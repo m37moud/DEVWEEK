@@ -112,7 +112,7 @@ class TodayViewModelTest {
         override suspend fun claimAutomatic(
             key: DayKey,
             attemptId: String,
-            now: Instant
+            now: Instant, ordinal: Int
         ): ClaimResult = error("Manual controller never claims automation")
 
         override suspend fun correct(command: Correction): DayOutcome = error("Not used")

@@ -14,7 +14,10 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
-enum class SetupStep { WELCOME, PREFERENCE, PROFILE, ATTENDANCE_PERIOD, PLACE, SCHEDULE, REVIEW }
+enum class SetupStep { WELCOME, PREFERENCE, PROFILE, ATTENDANCE_PERIOD, PLACE, SCHEDULE, AUTOMATION, REVIEW }
+
+internal fun setupSteps(platform: HostPlatform) =
+    if (platform == HostPlatform.ANDROID) SetupStep.entries else SetupStep.entries - SetupStep.AUTOMATION
 
 sealed interface SetupDraftLoad {
     data object Absent : SetupDraftLoad

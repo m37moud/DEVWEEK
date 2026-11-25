@@ -11,7 +11,10 @@ import dev.daymark.auth.NativeGoogleAuth
 import dev.daymark.data.*
 import dev.daymark.data.local.DaymarkDatabase
 import dev.daymark.data.local.dao.ProfileDao
-import dev.daymark.data.local.DatabaseTransactions
+import dev.daymark.data.local.attendance.RoomAttendanceRepository
+import dev.daymark.models.attendance.CheckMode
+import dev.daymark.notifications.AttendanceResultNotifier
+import dev.daymark.repository.SettingsDataSource
 import dev.daymark.data.local.openAndroidDatabase
 import dev.daymark.data.local.reporting.ReportingRuntime
 import dev.daymark.location.*
@@ -53,7 +56,12 @@ class AndroidAppGraph(context: Context) {
             single { AndroidGoogleAuth(app) }
             single<NativeGoogleAuth> { get<AndroidGoogleAuth>() }
             single { AndroidAttendanceScheduler(WorkManager.getInstance(app), get(), scope) }
-            factory { AndroidAttendanceJob(get(), ::permitted, ::disableAutomation, ::recover) }
+            factory {
+                AndroidAttendanceJob(
+                    attendance = get(), capabilities = { androidLocationCapabilities(app) },
+                    disableAutomation = ::disableAutomation, recoverSchedule = ::recover
+                )
+            }
             single<ReminderPort> { AndroidReminderPort }
             single<dev.daymark.notifications.AttendanceResultPort> { resultNotifications }
             single<WidgetSink> { AndroidWidgetPublisher(app) }
@@ -75,7 +83,9 @@ class AndroidAppGraph(context: Context) {
     internal val isDeleting get() = dependencies.dataLifecycle.deleting.value
     val clock: Clock by dependencies.koin.inject()
     internal val profileDao: ProfileDao by dependencies.koin.inject()
-    private val transactions: DatabaseTransactions by dependencies.koin.inject()
+    private val automaticAttendance: RoomAttendanceRepository by dependencies.koin.inject()
+    private val settings: SettingsDataSource by dependencies.koin.inject()
+    private val attendanceResults: AttendanceResultNotifier by dependencies.koin.inject()
     val attendanceRepository: AttendanceRepository by dependencies.koin.inject()
     val attendance: AttendanceService by dependencies.koin.inject()
     val widgets: WidgetPublisher by dependencies.koin.inject()
@@ -127,27 +137,26 @@ class AndroidAppGraph(context: Context) {
         recoveryMutex.withLock { /* Wait for any older native recovery before the final widget clear. */ }
     }
 
-    private fun permitted(): Boolean =
-        androidLocationCapabilities(app).let { it.foregroundGranted && it.preciseGranted && it.backgroundGranted }
-
-    private suspend fun disableAutomation(trackerId: String) = transactions.withWriteTransaction {
-        profileDao.tracker()?.takeIf { it.automaticEnabled && it.id == trackerId }?.let {
-            profileDao.putTracker(
-                it.copy(
-                    automaticEnabled = false,
-                    changeRevision = it.changeRevision + 1
-                )
-            )
-        }
-    }
+    private suspend fun disableAutomation(trackerId: String) =
+        settings.setAutomation(expectedTrackerId = trackerId, enabled = false)
 
     fun attendanceJob(): AndroidAttendanceJob = dependencies.koin.get()
     suspend fun recover() = recoverInternal(publishWidget = true)
     private suspend fun recoverInternal(publishWidget: Boolean) = recoveryMutex.withLock {
         if (shared?.dataLifecycle?.deleting?.value == true) return@withLock
-        attendanceRepository.reconcile(clock.now())
-        if (!permitted()) profileDao.tracker()?.let { disableAutomation(it.id) }
-        scheduler.replaceNextAwait(nextAttendance(clock.now(), planReader))
+        val now = clock.now()
+        attendanceRepository.reconcile(now = now)
+        val capabilities = androidLocationCapabilities(app)
+        val canRun = capabilities.permitsBackgroundAttendance
+        val recovery = automaticAttendance.recoverAutomatic(
+            now = now, locationEnabled = capabilities.servicesEnabled
+        )
+        if (!canRun) profileDao.tracker()?.let { disableAutomation(trackerId = it.id) }
+        recovery.delivery?.let { delivery ->
+            attendanceResults.completed(key = delivery.key, mode = CheckMode.AUTOMATIC, outcome = delivery.outcome)
+        }
+        val next = recovery.next?.takeIf { canRun } ?: nextAttendance(now = now, plans = planReader)
+        scheduler.replaceNextAwait(check = next)
         if (publishWidget) widgets.refresh()
     }
 }

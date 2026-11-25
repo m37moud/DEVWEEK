@@ -29,7 +29,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -49,6 +49,15 @@ import dev.daymark.presentation.component.attendancePeriodRuleLabel
 import dev.daymark.presentation.component.vacationYearBasisLabel
 import dev.daymark.resources.attendance_period
 import dev.daymark.app.openingBalanceDays
+import dev.daymark.location.canRunAutomaticCheck
+import dev.daymark.resources.automation_denied
+import dev.daymark.resources.automatic_attempt_review
+import dev.daymark.resources.onboarding_automation
+import dev.daymark.resources.onboarding_automation_selected
+import dev.daymark.resources.onboarding_automation_skipped
+import dev.daymark.resources.result_notifications_denied
+import dev.daymark.resources.result_notifications_requested
+import dev.daymark.resources.result_notifications_skipped
 import dev.daymark.models.attendance.TrackerCategory
 import dev.daymark.models.setup.SetupDraft
 import dev.daymark.plan.WeeklySchedule
@@ -147,8 +156,39 @@ internal fun SetupReview(state: SetupUiState, platform: HostPlatform, onEdit: (S
             ScheduleSummary(state.draft)
         }
 
+        if (platform == HostPlatform.ANDROID) {
+            SetupReviewSection(
+                title = str(Res.string.onboarding_automation),
+                editEnabled = editEnabled,
+                onEdit = { onEdit(SetupStep.AUTOMATION) }
+            ) {
+                SetupAutomationSummary(state = state)
+            }
+        }
         SetupReviewHint(platform)
     }
+}
+
+@Composable
+private fun SetupAutomationSummary(state: SetupUiState) {
+    val automation = when {
+        !state.draft.automaticEnabled -> Res.string.onboarding_automation_skipped
+        state.automationCapabilities?.canRunAutomaticCheck == false -> Res.string.automation_denied
+        else -> Res.string.onboarding_automation_selected
+    }
+    val notifications = when {
+        !state.draft.resultNotificationsEnabled -> Res.string.result_notifications_skipped
+        state.resultNotificationStatus?.appAllowed == false -> Res.string.result_notifications_denied
+        else -> Res.string.result_notifications_requested
+    }
+    Text(text = str(automation))
+    if (state.draft.automaticEnabled) {
+        Text(text = str(
+            Res.string.automatic_attempt_review,
+            DisplayFormats.number(state.draft.automaticAttemptLimit, LocalAppLanguage.current)
+        ))
+    }
+    Text(text = str(notifications))
 }
 
 @Composable
@@ -230,19 +270,19 @@ private fun SetupReviewSection(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = title,
+                    modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                OutlinedButton(
+                OutlinedIconButton(
                     onClick = onEdit,
                     enabled = editEnabled,
-//                    modifier = Modifier.size(24.dp),
-                    shape = CircleShape,
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Edit,

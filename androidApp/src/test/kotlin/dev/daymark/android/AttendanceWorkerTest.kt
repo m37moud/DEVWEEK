@@ -6,6 +6,7 @@ import dev.daymark.attendance.AttendanceService
 import dev.daymark.attendance.evaluateDay
 import dev.daymark.location.*
 import dev.daymark.location.LocationFailure
+import dev.daymark.location.LocationCapabilities
 import dev.daymark.location.LocationGateway
 import dev.daymark.location.LocationResult
 import dev.daymark.models.attendance.AttendanceSource
@@ -75,7 +76,7 @@ class AttendanceWorkerTest {
         override suspend fun claimAutomatic(
             key: DayKey,
             attemptId: String,
-            now: Instant
+            now: Instant, ordinal: Int
         ): ClaimResult {
             if (consumed) return ClaimResult.AlreadyConsumed
             if (now !in plan.arrival..plan.deadline) return ClaimResult.Ineligible
@@ -118,7 +119,7 @@ class AttendanceWorkerTest {
         }
         val job = AndroidAttendanceJob(
             AttendanceService(repo, gateway, clock),
-            { true },
+            { LocationCapabilities(true, true, true, true) },
             {},
             { recoveries++ })
         assertFalse(job.run(key))
@@ -140,7 +141,7 @@ class AttendanceWorkerTest {
         }
         val job = AndroidAttendanceJob(
             AttendanceService(repo, gateway, clock),
-            { true },
+            { LocationCapabilities(true, true, true, true) },
             {},
             { recoveries++ })
         assertFalse(job.run(key)); assertFalse(job.run(key))
@@ -161,7 +162,7 @@ class AttendanceWorkerTest {
         }
         val job = AndroidAttendanceJob(
             AttendanceService(repo, gateway, clock),
-            { false },
+            { LocationCapabilities(false, false, false, true) },
             { disabled++ },
             { recoveries++ })
         assertFalse(job.run(key))
@@ -183,7 +184,7 @@ class AttendanceWorkerTest {
         }
         val job = AndroidAttendanceJob(
             AttendanceService(repo, gateway, clock),
-            { true },
+            { LocationCapabilities(true, true, true, true) },
             { disabled++ },
             { recoveries++ })
         assertFalse(job.run(key))
@@ -200,7 +201,7 @@ class AttendanceWorkerTest {
         var disabledTracker: String? = null
         val job = AndroidAttendanceJob(
             AttendanceService(repo, gateway, clock),
-            { false },
+            { LocationCapabilities(false, false, false, true) },
             { trackerId -> disabledTracker = trackerId },
             {})
         job.run(key)

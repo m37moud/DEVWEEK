@@ -56,7 +56,10 @@ data class SetupActions(
     val registerPlace: () -> Unit,
     val openSettings: () -> Unit,
     val setLanguage: (LanguagePreference) -> Unit,
-    val setTheme: (ThemePreference) -> Unit
+    val setTheme: (ThemePreference) -> Unit,
+    val setAutomaticCheck: (Boolean) -> Unit = {},
+    val setResultNotifications: (Boolean) -> Unit = {},
+    val openNotificationSettings: () -> Unit = {}
 )
 
 @Composable

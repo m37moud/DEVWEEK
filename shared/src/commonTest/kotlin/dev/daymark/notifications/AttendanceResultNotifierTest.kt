@@ -6,6 +6,7 @@ import dev.daymark.models.settings.AppSettings
 import dev.daymark.repository.SettingsDataSource
 import dev.daymark.settings.LanguagePreference
 import dev.daymark.settings.ThemePreference
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
@@ -18,12 +19,14 @@ import kotlin.time.Instant
 class AttendanceResultNotifierTest {
     private val preferences = object : SettingsDataSource {
         var enabled = false
-        override fun observe() = flowOf(AppSettings(resultNotificationsEnabled = enabled))
+        override fun observe() = flowOf(AppSettings(resultNotificationsEnabled = enabled, resultFailureSoundEnabled = true))
         override fun observeTracker() = flowOf<TrackerSummary?>(null)
         override suspend fun trackerIdentity() = "tracker"
         override suspend fun update(
             language: LanguagePreference?, theme: ThemePreference?, displayName: String?,
-            remindersEnabled: Boolean?, resultNotificationsEnabled: Boolean?
+            remindersEnabled: Boolean?, resultNotificationsEnabled: Boolean?,
+            resultFailureSoundEnabled: Boolean?,
+            automaticAttemptLimit: Int?
         ) {
             resultNotificationsEnabled?.let { enabled = it }
         }
@@ -167,5 +170,38 @@ class AttendanceResultNotifierTest {
             assertEquals(3, port.posts)
             assertTrue(preferences.enabled)
         }
+
+    @Test
+    fun android_only_adds_the_localized_manual_action_to_terminal_failures() = runTest {
+        val key = DayKey(trackerId = "tracker", date = LocalDate(2026, 11, 15))
+        val absence = DayOutcome(AttendanceStatus.ABSENT, AttendanceSource.NONE, null, null)
+        val posted = mutableListOf<AutomaticResultNotification>()
+        val android = object : AttendanceResultPort by port, AndroidResultNotificationControls {
+            override val status = MutableStateFlow(ResultNotificationStatus(appAllowed = true))
+            override fun openAppSettings() = Unit
+            override fun openChannelSettings(channel: ResultNotificationChannel) = Unit
+            override fun enableFailureChannel() = Unit
+            override fun post(notification: AutomaticResultNotification) {
+                posted.add(notification)
+            }
+        }
+        preferences.enabled = true
+        var live = absence
+        val androidNotifier = AttendanceResultNotifier(
+            settings = preferences, port = android, text = { "Localized text" }
+        ) { key to live }
+
+        androidNotifier.completed(
+            key = key,
+            mode = CheckMode.AUTOMATIC,
+            outcome = CheckOutcome.Rejected(absence.copy(status = AttendanceStatus.AWAITING_CHECK), CheckRejection.LOCATION_TIMEOUT)
+        )
+        live = present
+        androidNotifier.completed(key, CheckMode.AUTOMATIC, CheckOutcome.Recorded(present))
+
+        assertEquals(listOf("Localized text", null), posted.map { it.manualCheckLabel })
+        assertTrue(posted.first().failureSoundEnabled)
+        assertEquals(posted[0].identifier, posted[1].identifier)
+    }
 
 }

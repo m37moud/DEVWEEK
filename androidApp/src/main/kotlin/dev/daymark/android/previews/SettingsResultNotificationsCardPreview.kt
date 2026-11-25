@@ -9,6 +9,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import dev.daymark.models.settings.AppSettings
+import dev.daymark.notifications.ResultNotificationStatus
 import dev.daymark.presentation.features.settings.SettingsUiState
 import dev.daymark.presentation.features.settings.component.ResultNotificationsEditorState
 import dev.daymark.presentation.features.settings.component.SettingsResultNotificationsCard
@@ -26,11 +27,13 @@ private fun SettingsResultNotificationsCardLightEnabledPreview() {
             state = SettingsUiState(
                 ready = true,
                 resultNotificationsSupported = true,
+                androidResultStatus = ResultNotificationStatus(appAllowed = true),
                 settings = AppSettings(
                     displayName = "Alex Lee",
                     language = LanguagePreference.EN,
                     theme = ThemePreference.LIGHT,
-                    resultNotificationsEnabled = true
+                    resultNotificationsEnabled = true,
+                    resultFailureSoundEnabled = true
                 )
             ),
             onToggleNotifications = {},
@@ -48,6 +51,7 @@ private fun SettingsResultNotificationsCardDarkDisabledPreview() {
             state = SettingsUiState(
                 ready = true,
                 resultNotificationsSupported = true,
+                androidResultStatus = ResultNotificationStatus(appAllowed = true),
                 settings = AppSettings(
                     displayName = "Alex Lee",
                     language = LanguagePreference.EN,
@@ -69,7 +73,7 @@ private fun SettingsResultNotificationsCardPermissionDeniedPreview() {
             state = SettingsUiState(
                 ready = true,
                 resultNotificationsSupported = true,
-                resultNotificationPermissionDenied = true,
+                androidResultStatus = ResultNotificationStatus(appAllowed = false),
                 settings = AppSettings(
                     displayName = "Alex Lee",
                     language = LanguagePreference.EN,
@@ -101,7 +105,7 @@ private fun SettingsResultNotificationsCardArabicPreview() {
                     ready = true,
                     busy = true,
                     resultNotificationsSupported = true,
-                    resultNotificationPermissionDenied = true,
+                    androidResultStatus = ResultNotificationStatus(appAllowed = true, legacyChannelOnly = true),
                     settings = AppSettings(
                         displayName = "أحمد",
                         language = LanguagePreference.AR,

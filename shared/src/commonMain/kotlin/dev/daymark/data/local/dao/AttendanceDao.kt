@@ -30,6 +30,9 @@ interface AttendanceDao {
     @Query("SELECT * FROM attendance WHERE trackerId = :trackerId AND automaticState = 'CLAIMED'")
     suspend fun claimedDays(trackerId: String): List<AttendanceEntity>
 
+    @Query("SELECT * FROM attendance WHERE trackerId = :trackerId AND (automaticState = 'WAITING_RETRY' OR automaticResultPending = 1) ORDER BY date")
+    suspend fun automaticRecoveryRows(trackerId: String): List<AttendanceEntity>
+
     @Query("SELECT date FROM attendance WHERE trackerId = :trackerId ORDER BY date")
     suspend fun dates(trackerId: String): List<String>
 

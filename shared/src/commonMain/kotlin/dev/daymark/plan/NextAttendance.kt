@@ -10,7 +10,13 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 
-data class ScheduledCheck(val key: DayKey, val arrival: Instant, val deadline: Instant)
+data class ScheduledCheck(
+    val key: DayKey,
+    val arrival: Instant,
+    val deadline: Instant,
+    val attemptOrdinal: Int = 1,
+    val eligibleAt: Instant = arrival
+)
 data class ScheduleContext(
     val trackerId: String,
     val zoneId: String,

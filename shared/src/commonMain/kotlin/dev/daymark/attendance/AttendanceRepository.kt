@@ -22,7 +22,8 @@ interface AttendanceRepository {
     /** Can project today's baseline without persisting an untracked absence. */
     suspend fun loadCurrentDay(now: Instant): StoredDay?
     suspend fun loadDay(key: DayKey): StoredDay?
-    suspend fun claimAutomatic(key: DayKey, attemptId: String, now: Instant): ClaimResult
+    suspend fun claimAutomatic(key: DayKey, attemptId: String, now: Instant, ordinal: Int = 1): ClaimResult
+    suspend fun abandonAutomatic(key: DayKey, attemptId: String) = Unit
     suspend fun completeCheck(request: CheckCommit): CheckOutcome
     suspend fun correct(command: Correction): DayOutcome
     suspend fun reconcile(now: Instant)

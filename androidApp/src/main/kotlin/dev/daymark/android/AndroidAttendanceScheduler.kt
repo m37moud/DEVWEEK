@@ -9,23 +9,37 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-internal fun attendanceWorkName(key: DayKey) = "daymark-attendance:${key.trackerId}:${key.date}"
+internal fun attendanceWorkName(key: DayKey, ordinal: Int = 1): String {
+    val day = "daymark-attendance:${key.trackerId}:${key.date}"
+    return if (ordinal == 1) day else "$day:attempt-$ordinal"
+}
+
 private fun trackerTag(id: String) = "daymark-attendance-tracker:$id"
 private const val ATTENDANCE_TAG = "daymark-attendance"
 
-class AndroidAttendanceScheduler(private val manager: WorkManager, private val clock: Clock,
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) {
+class AndroidAttendanceScheduler(
+    private val manager: WorkManager, private val clock: Clock,
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+) {
     private val mutex = Mutex()
-    fun replaceNext(check: ScheduledCheck?) { scope.launch { replaceNextAwait(check) } }
-    fun cancelTracker(trackerId: String) { scope.launch { cancelTrackerAwait(trackerId) } }
+    fun replaceNext(check: ScheduledCheck?) {
+        scope.launch { replaceNextAwait(check) }
+    }
+
+    fun cancelTracker(trackerId: String) {
+        scope.launch { cancelTrackerAwait(trackerId) }
+    }
+
     suspend fun cancelTrackerAwait(trackerId: String) = withContext(Dispatchers.IO) {
         mutex.withLock { manager.cancelAllWorkByTag(trackerTag(trackerId)).result.get(); Unit }
     }
+
     suspend fun replaceNextAwait(check: ScheduledCheck?) = withContext(Dispatchers.IO) {
         mutex.withLock {
-            val existing = manager.getWorkInfosByTag(ATTENDANCE_TAG).get().filterNot { it.state.isFinished }
-            val name = check?.let { attendanceWorkName(it.key) }
-            val trigger = check?.let { "arrival:${it.arrival}" }
+            val existing =
+                manager.getWorkInfosByTag(ATTENDANCE_TAG).get().filterNot { it.state.isFinished }
+            val name = check?.let { attendanceWorkName(key = it.key, ordinal = it.attemptOrdinal) }
+            val trigger = check?.let { "arrival:${it.eligibleAt}" }
             // Recovery never cancels an in-flight check. Replacing pending work cannot release the Room claim.
             for (work in existing.filter { it.state != WorkInfo.State.RUNNING }) {
                 if (name == null || name !in work.tags || trigger !in work.tags)
@@ -34,13 +48,27 @@ class AndroidAttendanceScheduler(private val manager: WorkManager, private val c
             if (check == null) return@withLock
             if (existing.any { it.state != WorkInfo.State.RUNNING && name in it.tags && trigger in it.tags }) return@withLock
             val request = OneTimeWorkRequestBuilder<AttendanceWorker>()
-                .setInitialDelay((check.arrival - clock.now()).inWholeMilliseconds.coerceAtLeast(0), TimeUnit.MILLISECONDS)
-                .setInputData(workDataOf("trackerId" to check.key.trackerId, "date" to check.key.date.toString()))
-                .addTag(ATTENDANCE_TAG).addTag(requireNotNull(name)).addTag(requireNotNull(trigger)).addTag(trackerTag(check.key.trackerId))
+                .setInitialDelay(
+                    (check.eligibleAt - clock.now()).inWholeMilliseconds.coerceAtLeast(
+                        0
+                    ), TimeUnit.MILLISECONDS
+                )
+                .setInputData(
+                    workDataOf(
+                        "trackerId" to check.key.trackerId, "date" to check.key.date.toString(),
+                        "attemptOrdinal" to check.attemptOrdinal
+                    )
+                )
+                .addTag(ATTENDANCE_TAG).addTag(requireNotNull(name)).addTag(requireNotNull(trigger))
+                .addTag(trackerTag(check.key.trackerId))
                 .build()
             // If an early worker is still returning, append its corrected future window instead of cancelling it.
             val running = existing.any { it.state == WorkInfo.State.RUNNING && name in it.tags }
-            manager.enqueueUniqueWork(name, if (running) ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.REPLACE, request).result.get()
+            manager.enqueueUniqueWork(
+                name,
+                if (running) ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.REPLACE,
+                request
+            ).result.get()
         }
     }
 }

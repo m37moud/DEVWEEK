@@ -19,7 +19,9 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         WidgetCheckState.clearFinished()
-        (application as DaymarkApplication).graph.requestRecovery()
+        val graph = (application as DaymarkApplication).graph
+        graph.resultNotifications.refreshStatus()
+        graph.requestRecovery()
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -23,7 +23,7 @@ import kotlinx.coroutines.IO
     entities = [SettingEntity::class, TrackerEntity::class, PlanVersionEntity::class, AttendanceEntity::class,
         TimeOffEntity::class, BalanceAdjustmentEntity::class, ReportBindingEntity::class, DirtyProjectionEntity::class,
         ReportBatchEntity::class, PlaceAddressEntity::class, AnnualVacationPolicyEntity::class],
-    version = 6, exportSchema = true
+    version = 7, exportSchema = true
 )
 @ConstructedBy(DaymarkDatabaseConstructor::class)
 abstract class DaymarkDatabase : RoomDatabase() {
@@ -70,7 +70,7 @@ internal fun configureDatabase(builder: RoomDatabase.Builder<DaymarkDatabase>): 
                     """.trimIndent()
                 )
             }
-        }, TrackerIntegrityMigration)
+        }, TrackerIntegrityMigration, AutomaticRetryMigration)
         .addCallback(object : RoomDatabase.Callback() {
             override suspend fun onCreate(connection: SQLiteConnection) {
                 connection.createTrackerSingletonTriggers()

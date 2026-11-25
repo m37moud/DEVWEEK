@@ -16,12 +16,13 @@ import dev.daymark.models.attendance.FixVerdict
 import dev.daymark.models.attendance.StoredDay
 import dev.daymark.repository.AttendanceChecks
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Duration
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
 
 class AttendanceService(
@@ -83,46 +84,59 @@ class AttendanceService(
         }
     }
 
-    suspend fun runAutomatic(key: DayKey): CheckOutcome = try {
-        repository.reconcile(clock.now())
-        when (val claim = repository.claimAutomatic(key, Uuid.random().toString(), clock.now())) {
-            is ClaimResult.Claimed -> {
-                val day = claim.day
-                val now = clock.now()
-                val invalid = when {
-                    now.toLocalDateTime(TimeZone.of(day.plan.zoneId)).date != key.date -> CheckRejection.STATE_CHANGED
-                    now < day.plan.arrival -> CheckRejection.BEFORE_WINDOW
-                    now > day.plan.deadline -> CheckRejection.AFTER_AUTOMATIC_WINDOW
-                    else -> null
-                }
-                if (invalid == null) acquire(day, CheckMode.AUTOMATIC, claim.attemptId)
-                else repository.completeCheck(
-                    commit(
-                        day,
-                        FixVerdict.Rejected(invalid),
-                        CheckMode.AUTOMATIC,
-                        claim.attemptId
-                    )
-                )
+    suspend fun runAutomatic(key: DayKey, ordinal: Int = 1): CheckOutcome {
+        val attemptId = Uuid.random().toString()
+        return try {
+            repository.reconcile(now = clock.now())
+            when (val claim = repository.claimAutomatic(
+                key = key, attemptId = attemptId, now = clock.now(), ordinal = ordinal
+            )) {
+                is ClaimResult.Claimed -> runClaimedAutomatic(claim = claim, ordinal = ordinal)
+                ClaimResult.AlreadyConsumed -> CheckOutcome.Busy(repository.loadDay(key)?.outcome(clock.now()))
+                ClaimResult.Ineligible -> CheckOutcome.StateChanged(repository.loadDay(key)?.outcome(clock.now()))
             }
-
-            ClaimResult.AlreadyConsumed -> CheckOutcome.Busy(
-                repository.loadDay(key)?.outcome(clock.now())
-            )
-
-            ClaimResult.Ineligible -> CheckOutcome.Rejected(
-                repository.loadDay(key)?.outcome(clock.now()), CheckRejection.STATE_CHANGED
-            )
+        } catch (cancelled: CancellationException) {
+            abandonAutomatic(key = key, attemptId = attemptId)
+            throw cancelled
+        } catch (failure: Exception) {
+            AppLogger.e(tag = "AttendanceService", message = "Automatic check failed", throwable = failure)
+            CheckOutcome.Rejected(currentDay = null, reason = CheckRejection.LOCAL_SAVE_FAILED)
         }
-    } catch (cancelled: CancellationException) {
-        throw cancelled
-    } catch (_: Exception) {
-        CheckOutcome.Rejected(null, CheckRejection.LOCAL_SAVE_FAILED)
     }
 
-    private suspend fun acquire(day: StoredDay, mode: CheckMode, attemptId: String?): CheckOutcome {
+    private suspend fun abandonAutomatic(key: DayKey, attemptId: String) = withContext(NonCancellable) {
+        repository.abandonAutomatic(key = key, attemptId = attemptId)
+    }
+
+    private suspend fun runClaimedAutomatic(claim: ClaimResult.Claimed, ordinal: Int): CheckOutcome {
+        val day = claim.day
+        val now = clock.now()
+        val invalid = automaticWindowRejection(day = day, ordinal = ordinal, now = now)
+        if (invalid == null) {
+            return acquire(day = day, mode = CheckMode.AUTOMATIC, attemptId = claim.attemptId, budgetStart = now)
+        }
+        return repository.completeCheck(
+            request = commit(day = day, verdict = FixVerdict.Rejected(reason = invalid), mode = CheckMode.AUTOMATIC, attemptId = claim.attemptId)
+        )
+    }
+
+    private fun automaticWindowRejection(day: StoredDay, ordinal: Int, now: kotlin.time.Instant): CheckRejection? =
+        when {
+            now.toLocalDateTime(TimeZone.of(day.plan.zoneId)).date != day.plan.key.date -> CheckRejection.STATE_CHANGED
+            now < day.plan.arrival -> CheckRejection.BEFORE_WINDOW
+            now > day.plan.deadline || (ordinal > 1 && day.plan.deadline - now < automaticSessionLimit) ->
+                CheckRejection.AFTER_AUTOMATIC_WINDOW
+            else -> null
+        }
+
+    private suspend fun acquire(
+        day: StoredDay,
+        mode: CheckMode,
+        attemptId: String?,
+        budgetStart: kotlin.time.Instant = clock.now()
+    ): CheckOutcome {
         val budget = if (mode == CheckMode.AUTOMATIC)
-            (day.plan.deadline - clock.now()).coerceAtMost(30.seconds) else 30.seconds
+            (day.plan.deadline - budgetStart).coerceAtMost(automaticSessionLimit) else automaticSessionLimit
         if (budget <= Duration.ZERO) return repository.completeCheck(
             commit(day, FixVerdict.Rejected(CheckRejection.AFTER_AUTOMATIC_WINDOW), mode, attemptId)
         )
@@ -151,7 +165,8 @@ class AttendanceService(
             throw cancelled
         } catch (failure: Exception) {
             AppLogger.e("AttendanceService", "Check persistence failed", failure)
-            CheckOutcome.Rejected(null, CheckRejection.LOCAL_SAVE_FAILED)
+            if (mode == CheckMode.AUTOMATIC) recordAutomaticSaveFailure(day = day, attemptId = attemptId)
+            else CheckOutcome.Rejected(currentDay = null, reason = CheckRejection.LOCAL_SAVE_FAILED)
         }
         try {
             onCheckCompleted(day.plan.key, mode, outcome)
@@ -162,6 +177,14 @@ class AttendanceService(
         }
         return outcome
     }
+
+    private suspend fun recordAutomaticSaveFailure(day: StoredDay, attemptId: String?): CheckOutcome =
+        repository.completeCheck(
+            request = commit(
+                day = day, verdict = FixVerdict.Rejected(reason = CheckRejection.LOCAL_SAVE_FAILED),
+                mode = CheckMode.AUTOMATIC, attemptId = attemptId
+            )
+        )
 
     private fun commit(day: StoredDay, verdict: FixVerdict, mode: CheckMode, attemptId: String?) =
         CheckCommit(
