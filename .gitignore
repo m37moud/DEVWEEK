@@ -15,3 +15,4 @@ iosApp/Daymark/Configuration.xcconfig
 /.idea/
 /iosApp/iosApp.xcodeproj/
 /.agents/
+/jks/work-tracker.jks
