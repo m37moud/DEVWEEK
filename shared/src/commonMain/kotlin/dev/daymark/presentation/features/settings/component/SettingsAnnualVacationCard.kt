@@ -83,6 +83,7 @@ fun SettingsAnnualVacationCard(
     onSave: (Int, Boolean, Int) -> Unit,
     modifier: Modifier = Modifier,
     initialEditorAllowance: String? = null,
+    initiallyShowHelp: Boolean = false,
 ) {
     var editing by rememberSaveable { mutableStateOf(value = initialEditorAllowance != null) }
     val settings = state.configuration
@@ -99,6 +100,7 @@ fun SettingsAnnualVacationCard(
                 help = SettingsEditorHelp(
                     label = Res.string.annual_vacation_help_label,
                     message = Res.string.annual_vacation_help_message,
+                    initiallyVisible = initiallyShowHelp,
                 ),
             ),
             onToggle = { editing = !editing },

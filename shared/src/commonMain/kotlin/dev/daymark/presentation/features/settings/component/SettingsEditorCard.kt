@@ -55,6 +55,7 @@ internal data class SettingsEditorHeader(
 internal data class SettingsEditorHelp(
     val label: StringResource,
     val message: StringResource,
+    val initiallyVisible: Boolean = false,
 )
 
 @Composable
@@ -121,7 +122,7 @@ private fun SettingsEditorHeading(header: SettingsEditorHeader, onToggle: () -> 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsEditorHelpButton(help: SettingsEditorHelp) {
-    val tooltipState = rememberTooltipState(isPersistent = true)
+    val tooltipState = rememberTooltipState(initialIsVisible = help.initiallyVisible, isPersistent = true)
     val scope = rememberCoroutineScope()
     TooltipBox(
         positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
@@ -145,8 +146,11 @@ private fun SettingsEditorHelpButton(help: SettingsEditorHelp) {
         hasAction = true,
     ) {
         IconButton(
-            onClick = { scope.launch { tooltipState.show() } },
-            modifier = Modifier.size(size = 48.dp),
+            onClick = {
+                if (tooltipState.isVisible) tooltipState.dismiss()
+                else scope.launch { tooltipState.show() }
+            },
+            modifier = Modifier.size(size = 48.dp).testTag("settings-card-help"),
         ) {
             Icon(imageVector = Icons.Default.Info, contentDescription = str(help.label))
         }

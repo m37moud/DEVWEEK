@@ -310,7 +310,7 @@
     <string name="vacation_balance">Vacation balance</string>
     <string name="annual_vacation_settings">Annual vacation</string>
     <string name="annual_vacation_help_label">About annual vacation</string>
-    <string name="annual_vacation_help_message">The annual allowance is added at the start of your next vacation year. To change the days you have available now, open Today, then Vacation balance, and tap Adjust available balance.</string>
+    <string name="annual_vacation_help_message">The allowance starts next vacation year. Carryover moves unused days into that year when enabled. Adjust the current balance from Today.</string>
     <string name="close_tooltip">Close</string>
     <string name="annual_vacation_allowance">Annual vacation allowance (days)</string>
     <string name="annual_vacation_carryover">Carry over unused days</string>

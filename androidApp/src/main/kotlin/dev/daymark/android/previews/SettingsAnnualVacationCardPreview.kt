@@ -115,7 +115,8 @@ private fun SettingsAnnualVacationCardArabicRtlPreview() {
                     busy = false,
                     onSave = { _, _, _ -> },
                     modifier = Modifier.padding(all = 16.dp),
-                    initialEditorAllowance = "-١"
+                    initialEditorAllowance = "-١",
+                    initiallyShowHelp = true
                 )
             }
         }
