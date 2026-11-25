@@ -109,6 +109,9 @@ fun TodayContent(
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
+        if (state.ready && state.activeCategory == TrackerCategory.WORK) {
+            TodayVacationBalance(state.vacationBalance, actions.adjustVacationBalance)
+        }
 
         TodayHeroCard(
             state = state,
@@ -181,9 +184,7 @@ fun TodayContent(
             }
         }
 
-        if (state.ready && state.activeCategory == TrackerCategory.WORK) {
-            TodayVacationBalance(state.vacationBalance, actions.adjustVacationBalance)
-        }
+
 
         TodayReportStatus(
             report = report,

@@ -3,9 +3,18 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 android {
+    signingConfigs {
+        create("release") {
+            storeFile = file("../jks/work-tracker.jks")
+            storePassword = "m37moud"
+            keyPassword = "m37moud"
+            keyAlias = "key0"
+        }
+    }
     namespace = "dev.daymark.android"
     compileSdk = 37
     defaultConfig {
+        signingConfig = signingConfigs.getByName("release")
         applicationId = "dev.daymark.app"
         minSdk = 26
         targetSdk = 37
@@ -15,7 +24,9 @@ android {
     }
     bundle { language { enableSplit = false } }
     buildFeatures { compose = true }
-    compileOptions { sourceCompatibility = JavaVersion.VERSION_21; targetCompatibility = JavaVersion.VERSION_21 }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_21; targetCompatibility = JavaVersion.VERSION_21
+    }
 }
 dependencies {
     implementation(project(":shared"))

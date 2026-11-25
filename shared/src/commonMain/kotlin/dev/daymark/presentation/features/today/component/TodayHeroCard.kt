@@ -198,20 +198,20 @@ internal fun TodayHeroCard(
 
                                         ),
                                     modifier = Modifier.weight(1f),
-
-
-                                    )
-                                TimeMetricCard(
-                                    text = str(
-                                        Res.string.deadline_at,
-                                        DisplayFormats.time(
-                                            state.plan.deadline,
-                                            state.plan.zoneId,
-                                            language
-                                        )
-                                    ),
-                                    modifier = Modifier.weight(1f)
                                 )
+                                state.plan.departure?.let { departure ->
+                                    TimeMetricCard(
+                                        text = str(
+                                            Res.string.deadline_at,
+                                            DisplayFormats.time(
+                                                departure,
+                                                state.plan.zoneId,
+                                                language
+                                            )
+                                        ),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
                             }
                             Text(
                                 text = str(Res.string.attendance_zone, isolated(state.plan.zoneId)),

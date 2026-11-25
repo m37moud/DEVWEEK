@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -27,10 +26,14 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,7 +53,7 @@ import dev.daymark.models.plan.PlanMutationResult
 import dev.daymark.models.plan.VacationBalanceSummary
 import dev.daymark.presentation.features.today.TodayVacationBalanceUiState
 import dev.daymark.resources.Res
-import dev.daymark.resources.adjust_balance
+import dev.daymark.resources.edit
 import dev.daymark.resources.vacation_balance
 import dev.daymark.resources.vacation_balance_load_failed
 import dev.daymark.resources.vacation_balance_original
@@ -180,34 +183,50 @@ fun TodayVacationBalanceCard(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Box(
-                        modifier = Modifier.size(36.dp),
-                        contentAlignment = Alignment.Center
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.DateRange,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Box(
+                            modifier = Modifier.size(36.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DateRange,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
+                    Text(
+                        text = summary.year?.let { year ->
+                            str(
+                                Res.string.vacation_balance_year,
+                                isolated(DisplayFormats.number(year, LocalAppLanguage.current))
+                            )
+                        } ?: str(Res.string.vacation_balance),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
-                Text(
-                    text = summary.year?.let { year ->
-                        str(
-                            Res.string.vacation_balance_year,
-                            isolated(DisplayFormats.number(year, LocalAppLanguage.current))
-                        )
-                    } ?: str(Res.string.vacation_balance),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                FilledTonalIconButton(
+                    onClick = onAdjustBalance,
+                    modifier = Modifier.size(36.dp),
+                    shape = CircleShape
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = str(Res.string.edit)
+                    )
+
+                }
             }
 
             Column(
@@ -250,23 +269,23 @@ fun TodayVacationBalanceCard(
                     modifier = Modifier.weight(1f)
                 )
             }
-
-            OutlinedButton(
-                onClick = onAdjustBalance,
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.small
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.size(8.dp))
-                Text(
-                    text = str(Res.string.adjust_balance),
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
+//
+//            OutlinedButton(
+//                onClick = onAdjustBalance,
+//                modifier = Modifier.fillMaxWidth(),
+//                shape = MaterialTheme.shapes.small
+//            ) {
+//                Icon(
+//                    imageVector = Icons.Default.Edit,
+//                    contentDescription = null,
+//                    modifier = Modifier.size(18.dp)
+//                )
+//                Spacer(modifier = Modifier.size(8.dp))
+//                Text(
+//                    text = str(Res.string.adjust_balance),
+//                    style = MaterialTheme.typography.labelLarge
+//                )
+//            }
         }
     }
 }
