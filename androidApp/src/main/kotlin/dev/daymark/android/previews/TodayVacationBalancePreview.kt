@@ -21,16 +21,24 @@ private val sampleSummary = VacationBalanceSummary(
     year = 2027
 )
 
+private val lowBalanceSummary = VacationBalanceSummary(
+    originalDays = 24,
+    usedDays = 22,
+    remainingDays = 2,
+    year = 2027
+)
+
 private val depletedSummary = VacationBalanceSummary(
     originalDays = 20,
     usedDays = 20,
-    remainingDays = 0
+    remainingDays = 0,
+    year = 2027
 )
 
 @Preview(name = "Light Theme", showBackground = true)
 @Composable
 fun TodayVacationBalanceCardLightPreview() {
-    DaymarkTheme(ThemePreference.LIGHT) {
+    DaymarkTheme(preference = ThemePreference.LIGHT) {
         TodayVacationBalanceCard(
             summary = sampleSummary,
             onAdjustBalance = {},
@@ -42,9 +50,21 @@ fun TodayVacationBalanceCardLightPreview() {
 @Preview(name = "Dark Theme", showBackground = true)
 @Composable
 fun TodayVacationBalanceCardDarkPreview() {
-    DaymarkTheme(ThemePreference.DARK) {
+    DaymarkTheme(preference = ThemePreference.DARK) {
         TodayVacationBalanceCard(
             summary = sampleSummary,
+            onAdjustBalance = {},
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}
+
+@Preview(name = "Low Balance Amber", showBackground = true)
+@Composable
+fun TodayVacationBalanceCardLowPreview() {
+    DaymarkTheme(preference = ThemePreference.LIGHT) {
+        TodayVacationBalanceCard(
+            summary = lowBalanceSummary,
             onAdjustBalance = {},
             modifier = Modifier.padding(16.dp)
         )
@@ -54,7 +74,7 @@ fun TodayVacationBalanceCardDarkPreview() {
 @Preview(name = "Narrow 320dp Large Text 2f", widthDp = 320, fontScale = 2f, showBackground = true)
 @Composable
 fun TodayVacationBalanceCardNarrowPreview() {
-    DaymarkTheme(ThemePreference.LIGHT) {
+    DaymarkTheme(preference = ThemePreference.LIGHT) {
         TodayVacationBalanceCard(
             summary = sampleSummary,
             onAdjustBalance = {},
@@ -66,7 +86,7 @@ fun TodayVacationBalanceCardNarrowPreview() {
 @Preview(name = "Depleted Balance", showBackground = true)
 @Composable
 fun TodayVacationBalanceCardDepletedPreview() {
-    DaymarkTheme(ThemePreference.LIGHT) {
+    DaymarkTheme(preference = ThemePreference.LIGHT) {
         TodayVacationBalanceCard(
             summary = depletedSummary,
             onAdjustBalance = {},
@@ -78,8 +98,8 @@ fun TodayVacationBalanceCardDepletedPreview() {
 @Preview(name = "Arabic RTL", locale = "ar", showBackground = true)
 @Composable
 fun TodayVacationBalanceCardArabicPreview() {
-    WithPlatformLocale(AppLanguage.AR) {
-        DaymarkTheme(ThemePreference.LIGHT) {
+    WithPlatformLocale(language = AppLanguage.AR) {
+        DaymarkTheme(preference = ThemePreference.LIGHT) {
             TodayVacationBalance(
                 state = TodayVacationBalanceUiState(summary = sampleSummary),
                 onSave = { _, _ -> }
